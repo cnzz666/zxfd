@@ -106,8 +106,6 @@ async function handleRequest(request) {
   return response;
 }
 
-var httpRequestInjection = `
-
 //---***========================================***---information---***========================================***---
 var now = new URL(window.location.href);
 var base = now.host; //代理的base - proxy.com
