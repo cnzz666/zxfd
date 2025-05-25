@@ -583,85 +583,194 @@ httpRequestInjection =
   `})();`;
 const mainPage = `
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>网页在线代理</title>
   <style>
-    body{
-      background:rgb(150,10,10);
-      color:rgb(240,240,0);
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: auto;
+      background-color: #e0f7fa;
     }
-    a{
-      color:rgb(250,250,180);
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #333333;
+      background-image: url('https://www.loliapi.com/acg/');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      overflow: hidden;
+      filter: none;
     }
-    del{
-      color:rgb(190,190,190);
+    body::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: inherit;
+      background-size: cover;
+      background-position: center;
+      filter: blur(8px);
+      z-index: -2;
     }
-    .center{
-      text-align:center;
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2));
+      z-index: -1;
     }
-    .important{
-      font-weight:bold;
-      font-size:27;
+    .content {
+      text-align: center;
+      max-width: 80%;
+      padding: 30px;
+      background-color: rgba(255, 255, 255, 0.3);
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 
+                  0 0 10px rgba(176, 196, 222, 0.2);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(79, 195, 247, 0.3);
+      transform: scale(0.5);
+      opacity: 0.5;
+      filter: blur(10px);
+      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
+      position: relative;
+      z-index: 1;
     }
-    /* my style begins*/
-    form[id=urlForm] {
-        max-width: 340px;
-        min-width: 340px;
-        margin: 0 auto;
-     }
-    input[id=targetUrl] {
-        background-color: rgb(240,240,0);
-     }
-    button[id=jumpButton] {
-        background-color: rgb(240,240,0);
-     }
+    .content.loaded {
+      transform: scale(1);
+      opacity: 1;
+      filter: blur(0);
+    }
+    .content:hover {
+      transform: scale(1.03);
+      box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 
+                  0 0 20px rgba(176, 196, 222, 0.3);
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      color: #0277bd;
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
+    }
+    input, button {
+      margin: 15px auto;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 25px;
+      outline: none;
+      display: block;
+      width: 80%;
+      max-width: 300px;
+      transition: all 0.3s ease;
+    }
+    input {
+      background-color: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(79, 195, 247, 0.5);
+      color: #333333;
+      text-align: center;
+    }
+    input:focus {
+      background-color: rgba(255, 255, 255, 0.7);
+      border-color: #0277bd;
+      box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+    }
+    button {
+      background: linear-gradient(45deg, #4fc3f7, #81d4fa);
+      border: none;
+      color: #333333;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    button:hover {
+      background: linear-gradient(45deg, #29b6f6, #4fc3f7);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+    }
+    a {
+      color: #0277bd;
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.3s ease, transform 0.3s ease;
+      display: block;
+      margin: 15px 0;
+    }
+    a:hover {
+      color: #01579b;
+      transform: scale(1.05);
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
+    }
+    p {
+      margin: 12px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    @media (max-width: 768px) {
+      .content {
+        max-width: 90%;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 1.8rem;
+      }
+      input, button {
+        width: 90%;
+        font-size: 14px;
+        padding: 10px;
+      }
+    }
+    @media (min-resolution: 2dppx) {
+      body {
+        background-size: cover;
+      }
+    }
   </style>
 </head>
 <body>
-    <h3 class="center">
-        I made this project because some extreme annoying network filter software in my school, which is notorious "Goguardian", and now it is open source at <a href="https://github.com/1234567Yang/cf-proxy-ex/">https://github.com/1234567Yang/cf-proxy-ex/</a>.
-      </h3>
-      <br><br><br>
-      <ul style="font-size:25;">
-      <li class="important">How to use this proxy:<br>
-        Type the website you want to go to after the website's url, for example: <br>
-        https://the current url/github.com<br>OR<br>https://the current url/https://github.com</li>
-      </ul>
-        <form id="urlForm" onsubmit="redirectToProxy(event)">
-            <fieldset>
-                <legend>Proxy Everything</legend>
-                <label for="targetUrl">TargetUrl: <input type="text" id="targetUrl" placeholder="Enter the target URL here..."></label>
-                <button type="submit" id="jumpButton">Jump!</button>
-            </fieldset>
-        </form>
-        <script>
-            function redirectToProxy(event) {
-                event.preventDefault();
-                const targetUrl = document.getElementById('targetUrl').value.trim();
-                const currentOrigin = window.location.origin;
-                window.open(currentOrigin + '/' + targetUrl, '_blank');
-            }
-        </script>
-      <ul>
-        <li>If your browser show 400 bad request, please clear your browser cookie<br></li>
-        <li>Why I make this:<br> Because school blcok every website that I can find math / CS and other subjects' study material and question solutions. In the eyes of the school, China (and some other countries) seems to be outside the scope of this "world". They block access to server IP addresses in China and block access to Chinese search engines and video websites. Of course, some commonly used social software has also been blocked, which once made it impossible for me to send messages to my parents on campus. I don't think that's how it should be, so I'm going to fight it as hard as I can. I believe this will not only benefit myself, but a lot more people can get benefits.</li>
-        <li>If this website is blocked by your school: Setup a new one by your self.</li>
-        <li>Limitation:<br>Although I tried my best to make every website proxiable, there still might be pages or resources that can not be load, and the most important part is that <span class="important">YOU SHOULD NEVER LOGIN ANY ACCOUNT VIA ONLINE PROXY</span>.</li>
-      </ul>
+  <div class="content">
+    <h1>网页在线代理</h1>
+    <p>请输入目标网址进行代理访问</p>
+    <form id="urlForm" onsubmit="redirectToProxy(event)">
+      <input type="text" id="targetUrl" placeholder="请输入目标网址..." required>
+      <button type="submit" id="jumpButton">跳转</button>
+    </form>
+    <p>注意：请勿通过在线代理登录任何账户</p>
+    <a href="https://github.com/1234567Yang/cf-proxy-ex/">项目开源地址</a>
+  </div>
+  
+  <script>
+    // 在页面加载完成后触发内容框的动画效果
+    document.addEventListener('DOMContentLoaded', function() {
+      var content = document.querySelector('.content');
+      setTimeout(function() {
+        content.classList.add('loaded');
+      }, 100);
+    });
 
-    <h3>
-        <br>
-        <span>Bypass the network blockade:</span>
-        <br><br>
-        <span>Traditional VPNs.</span>
-        <br><br>
-        <span>Bypass by proxy: You can buy a domain($1) and setup by yourself: </span><a href="https://github.com/1234567Yang/cf-proxy-ex/blob/main/deploy_on_deno_tutorial.md">how to setup a proxy</a><span>. Unless they use white list mode, this can always work.</span>
-        <br><br>
-        <span>Youtube video unblock: "Thanks" for Russia that they started to invade Ukraine and Google blocked the traffic from Russia, there are a LOT of mirror sites working. You can even <a href="https://github.com/iv-org/invidious">setup</a> one by yourself.</span>
-    </h3>
-    <p style="font-size:280px !important;width:100%;" class="center">
-        ☭
-    </p>
+    // 重定向到代理地址
+    function redirectToProxy(event) {
+      event.preventDefault();
+      const targetUrl = document.getElementById('targetUrl').value.trim();
+      const currentOrigin = window.location.origin;
+      window.open(currentOrigin + '/' + targetUrl, '_blank');
+    }
+  </script>
 </body>
 </html>
 `;
