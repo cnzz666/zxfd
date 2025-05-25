@@ -77,10 +77,25 @@ async function handleRequest(request) {
   // 检查是否为 HTML 内容，如果是则注入脚本
   if (contentType.includes('text/html')) {
     const html = await response.text();
-    const modifiedHtml = html.replace(
-      /<\/head>/,
-      `<script>${proxyHintInjection}</script></head>`
-    );
+    let modifiedHtml = html;
+    
+    // 优先尝试注入到 </head> 之前
+    if (html.includes('</head>')) {
+      modifiedHtml = html.replace(
+        /<\/head>/,
+        `<script>${proxyHintInjection}</script></head>`
+      );
+    } else if (html.includes('<body>')) {
+      // 如果没有 head 标签，尝试注入到 <body> 之后
+      modifiedHtml = html.replace(
+        /<body>/,
+        `<body><script>${proxyHintInjection}</script>`
+      );
+    } else {
+      // 如果都没有，直接追加到内容开头
+      modifiedHtml = `<script>${proxyHintInjection}</script>` + html;
+    }
+    
     return new Response(modifiedHtml, {
       status: response.status,
       headers: response.headers
