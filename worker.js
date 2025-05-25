@@ -20,18 +20,30 @@ const proxyHintInjection = `
 //---***========================================***---提示使用代理---***========================================***---
 
 setTimeout(() => {
-  var hint = \`Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(250,250,180);">https://github.com/1234567Yang/cf-proxy-ex/</a>. <br>警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(250,250,180);">https://github.com/1234567Yang/cf-proxy-ex/</a>。\`;
+  var hint = `Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(255, 200, 0);text-decoration:underline;">https://github.com/1234567Yang/cf-proxy-ex/</a>. <br>警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(255, 200, 0);text-decoration:underline;">https://github.com/1234567Yang/cf-proxy-ex/</a>。`;
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     document.body.insertAdjacentHTML(
       'afterbegin', 
-      \`<div style="position:fixed;left:0px;top:0px;width:100%;margin:0px;padding:0px;display:block;z-index:99999999999999999999999;user-select:none;cursor:pointer;" id="__PROXY_HINT_DIV__" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">
-        <span style="position:absolute;width:calc(100% - 20px);min-height:30px;font-size:18px;color:yellow;background:rgb(180,0,0);text-align:center;border-radius:5px;padding-left:10px;padding-right:10px;padding-top:1px;padding-bottom:1px;">
-          \${hint}
-        </span>
-      </div>\`
+      `<div style="position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;" id="__PROXY_HINT_DIV__" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">
+        <div style="position:relative;width:80%;max-width:600px;background:linear-gradient(145deg, #2c2c2c, #1a1a1a);color:#fff;border-radius:15px;padding:20px;box-shadow:0 8px 16px rgba(0,0,0,0.3);text-align:center;animation:fadeIn 0.3s ease-out;">
+          <h3 style="margin-top:0;color:#ffcc00;font-size:22px;">⚠️ Proxy Usage Alert / 代理使用警告</h3>
+          <p style="font-size:16px;line-height:1.6;margin:15px 0;">${hint}</p>
+          <button style="background:#ffcc00;color:#000;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background 0.2s;" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">Close / 关闭</button>
+        </div>
+      </div>`
     );
-  }else{
+
+    // 添加简单的淡入动画
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+  } else {
     alert(hint);
   }
 }, 5000);
@@ -587,7 +599,7 @@ const mainPage = `
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>网页在线代理</title>
+  <title>Web online proxy</title>
   <style>
     html, body {
       height: 100%;
@@ -744,14 +756,14 @@ const mainPage = `
 </head>
 <body>
   <div class="content">
-    <h1>网页在线代理</h1>
-    <p>请输入目标网址进行代理访问</p>
+    <h1>Web online proxy</h1>
+    <p>请输入学术研究网站或文献查询网站进行访问 如:百度百科 baike.baidu.com</p>
     <form id="urlForm" onsubmit="redirectToProxy(event)">
       <input type="text" id="targetUrl" placeholder="请输入目标网址..." required>
       <button type="submit" id="jumpButton">跳转</button>
     </form>
-    <p>注意：请勿通过在线代理登录任何账户</p>
-    <a href="https://github.com/1234567Yang/cf-proxy-ex/">项目开源地址</a>
+    <p>声明：本工具仅用于学术研究和文献查阅，请严格遵守相关法律法规。</p>
+<p>By Sak 2025 </p>    
   </div>
   
   <script>
