@@ -20,28 +20,24 @@ const proxyHintInjection = `
 //---***========================================***---提示使用代理---***========================================***---
 
 setTimeout(() => {
-  var hint = `Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(255, 200, 0);text-decoration:underline;">https://github.com/1234567Yang/cf-proxy-ex/</a>. <br>警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(255, 200, 0);text-decoration:underline;">https://github.com/1234567Yang/cf-proxy-ex/</a>。`;
+  // 使用双引号定义字符串，避免反引号在某些环境中的兼容性问题，并手动转义内部引号
+  var hint = "Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit <a href=\"https://github.com/1234567Yang/cf-proxy-ex/\" style=\"color:rgb(255, 200, 0);text-decoration:underline;\">https://github.com/1234567Yang/cf-proxy-ex/</a>. <br>警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href=\"https://github.com/1234567Yang/cf-proxy-ex/\" style=\"color:rgb(255, 200, 0);text-decoration:underline;\">https://github.com/1234567Yang/cf-proxy-ex/</a>。";
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     document.body.insertAdjacentHTML(
       'afterbegin', 
-      `<div style="position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;" id="__PROXY_HINT_DIV__" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">
-        <div style="position:relative;width:80%;max-width:600px;background:linear-gradient(145deg, #2c2c2c, #1a1a1a);color:#fff;border-radius:15px;padding:20px;box-shadow:0 8px 16px rgba(0,0,0,0.3);text-align:center;animation:fadeIn 0.3s ease-out;">
-          <h3 style="margin-top:0;color:#ffcc00;font-size:22px;">⚠️ Proxy Usage Alert / 代理使用警告</h3>
-          <p style="font-size:16px;line-height:1.6;margin:15px 0;">${hint}</p>
-          <button style="background:#ffcc00;color:#000;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background 0.2s;" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">Close / 关闭</button>
-        </div>
-      </div>`
+      "<div style=\"position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;\" id=\"__PROXY_HINT_DIV__\" onclick=\"document.getElementById('__PROXY_HINT_DIV__').remove();\">" +
+      "<div style=\"position:relative;width:80%;max-width:600px;background:linear-gradient(145deg, #2c2c2c, #1a1a1a);color:#fff;border-radius:15px;padding:20px;box-shadow:0 8px 16px rgba(0,0,0,0.3);text-align:center;animation:fadeIn 0.3s ease-out;\">" +
+      "<h3 style=\"margin-top:0;color:#ffcc00;font-size:22px;\">⚠️ Proxy Usage Alert / 代理使用警告</h3>" +
+      "<p style=\"font-size:16px;line-height:1.6;margin:15px 0;\">" + hint + "</p>" +
+      "<button style=\"background:#ffcc00;color:#000;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background 0.2s;\" onclick=\"document.getElementById('__PROXY_HINT_DIV__').remove();\">Close / 关闭</button>" +
+      "</div>" +
+      "</div>"
     );
 
     // 添加简单的淡入动画
     const style = document.createElement('style');
-    style.textContent = `
-      @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.9); }
-        to { opacity: 1; transform: scale(1); }
-      }
-    `;
+    style.textContent = "@keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }";
     document.head.appendChild(style);
   } else {
     alert(hint);
