@@ -1,3 +1,3 @@
-name = "my-worker"
+name = "zxfd"
 compatibility_date = "2025-05-25"
 main = "worker.js"
