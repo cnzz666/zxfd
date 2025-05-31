@@ -34,6 +34,23 @@ const proxyHintPage = `
       justify-content: center;
       align-items: center;
       position: relative;
+      background-image: url('https://www.loliapi.com/acg/');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    body::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: inherit;
+      background-size: cover;
+      background-position: center;
+      filter: blur(8px);
+      z-index: -2;
     }
     body::before {
       content: '';
@@ -46,29 +63,34 @@ const proxyHintPage = `
       z-index: -1;
     }
     .hint-container {
-      position: relative;
-      width: 80%;
-      max-width: 600px;
+      text-align: center;
+      max-width: 80%;
+      padding: 30px;
       background-color: rgba(255, 255, 255, 0.3);
       border-radius: 15px;
-      padding: 25px;
-      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
+      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 0 0 10px rgba(176, 196, 222, 0.2);
       backdrop-filter: blur(5px);
       border: 1px solid rgba(79, 195, 247, 0.3);
-      text-align: center;
-      transform: scale(0.9);
-      opacity: 0;
-      transition: transform 0.5s ease-out, opacity 0.5s ease-out;
-      animation: fadeIn 0.5s ease-out forwards;
+      transform: scale(0.5);
+      opacity: 0.5;
+      filter: blur(10px);
+      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
+      position: relative;
+      z-index: 1;
     }
     .hint-container.loaded {
       transform: scale(1);
       opacity: 1;
+      filter: blur(0);
+    }
+    .hint-container:hover {
+      transform: scale(1.03);
+      box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 0 0 20px rgba(176, 196, 222, 0.3);
     }
     h3 {
-      margin-top: 0;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
       color: #0277bd;
-      font-size: 22px;
       text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
     }
     p {
@@ -76,14 +98,18 @@ const proxyHintPage = `
       line-height: 1.6;
       margin: 20px 0;
       color: #333333;
+      opacity: 0.9;
     }
     a {
       color: #0277bd;
       text-decoration: none;
       font-weight: bold;
+      transition: color 0.3s ease, transform 0.3s ease;
     }
     a:hover {
       color: #01579b;
+      transform: scale(1.05);
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
     }
     .checkbox-container {
       margin: 20px 0;
@@ -93,16 +119,58 @@ const proxyHintPage = `
       font-size: 14px;
       color: #333333;
     }
-    input[type="checkbox"] {
-      margin-right: 10px;
+    .checkbox-wrapper {
+      position: relative;
+      display: inline-block;
       width: 20px;
       height: 20px;
+      margin-right: 10px;
+    }
+    .checkbox-wrapper input {
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      position: absolute;
       cursor: pointer;
+    }
+    .checkbox-custom {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      background-color: rgba(255, 255, 255, 0.5);
+      border: 2px solid #0277bd;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+    .checkbox-wrapper input:checked + .checkbox-custom {
+      background-color: #0277bd;
+      border-color: #0277bd;
+    }
+    .checkbox-custom::after {
+      content: '';
+      position: absolute;
+      display: none;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .checkbox-wrapper input:checked + .checkbox-custom::after {
+      display: block;
+    }
+    label {
+      cursor: pointer;
+      user-select: none;
     }
     button {
       background: linear-gradient(45deg, #4fc3f7, #81d4fa);
       color: #333333;
-      padding: 10px 20px;
+      padding: 12px 20px;
       border: none;
       border-radius: 25px;
       cursor: pointer;
@@ -110,6 +178,10 @@ const proxyHintPage = `
       font-weight: bold;
       letter-spacing: 1px;
       text-transform: uppercase;
+      margin: 15px auto;
+      display: block;
+      width: 80%;
+      max-width: 300px;
       transition: all 0.3s ease;
     }
     button:disabled {
@@ -121,37 +193,59 @@ const proxyHintPage = `
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.9); }
-      to { opacity: 1; transform: scale(1); }
-    }
     @media (max-width: 768px) {
       .hint-container {
-        width: 90%;
+        max-width: 90%;
         padding: 20px;
       }
       h3 {
-        font-size: 18px;
+        font-size: 1.8rem;
       }
       p {
         font-size: 14px;
       }
       button {
+        width: 90%;
         font-size: 14px;
-        padding: 8px 16px;
+        padding: 10px;
+      }
+      .checkbox-container {
+        font-size: 12px;
+      }
+      .checkbox-wrapper {
+        width: 18px;
+        height: 18px;
+      }
+      .checkbox-custom {
+        width: 18px;
+        height: 18px;
+      }
+      .checkbox-custom::after {
+        left: 5px;
+        top: 1px;
+        width: 4px;
+        height: 9px;
+      }
+    }
+    @media (min-resolution: 2dppx) {
+      body {
+        background-size: cover;
       }
     }
   </style>
 </head>
 <body>
   <div class="hint-container">
-    <h3>⚠️ Proxy Usage Agreement / 代理使用协议</h3>
-    <p>Warning: You are about to use a web proxy. For security, do not log in to any website while using this proxy. For further details, please visit <a href="https://github.com/1234567Yang/cf-proxy-ex/">https://github.com/1234567Yang/cf-proxy-ex/</a>.<br>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。详情请见 <a href="https://github.com/1234567Yang/cf-proxy-ex/">https://github.com/1234567Yang/cf-proxy-ex/</a>。</p>
+    <h3>⚠️ Proxy Usage Agreement</h3>
+    <p>Warning: You are about to use a web proxy. For security, do not log in to any website while using this proxy. For further details </a>.<br>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。</a>。</p>
     <div class="checkbox-container">
-      <input type="checkbox" id="agreeCheckbox">
+      <div class="checkbox-wrapper">
+        <input type="checkbox" id="agreeCheckbox">
+        <span class="checkbox-custom"></span>
+      </div>
       <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
     </div>
-    <button id="confirmButton" disabled onclick="setAgreementCookie()">Agree / 同意</button>
+    <button id="confirmButton" disabled onclick="setAgreementCookie()">Agree</button>
   </div>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -170,7 +264,7 @@ const proxyHintPage = `
       window.setAgreementCookie = function() {
         if (checkbox.checked) {
           var cookieDomain = window.location.hostname;
-          document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+          document.cookie = "__PROXY_HINT_ACK__=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
           window.location.reload();
         }
       };
