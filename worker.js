@@ -77,6 +77,7 @@ const proxyHintPage = `
       transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
       position: relative;
       z-index: 1;
+      pointer-events: auto;
     }
     .hint-container.loaded {
       transform: scale(1);
@@ -132,6 +133,7 @@ const proxyHintPage = `
       height: 100%;
       position: absolute;
       cursor: pointer;
+      z-index: 2;
     }
     .checkbox-custom {
       position: absolute;
@@ -152,8 +154,8 @@ const proxyHintPage = `
       content: '';
       position: absolute;
       display: none;
-      left: 6px;
-      top: 2px;
+      left: 5px;
+      top: 3px;
       width: 5px;
       height: 10px;
       border: solid white;
@@ -183,10 +185,13 @@ const proxyHintPage = `
       width: 80%;
       max-width: 300px;
       transition: all 0.3s ease;
+      pointer-events: auto;
+      z-index: 3;
     }
     button:disabled {
       background: #cccccc;
       cursor: not-allowed;
+      pointer-events: auto;
     }
     button:hover:not(:disabled) {
       background: linear-gradient(45deg, #29b6f6, #4fc3f7);
@@ -221,8 +226,8 @@ const proxyHintPage = `
         height: 18px;
       }
       .checkbox-custom::after {
-        left: 5px;
-        top: 1px;
+        left: 4px;
+        top: 2px;
         width: 4px;
         height: 9px;
       }
@@ -237,7 +242,7 @@ const proxyHintPage = `
 <body>
   <div class="hint-container">
     <h3>⚠️ Proxy Usage Agreement</h3>
-    <p>Warning: You are about to use a web proxy. For security, do not log in to any website while using this proxy. For further details </a>.<br>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。</a>。</p>
+<p>Warning: You are about to use a web proxy. For security, do not log in to any website while using this proxy. For further details </a>.<br>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。</a>。</p>
     <div class="checkbox-container">
       <div class="checkbox-wrapper">
         <input type="checkbox" id="agreeCheckbox">
@@ -245,29 +250,29 @@ const proxyHintPage = `
       </div>
       <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
     </div>
-    <button id="confirmButton" disabled onclick="setAgreementCookie()">Agree</button>
+    <button id="confirmButton" disabled>Agree</button>
   </div>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       var container = document.querySelector('.hint-container');
+      var checkbox = document.getElementById('agreeCheckbox');
+      var button = document.getElementById('confirmButton');
+
       setTimeout(function() {
         container.classList.add('loaded');
       }, 100);
-
-      var checkbox = document.getElementById('agreeCheckbox');
-      var button = document.getElementById('confirmButton');
 
       checkbox.addEventListener('change', function() {
         button.disabled = !checkbox.checked;
       });
 
-      window.setAgreementCookie = function() {
-        if (checkbox.checked) {
+      button.addEventListener('click', function() {
+        if (!button.disabled) {
           var cookieDomain = window.location.hostname;
           document.cookie = "__PROXY_HINT_ACK__=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
           window.location.reload();
         }
-      };
+      });
     });
   </script>
 </body>
