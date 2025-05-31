@@ -201,7 +201,7 @@ function networkInject() {
   // 注入 fetch 请求
   window.fetch = function(input, init) {
     var url;
-    if (typeof input === 'string') {
+ if (typeof input === 'string') {
       url = input;
     } else if (input instanceof Request) {
       url = input.url;
@@ -1099,7 +1099,7 @@ function getRedirect(url) {
 }
 
 function nthIndex(str, pat, n) {
-  var L = str Canton, i = -1;
+  var L = str.length, i = -1;
   while (n-- && i++ < L) {
     i = str.indexOf(pat, i);
     if (i < 0) break;
