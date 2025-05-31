@@ -8,31 +8,199 @@ addEventListener('fetch', event => {
 const str = "/";
 const lastVisitProxyCookie = "__PROXY_VISITEDSITE__";
 const passwordCookieName = "__PROXY_PWD__";
-const proxyHintCookieName = "__PROXY_HINT__";
+const proxyHintCookieName = "__PROXY_HINT_ACK__"; // 修改为记录用户同意状态的 Cookie
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location____";
 var thisProxyServerUrlHttps;
 var thisProxyServerUrl_hostOnly;
 
-// 修改后的代理提示注入代码，确保每次刷新都显示
+// 首次访问时的弹窗页面（包含复选框）
+const proxyHintPage = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proxy Usage Agreement</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: auto;
+      background-color: #e0f7fa;
+      font-family: 'Roboto', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2));
+      z-index: -1;
+    }
+    .hint-container {
+      position: relative;
+      width: 80%;
+      max-width: 600px;
+      background-color: rgba(255, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(79, 195, 247, 0.3);
+      text-align: center;
+      transform: scale(0.9);
+      opacity: 0;
+      transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+    .hint-container.loaded {
+      transform: scale(1);
+      opacity: 1;
+    }
+    h3 {
+      margin-top: 0;
+      color: #0277bd;
+      font-size: 22px;
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 20px 0;
+      color: #333333;
+    }
+    a {
+      color: #0277bd;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover {
+      color: #01579b;
+    }
+    .checkbox-container {
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #333333;
+    }
+    input[type="checkbox"] {
+      margin-right: 10px;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+    button {
+      background: linear-gradient(45deg, #4fc3f7, #81d4fa);
+      color: #333333;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+    }
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      background: linear-gradient(45deg, #29b6f6, #4fc3f7);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @media (max-width: 768px) {
+      .hint-container {
+        width: 90%;
+        padding: 20px;
+      }
+      h3 {
+        font-size: 18px;
+      }
+      p {
+        font-size: 14px;
+      }
+      button {
+        font-size: 14px;
+        padding: 8px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="hint-container">
+    <h3>⚠️ Proxy Usage Agreement / 代理使用协议</h3>
+    <p>Warning: You are about to use a web proxy. For security, do not log in to any website while using this proxy. For further details, please visit <a href="https://github.com/1234567Yang/cf-proxy-ex/">https://github.com/1234567Yang/cf-proxy-ex/</a>.<br>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。详情请见 <a href="https://github.com/1234567Yang/cf-proxy-ex/">https://github.com/1234567Yang/cf-proxy-ex/</a>。</p>
+    <div class="checkbox-container">
+      <input type="checkbox" id="agreeCheckbox">
+      <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
+    </div>
+    <button id="confirmButton" disabled onclick="setAgreementCookie()">Agree / 同意</button>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var container = document.querySelector('.hint-container');
+      setTimeout(function() {
+        container.classList.add('loaded');
+      }, 100);
+
+      var checkbox = document.getElementById('agreeCheckbox');
+      var button = document.getElementById('confirmButton');
+
+      checkbox.addEventListener('change', function() {
+        button.disabled = !checkbox.checked;
+      });
+
+      window.setAgreementCookie = function() {
+        if (checkbox.checked) {
+          var cookieDomain = window.location.hostname;
+          document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+          window.location.reload();
+        }
+      };
+    });
+  </script>
+</body>
+</html>
+`;
+
+// 代理提示注入代码（仅在未同意时显示，嵌入目标页面）
 const proxyHintInjection = `
-  //---***========================================***---提示使用代理（每次刷新显示）---***========================================***---
+  //---***========================================***---提示使用代理（未同意时显示）---***========================================***---
   document.addEventListener('DOMContentLoaded', () => {
+    // 检查是否已同意
+    if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
+
     // 移除已存在的提示框（防止重复添加）
     const existingHint = document.getElementById('__PROXY_HINT_DIV__');
     if (existingHint) existingHint.remove();
 
-    var hint = "Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit <a href=\\"https://github.com/1234567Yang/cf-proxy-ex/\\" style=\\"color:#0277bd;text-decoration:none;font-weight:bold;\\">https://github.com/1234567Yang/cf-proxy-ex/</a>. <br>警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href=\\"https://github.com/1234567Yang/cf-proxy-ex/\\" style=\\"color:#0277bd;text-decoration:none;font-weight:bold;\\">https://github.com/1234567Yang/cf-proxy-ex/</a>。";
+    var hint = "Error: You must agree to the proxy usage terms before accessing this website. Please return to the proxy homepage to accept the terms.<br>错误：您必须同意代理使用条款才能访问此网站。请返回代理主页接受条款。";
 
     // 插入弹窗 HTML
     document.body.insertAdjacentHTML(
       'afterbegin',
-      "<div style=\\"position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;pointer-events:auto;\\" id=\\"__PROXY_HINT_DIV__\\" onclick=\\"document.getElementById('__PROXY_HINT_DIV__').remove();\\">" +
+      "<div style=\\"position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;pointer-events:auto;\\" id=\\"__PROXY_HINT_DIV__\\">" +
       "<div class=\\"proxy-hint-content\\" style=\\"position:relative;width:80%;max-width:600px;background-color:rgba(255,255,255,0.3);border-radius:15px;padding:25px;box-shadow:0 8px 32px rgba(79,195,247,0.3);backdrop-filter:blur(5px);border:1px solid rgba(79,195,247,0.3);text-align:center;transform:scale(0.9);opacity:0;transition:transform 0.5s ease-out, opacity 0.5s ease-out;animation:fadeIn 0.5s ease-out forwards;pointer-events:auto;\\" onclick=\\"event.stopPropagation();\\">" +
-      "<h3 style=\\"margin-top:0;color:#0277bd;font-size:22px;text-shadow:0 0 5px rgba(79,195,247,0.3);\\">⚠️ Proxy Usage Alert / 代理使用警告</h3>" +
+      "<h3 style=\\"margin-top:0;color:#0277bd;font-size:22px;text-shadow:0 0 5px rgba(79,195,247,0.3);\\">⚠️ Access Denied / 访问被拒绝</h3>" +
       "<p style=\\"font-size:16px;line-height:1.6;margin:20px 0;color:#333333;\\">" + hint + "</p>" +
-      "<button style=\\"background:linear-gradient(45deg,#4fc3f7,#81d4fa);color:#333333;padding:10px 20px;border:none;border-radius:25px;cursor:pointer;font-size:16px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;transition:all 0.3s ease;\\" onclick=\\"document.getElementById('__PROXY_HINT_DIV__').remove();\\">Close / 关闭</button>" +
+      "<button style=\\"background:linear-gradient(45deg,#4fc3f7,#81d4fa);color:#333333;padding:10px 20px;border:none;border-radius:25px;cursor:pointer;font-size:16px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;transition:all 0.3s ease;\\" onclick=\\"window.location.href='/'\\">Return to Homepage / 返回主页</button>" +
       "</div>" +
       "</div>"
     );
@@ -70,7 +238,7 @@ const proxyHintInjection = `
   });
 `;
 
-// 新增伪装注入代码，用于伪装原始域名
+// 伪装注入代码，用于伪装原始域名
 const disguiseInjection = `
   //---***========================================***---伪装原始域名---***========================================***---
   (function() {
@@ -201,7 +369,7 @@ function networkInject() {
   // 注入 fetch 请求
   window.fetch = function(input, init) {
     var url;
- if (typeof input === 'string') {
+    if (typeof input === 'string') {
       url = input;
     } else if (input instanceof Request) {
       url = input.url;
@@ -782,6 +950,28 @@ async function handleRequest(request) {
 
   var siteCookie = request.headers.get('Cookie');
 
+  // 检查是否已同意代理使用条款
+  if (siteCookie != null && siteCookie != "") {
+    var agreed = getCook(proxyHintCookieName, siteCookie);
+    if (!agreed || agreed !== "agreed") {
+      const url = new URL(request.url);
+      var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
+      if (actualUrlStr == "") {
+        return getHTMLResponse(proxyHintPage); // 首次访问显示协议页面
+      } else {
+        return getHTMLResponse(proxyHintPage); // 未同意时，访问目标网站显示协议页面
+      }
+    }
+  } else {
+    const url = new URL(request.url);
+    var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
+    if (actualUrlStr == "") {
+      return getHTMLResponse(proxyHintPage); // 首次访问显示协议页面
+    } else {
+      return getHTMLResponse(proxyHintPage); // 未同意时，访问目标网站显示协议页面
+    }
+  }
+
   if (password != "") {
     if (siteCookie != null && siteCookie != "") {
       var pwd = getCook(passwordCookieName, siteCookie);
@@ -1011,9 +1201,6 @@ Disallow: /`, {
     modifiedResponse.headers.delete(element);
     modifiedResponse.headers.delete(element + "-Report-Only");
   });
-
-  // 移除代理提示的缓存控制，允许每次刷新都显示
-  modifiedResponse.headers.delete("Cache-Control");
 
   return modifiedResponse;
 }
