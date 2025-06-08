@@ -311,57 +311,60 @@ const proxyHintPage = `
 
 // 代理提示注入代码
 const proxyHintInjection = `
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
-    const existingHint = document.getElementById('__PROXY_HINT_DIV__');
-    if (existingHint) existingHint.remove();
-    var hint = "错误：您必须同意代理使用条款才能访问此网站。请返回代理主页接受条款。";
-    document.body.insertAdjacentHTML(
-      'afterbegin',
-      '<div style="position: fixed; left: 0; top: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 99999999999999999999999; user-select: none; pointer-events: auto;" id="__PROXY_HINT_DIV__">' +
-      '<div class="proxy-hint-content" style="position: relative; width: 80%; max-width: 600px; background-color: rgba(255,255,255,0.3); border-radius: 15px; padding: 25px; box-shadow: 0 8px 32px rgba(79,195,247,0.3); backdrop-filter: blur(5px); border: 1px solid rgba(79,195,247,0.3); text-align: center; transform: scale(0.9); opacity: 0; animation: fadeIn 0.5s ease-out forwards; pointer-events: auto;">' +
-      '<h3 style="margin-top: 0; color: #0277bd; font-size: 22px; text-shadow: 0 0 5px rgba(79,195,247,0.3);">⚠️ 访问被拒绝</h3>' +
-      '<p style="font-size: 16px; line-height: 1.6; margin: 20px 0; color: #333333;">' + hint + '</p>' +
-      '<button style="background: linear-gradient(45deg, #4fc3f7, #81d4fa); color: #333333; padding: 10px 20px; border: none; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; transition: all 0.3s ease;" onclick="window.location.href=\'/\')">返回主页</button>' +
-      '</div></div>'
-    );
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: scale(0.9);
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
+      const existingHint = document.getElementById('__PROXY_HINT_DIV__');
+      if (existingHint) existingHint.remove();
+      var hint = "错误：您必须同意代理使用条款才能访问此网站。请返回代理主页接受条款。";
+      document.body.insertAdjacentHTML(
+        'afterbegin',
+        '<div style="position: fixed; left: 0; top: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 99999999999999999999999; user-select: none; pointer-events: auto;" id="__PROXY_HINT_DIV__">' +
+        '<div class="proxy-hint-content" style="position: relative; width: 80%; max-width: 600px; background-color: rgba(255,255,255,0.3); border-radius: 15px; padding: 25px; box-shadow: 0 8px 32px rgba(79,195,247,0.3); backdrop-filter: blur(5px); border: 1px solid rgba(79,195,247,0.3); text-align: center; transform: scale(0.9); opacity: 0; animation: fadeIn 0.5s ease-out forwards; pointer-events: auto;">' +
+        '<h3 style="margin-top: 0; color: #0277bd; font-size: 22px; text-shadow: 0 0 5px rgba(79,195,247,0.3);">⚠️ 访问被拒绝</h3>' +
+        '<p style="font-size: 16px; line-height: 1.6; margin: 20px 0; color: #333333;">' + hint + '</p>' +
+        '<button style="background: linear-gradient(45deg, #4fc3f7, #81d4fa); color: #333333; padding: 10px 20px; border: none; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; transition: all 0.3s ease;" onclick="window.location.href=\\'/\'>返回主页</button>' +
+        '</div></div>'
+      );
+      const style = document.createElement('style');
+      style.textContent = \`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
-        to {
-          opacity: 1;
-          transform: scale(1);
+        .proxy-hint-content:hover {
+          transform: scale(1.02);
+          box-shadow: 0 12px 40px rgba(79,195,247,0.5);
         }
-      }
-      .proxy-hint-content:hover {
-        transform: scale(1.02);
-        box-shadow: 0 12px 40px rgba(79,195,247,0.5);
-      }
-      .proxy-hint-content button:hover {
-        background: linear-gradient(45deg, #29b6f6, #4fc3f7);
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(79,195,247,0.4);
-      }
-      @media (max-width: 768px) {
-        .proxy-hint-content {
-          width: 90%;
-          padding: 20px;
+        .proxy-hint-content button:hover {
+          background: linear-gradient(45deg, #29b6f6, #4fc3f7);
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(79,195,247,0.4);
         }
-        .proxy-hint-content h3 {
-          font-size: 18px;
+        @media (max-width: 768px) {
+          .proxy-hint-content {
+            width: 90%;
+            padding: 20px;
+          }
+          .proxy-hint-content h3 {
+            font-size: 18px;
+          }
+          .proxy-hint-content p {
+            font-size: 14px;
+          }
         }
-        .proxy-hint-content p {
-          font-size: 14px;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  });
+      \`;
+      document.head.appendChild(style);
+    });
+  </script>
 `;
+
 
 // 伪装注入代码
 const disguiseInjection = `
