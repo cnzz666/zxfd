@@ -9,17 +9,19 @@ const str = "/";
 const lastVisitProxyCookie = "__PROXY_VISITEDSITE__";
 const passwordCookieName = "__PROXY_PWD__";
 const proxyHintCookieName = "__PROXY_HINT_ACK__";
-const languageCookieName = "__PROXY_LANGUAGE__"; // 新增：保存语言设置
-const deviceCookieName = "__PROXY_DEVICE__"; // 新增：保存设备模拟设置
-const blockExtensionsCookieName = "__PROXY_BLOCK_EXTENSIONS__"; // 新增：保存拦截文件后缀
-const blockAdsCookieName = "__PROXY_BLOCK_ADS__"; // 新增：保存广告拦截设置
+const languageCookieName = "__PROXY_LANGUAGE__";
+const deviceCookieName = "__PROXY_DEVICE__";
+const blockExtensionsCookieName = "__PROXY_BLOCK_EXTENSIONS__";
+const blockAdsCookieName = "__PROXY_BLOCK_ADS__";
+const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__"; // 新增：保存屏蔽元素
+const injectModeCookieName = "__PROXY_INJECT_MODE__"; // 新增：保存注入模式
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location____";
 var thisProxyServerUrlHttps;
 var thisProxyServerUrl_hostOnly;
 
-// 常用语言列表（世界人口常用语言）
+// 常用语言列表
 const supportedLanguages = [
   { code: "zh-CN", name: "中文 (简体)" },
   { code: "en-US", name: "English (US)" },
@@ -33,18 +35,27 @@ const supportedLanguages = [
   { code: "ja-JP", name: "日本語" }
 ];
 
-// 设备模拟的 User-Agent
-const deviceUserAgents = {
-  desktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+// 设备模拟的 User-Agent 和屏幕尺寸
+const deviceSettings = {
+  desktop: {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    width: 1920,
+    height: 1080
+  },
+  mobile: {
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+    width: 375,
+    height: 667
+  }
 };
 
-// 广告拦截的关键词（用于匹配广告 URL）
+// 广告拦截的关键词
 const adBlockKeywords = [
-  "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", "adserver", "popunder", "interstitial"
+  "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick.net", "googlesyndication.com", 
+  "adserver", "popunder", "interstitial", "googleadservices.com", "adsense"
 ];
 
-// 首次访问时的协议页面（保持不变）
+// 首次访问协议页面
 const proxyHintPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -270,7 +281,7 @@ const proxyHintPage = `
 </head>
 <body>
   <div class="hint-container">
-    <h3>⚠️ Proxy Usage Agreement</h3>
+    <h3>�部分⚠️ Proxy Usage Agreement</h3>
     <p>Warning: You are about to use a web proxy. For security, do not log in to any website while using this proxy. For further details </a>.<br>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。</a>。</p>
     <div class="checkbox-container">
       <div class="checkbox-wrapper">
@@ -308,20 +319,14 @@ const proxyHintPage = `
 </html>
 `;
 
-// 代理提示注入代码（保持不变）
+// 代理提示注入代码
 const proxyHintInjection = `
   //---***========================================***---提示使用代理（未同意时显示）---***========================================***---
   document.addEventListener('DOMContentLoaded', () => {
-    // 检查是否已同意
     if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
-
-    // 移除已存在的提示框（防止重复添加）
     const existingHint = document.getElementById('__PROXY_HINT_DIV__');
     if (existingHint) existingHint.remove();
-
     var hint = "Error: You must agree to the proxy usage terms before accessing this website. Please return to the proxy homepage to accept the terms.<br>错误：您必须同意代理使用条款才能访问此网站。请返回代理主页接受条款。";
-
-    // 插入弹窗 HTML
     document.body.insertAdjacentHTML(
       'afterbegin',
       "<div style=\\"position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;pointer-events:auto;\\" id=\\"__PROXY_HINT_DIV__\\">" +
@@ -332,8 +337,6 @@ const proxyHintInjection = `
       "</div>" +
       "</div>"
     );
-
-    // 插入 CSS 动画样式
     const style = document.createElement('style');
     style.textContent = \`
       @keyframes fadeIn {
@@ -366,42 +369,84 @@ const proxyHintInjection = `
   });
 `;
 
-// 伪装注入代码（保持不变）
-const disguiseInjection = `
-  //---***========================================***---伪装原始域名---***========================================***---
-  (function() {
-    // 获取原始域名
-    var now = new URL(window.location.href);
-    var proxyBase = now.host; // 代理域名
-    var proxyProtocol = now.protocol; // 代理协议
-    var proxyPrefix = proxyProtocol + "//" + proxyBase + "/"; // 代理前缀
-    var oriUrlStr = window.location.href.substring(proxyPrefix.length); // 原始URL
-    var oriUrl = new URL(oriUrlStr);
-    var originalHost = oriUrl.host; // 原始域名
-    var originalOrigin = oriUrl.origin; // 原始Origin
+// 元素屏蔽注入代码
+const blockElementsInjection = `
+  //---***========================================***---屏蔽元素---***========================================***---
+  document.addEventListener('DOMContentLoaded', () => {
+    var blockElements = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
+    var injectMode = document.cookie.split('; ').find(row => row.startsWith('${injectModeCookieName}='));
+    blockElements = blockElements ? blockElements.split('=')[1].split(',').map(e => e.trim()) : [];
+    injectMode = injectMode ? injectMode.split('=')[1] : 'global';
+    if (blockElements.length > 0) {
+      var currentUrl = window.location.href;
+      var proxyPrefix = '${thisProxyServerUrlHttps}';
+      var targetUrl = currentUrl.startsWith(proxyPrefix) ? currentUrl.substring(proxyPrefix.length) : currentUrl;
+      if (injectMode === 'global' || targetUrl === '${getCook(lastVisitProxyCookie, document.cookie)}') {
+        blockElements.forEach(selector => {
+          try {
+            document.querySelectorAll(selector).forEach(el => {
+              if (el) el.remove();
+            });
+          } catch (e) {
+            console.log("Error removing element with selector: " + selector, e);
+          }
+        });
+        console.log("BLOCK ELEMENTS INJECTED");
+      }
+    }
+  });
+`;
 
-    // 伪装 document.domain
-    Object.defineProperty(document, 'document', {
+// 广告拦截注入代码
+const adBlockInjection = `
+  //---***========================================***---拦截广告元素---***========================================***---
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.cookie.includes('${blockAdsCookieName}=true')) {
+      var adSelectors = ['.ad', '.banner', '.advertisement', '[class*="ad-"]', '[id*="ad-"]', '[class*="banner-"]', '[id*="banner-"]'];
+      adSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => {
+            if (el) el.remove();
+          });
+        } catch (e) {
+          console.log("Error removing ad with selector: " + selector, e);
+        }
+      });
+      console.log("AD BLOCK INJECTED");
+    }
+  });
+`;
+
+// 伪装注入代码（添加屏幕尺寸伪装）
+const disguiseInjection = `
+  //---***========================================***---伪装原始域名和设备---***========================================***---
+  (function() {
+    var now = new URL(window.location.href);
+    var proxyBase = now.host;
+    var proxyProtocol = now.protocol;
+    var proxyPrefix = proxyProtocol + "//" + proxyBase + "/";
+    var oriUrlStr = window.location.href.substring(proxyPrefix.length);
+    var oriUrl = new URL(oriUrlStr);
+    var originalHost = oriUrl.host;
+    var originalOrigin = oriUrl.origin;
+
+    Object.defineProperty(document, 'domain', {
       get: function() {
         return originalHost;
       },
       set: function(value) {
-        // 不允许修改，但为了兼容性保留setter
         return value;
       }
     });
 
-    // 伪装 window.origin
     Object.defineProperty(window, 'origin', {
       get: function() {
         return originalOrigin;
       }
     });
 
-    // 伪装 referrer
     Object.defineProperty(document, 'referrer', {
       get: function() {
-        // 将代理域名替换为原始域名
         var actualReferrer = document.referrer || '';
         if (actualReferrer.startsWith(proxyPrefix)) {
           return actualReferrer.replace(proxyPrefix, '');
@@ -410,7 +455,6 @@ const disguiseInjection = `
       }
     });
 
-    // 伪装 navigator.userAgentData（如果存在）
     if (navigator.userAgentData) {
       Object.defineProperty(navigator, 'userAgentData', {
         get: function() {
@@ -423,7 +467,6 @@ const disguiseInjection = `
       });
     }
 
-    // 伪装 navigator.language 为用户选择的语言
     var languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
     var selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
     Object.defineProperty(navigator, 'language', {
@@ -437,35 +480,41 @@ const disguiseInjection = `
       }
     });
 
-    console.log("DOMAIN, ORIGIN, AND LANGUAGE DISGUISE INJECTED");
+    var deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
+    var deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
+    if (deviceType !== 'none') {
+      var dimensions = deviceType === 'desktop' ? { width: 1920, height: 1080 } : { width: 375, height: 667 };
+      Object.defineProperty(window, 'innerWidth', { get: () => dimensions.width });
+      Object.defineProperty(window, 'innerHeight', { get: () => dimensions.height });
+      Object.defineProperty(screen, 'width', { get: () => dimensions.width });
+      Object.defineProperty(screen, 'height', { get: () => dimensions.height });
+    }
+
+    console.log("DOMAIN, ORIGIN, LANGUAGE, AND DEVICE DISGUISE INJECTED");
   })();
 `;
 
-// HTTP 请求注入代码（保持原有逻辑，添加语言伪装）
+// HTTP 请求注入代码
 var httpRequestInjection = `
   //---***========================================***---信息获取---***========================================***---
   var now = new URL(window.location.href);
-  var base = now.host; // 代理的base - proxy.com
-  var protocol = now.protocol; // 代理的protocol
-  var nowlink = protocol + "//" + base + "/"; // 代理前缀 https://proxy.com/
-  var oriUrlStr = window.location.href.substring(nowlink.length); // 如：https://example.com/1?q#1
+  var base = now.host;
+  var protocol = now.protocol;
+  var nowlink = protocol + "//" + base + "/";
+  var oriUrlStr = window.location.href.substring(nowlink.length);
   var oriUrl = new URL(oriUrlStr);
-
   var path = now.pathname.substring(1);
-  // console.log("***************************----" + path);
   if (!path.startsWith("http")) path = "https://" + path;
-
   var original_host = oriUrlStr.substring(oriUrlStr.indexOf("://") + "://".length);
   original_host = original_host.split('/')[0];
   var mainOnly = oriUrlStr.substring(0, oriUrlStr.indexOf("://")) + "://" + original_host + "/";
 
-  //---***========================================***---通用func---***========================================***---
   function changeURL(relativePath) {
     if (relativePath == null) return null;
     try {
       if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
     } catch {
-      // duckduckgo mysterious BUG that will trigger sometimes, just ignore ...
+      // ignore
     }
     try {
       if (relativePath && relativePath.startsWith(nowlink)) relativePath = relativePath.substring(nowlink.length);
@@ -479,17 +528,13 @@ var httpRequestInjection = `
       absolutePath = absolutePath.replace(window.location.href, path);
       absolutePath = absolutePath.replace(encodeURI(window.location.href), path);
       absolutePath = absolutePath.replace(encodeURIComponent(window.location.href), path);
-
       absolutePath = absolutePath.replace(nowlink, mainOnly);
       absolutePath = absolutePath.replace(nowlink, encodeURI(mainOnly));
       absolutePath = absolutePath.replace(nowlink, encodeURIComponent(mainOnly));
-
       absolutePath = absolutePath.replace(nowlink, mainOnly.substring(0, mainOnly.length - 1));
       absolutePath = absolutePath.replace(nowlink, encodeURI(mainOnly.substring(0, mainOnly.length - 1)));
       absolutePath = absolutePath.replace(nowlink, encodeURIComponent(mainOnly.substring(0, mainOnly.length - 1)));
-
       absolutePath = absolutePath.replace(base, original_host);
-
       absolutePath = nowlink + absolutePath;
       return absolutePath;
     } catch (e) {
@@ -498,9 +543,7 @@ var httpRequestInjection = `
     }
   }
 
-  //---***========================================***---注入网络请求---***========================================***---
   function networkInject() {
-    // 注入 XMLHttpRequest
     var originalOpen = XMLHttpRequest.prototype.open;
     var originalFetch = window.fetch;
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
@@ -508,8 +551,6 @@ var httpRequestInjection = `
       console.log("R:" + url);
       return originalOpen.apply(this, arguments);
     };
-
-    // 注入 fetch 请求
     window.fetch = function(input, init) {
       var url;
       if (typeof input === 'string') {
@@ -519,9 +560,7 @@ var httpRequestInjection = `
       } else {
         url = input;
       }
-
       url = changeURL(url);
-
       console.log("R:" + url);
       if (typeof input === 'string') {
         return originalFetch(url, init);
@@ -530,23 +569,18 @@ var httpRequestInjection = `
         return originalFetch(newRequest, init);
       }
     };
-    
     console.log("NETWORK REQUEST METHOD INJECTED");
   }
 
-  //---***========================================***---注入window.open---***========================================***---
   function windowOpenInject() {
     const originalOpen = window.open;
-
     window.open = function(url, name, specs) {
       let modifiedUrl = changeURL(url);
       return originalOpen.call(window, modifiedUrl, name, specs);
     };
-
     console.log("WINDOW OPEN INJECTED");
   }
 
-  //---***========================================***---注入append元素---***========================================***---
   function appendChildInject() {
     const originalAppendChild = Node.prototype.appendChild;
     Node.prototype.appendChild = function(child) {
@@ -565,7 +599,6 @@ var httpRequestInjection = `
     console.log("APPEND CHILD INJECTED");
   }
 
-  //---***========================================***---注入元素的src和href---***========================================***---
   function elementPropertyInject() {
     const originalSetAttribute = HTMLElement.prototype.setAttribute;
     HTMLElement.prototype.setAttribute = function(name, value) {
@@ -577,103 +610,80 @@ var httpRequestInjection = `
     console.log("ELEMENT PROPERTY (new Proxy) INJECTED");
   }
 
-  //---***========================================***---注入location---***========================================***---
   class ProxyLocation {
     constructor(originalLocation) {
       this.originalLocation = originalLocation;
     }
-
     getStrNPosition(string, subString, index) {
       return string.split(subString, index).join(subString).length;
     }
-
     getOriginalHref() {
       return window.location.href.substring(this.getStrNPosition(window.location.href, "/", 3) + 1);
     }
-
     reload(forcedReload) {
       this.originalLocation.reload(forcedReload);
     }
-
     replace(url) {
       this.originalLocation.replace(changeURL(url));
     }
-
     assign(url) {
       this.originalLocation.assign(changeURL(url));
     }
-
     get href() {
       return this.getOriginalHref();
     }
-
     set href(url) {
       this.originalLocation.href = changeURL(url);
     }
-
     get protocol() {
       return oriUrl.protocol;
     }
-
     set protocol(value) {
       oriUrl.protocol = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get host() {
       return oriUrl.host;
     }
-
     set host(value) {
       oriUrl.host = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get hostname() {
       return oriUrl.hostname;
     }
-
     set hostname(value) {
       oriUrl.hostname = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get port() {
       return oriUrl.port;
     }
-
     set port(value) {
       oriUrl.port = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get pathname() {
       return oriUrl.pathname;
     }
-
     set pathname(value) {
       oriUrl.pathname = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get search() {
       return oriUrl.search;
     }
-
     set search(value) {
       oriUrl.search = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get hash() {
       return oriUrl.hash;
     }
-
     set hash(value) {
       oriUrl.hash = value;
       window.location.href = nowlink + oriUrl.href;
     }
-
     get origin() {
       return oriUrl.origin;
     }
@@ -688,7 +698,6 @@ var httpRequestInjection = `
         document.URL = changeURL(url);
       }
     });
-
     Object.defineProperty(document, '${replaceUrlObj}', {
       get: function() {
         return new ProxyLocation(window.location);
@@ -709,42 +718,31 @@ var httpRequestInjection = `
         window.location.href = changeURL(url);
       }
     });
-
     console.log("WINDOW LOCATION INJECTED");
   }
 
-  //---***========================================***---注入历史记录---***========================================***---
   function historyInject() {
     const originalPushState = History.prototype.pushState;
     const originalReplaceState = History.prototype.replaceState;
-
     History.prototype.pushState = function(state, title, url) {
-      if (!url) return; // x.com 会有一次undefined
-
-      if (url.startsWith("/" + oriUrl.href)) url = url.substring(("/" + oriUrl.href).length); // https://example.com/
-      if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1))) url = url.substring(("/" + oriUrl.href).length - 1); // https://example.com (没有/在最后)
-
+      if (!url) return;
+      if (url.startsWith("/" + oriUrl.href)) url = url.substring(("/" + oriUrl.href).length);
+      if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1))) url = url.substring(("/" + oriUrl.href).length - 1);
       var u = changeURL(url);
       return originalPushState.apply(this, [state, title, u]);
     };
-
     History.prototype.replaceState = function(state, title, url) {
-      if (!url) return; // x.com 会有一次undefined
-
-      if (url.startsWith("/" + oriUrl.href)) url = url.substring(("/" + oriUrl.href).length); // https://example.com/
-      if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1))) url = url.substring(("/" + oriUrl.href).length - 1); // https://example.com (没有/在最后)
-
-      if (url.startsWith("/" + oriUrl.href.replace("://", ":/"))) url = url.substring(("/" + oriUrl.href.replace("://", ":/")).length); // https://example.com/
-      if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + oriUrl.href).replace("://", ":/").length - 1); // https://example.com (没有/在最后)
-
+      if (!url) return;
+      if (url.startsWith("/" + oriUrl.href)) url = url.substring(("/" + oriUrl.href).length);
+      if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1))) url = url.substring(("/" + oriUrl.href).length - 1);
+      if (url.startsWith("/" + oriUrl.href.replace("://", ":/"))) url = url.substring(("/" + oriUrl.href.replace("://", ":/")).length);
+      if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + oriUrl.href).replace("://", ":/").length - 1);
       var u = changeURL(url);
       return originalReplaceState.apply(this, [state, title, u]);
     };
-
     console.log("HISTORY INJECTED");
   }
 
-  //---***========================================***---Hook观察界面---***========================================***---
   function obsPage() {
     var yProxyObserver = new MutationObserver(function(mutations) {
       mutations.forEach(function(mutation) {
@@ -753,7 +751,6 @@ var httpRequestInjection = `
     });
     var config = { attributes: true, childList: true, subtree: true };
     yProxyObserver.observe(document.body, config);
-
     console.log("OBSERVING THE WEBPAGE...");
   }
 
@@ -779,8 +776,7 @@ var httpRequestInjection = `
       relativePath = element.getAttribute("src");
       setAttr = "src";
     }
-
-    if (setAttr !== "" && relativePath.indexOf(nowlink) != 0) { 
+    if (setAttr !== "" && relativePath.indexOf(nowlink) != 0) {
       if (!relativePath.includes("*")) {
         try {
           var absolutePath = changeURL(relativePath);
@@ -814,7 +810,6 @@ var httpRequestInjection = `
     setTimeout(covScript, 3000);
   }
 
-  //---***========================================***---操作---***========================================***---
   networkInject();
   windowOpenInject();
   elementPropertyInject();
@@ -822,7 +817,6 @@ var httpRequestInjection = `
   windowLocationInject();
   historyInject();
 
-  //---***========================================***---在window.load之后的操作---***========================================***---
   window.addEventListener('load', () => {
     loopAndConvertToAbs();
     console.log("CONVERTING SCRIPT PATH");
@@ -831,7 +825,6 @@ var httpRequestInjection = `
   });
   console.log("WINDOW ONLOAD EVENT ADDED");
 
-  //---***========================================***---在window.error的时候---***========================================***---
   window.addEventListener('error', event => {
     var element = event.target || event.srcElement;
     if (element.tagName === 'SCRIPT') {
@@ -842,24 +835,21 @@ var httpRequestInjection = `
       }
       removeIntegrityAttributesFromElement(element);
       covToAbs(element);
-
       var newScript = document.createElement("script");
       newScript.src = element.src;
       newScript.async = element.async;
       newScript.defer = element.defer;
       newScript.alreadyChanged = true;
-
       document.head.appendChild(newScript);
-
       console.log("New script added:", newScript);
     }
   }, true);
   console.log("WINDOW CORS ERROR EVENT ADDED");
 `;
 
-httpRequestInjection = `(function () {` + httpRequestInjection + disguiseInjection + `})();`;
+httpRequestInjection = `(function () {` + httpRequestInjection + disguiseInjection + adBlockInjection + blockElementsInjection + `})();`;
 
-// 修改后的主页，添加语言选择、设备模拟、文件拦截和广告拦截配置
+// 主页（添加高级选项）
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -869,6 +859,7 @@ const mainPage = `
   <title>Web online proxy</title>
   <style>
     html, body {
+pit {
       height: 100%;
       margin: 0;
       overflow: auto;
@@ -947,14 +938,14 @@ const mainPage = `
       text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
     }
     input, button, select {
-      margin: 15px auto;
-      padding: 12px 20px;
-      font-size: 16px;
-      border-radius: 25px;
+      margin: 10px auto;
+      padding: 10px 15px;
+      font-size: 14px;
+      border-radius: 20px;
       outline: none;
       display: block;
-      width: 80%;
-      max-width: 300px;
+      width: 100%;
+      max-width: 250px;
       transition: all 0.3s ease;
     }
     input, select {
@@ -982,48 +973,45 @@ const mainPage = `
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
     }
-    a {
-      color: #0277bd;
-      text-decoration: none;
-      font-weight: bold;
-      transition: color 0.3s ease, transform 0.3s ease;
+    .advanced-options {
+      display: none;
+      width: 100%;
+      max-width: 250px;
+      margin: 10px 0;
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      transition: all 0.5s ease-out;
+    }
+    .advanced-options.show {
       display: block;
-      margin: 15px 0;
+      opacity: 1;
+      height: auto;
     }
-    a:hover {
-      color: #01579b;
-      transform: scale(1.05);
-      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
-    }
-    p {
-      margin: 12px 0;
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    .config-section {
-      margin: 20px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .config-section label {
-      font-size: 14px;
-      margin-bottom: 10px;
+    .config-button {
+      background: rgba(255, 255, 255, 0.7);
       color: #333333;
+      padding: 8px 15px;
+      font-size: 12px;
+      max-width: 200px;
+    }
+    .config-button:hover {
+      background: rgba(255, 255, 255, 0.9);
+      transform: translateY(-2px);
     }
     .checkbox-container {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 12px;
       margin: 10px 0;
     }
     .checkbox-wrapper {
       position: relative;
       display: inline-block;
-      width: 20px;
-      height: 20px;
-      margin-right: 10px;
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
     }
     .checkbox-wrapper input {
       opacity: 0;
@@ -1037,8 +1025,8 @@ const mainPage = `
       position: absolute;
       top: 0;
       left: 0;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       background-color: rgba(255, 255, 255, 0.5);
       border: 2px solid #0277bd;
       border-radius: 4px;
@@ -1052,10 +1040,10 @@ const mainPage = `
       content: '';
       position: absolute;
       display: none;
-      left: 5px;
-      top: 3px;
-      width: 5px;
-      height: 10px;
+      left: 4px;
+      top: 2px;
+      width: 4px;
+      height: 8px;
       border: solid white;
       border-width: 0 2px 2px 0;
       transform: rotate(45deg);
@@ -1083,7 +1071,7 @@ const mainPage = `
       text-align: center;
       box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
     }
-    .modal-content input {
+    .modal-content input, .modal-content select {
       width: 90%;
       margin: 10px auto;
     }
@@ -1093,7 +1081,10 @@ const mainPage = `
       display: block;
     }
     .modal-content button {
-      width: 50%;
+      width: 45%;
+      margin: 5px;
+      font-size: 12px;
+      padding: 8px;
     }
     @media (max-width: 768px) {
       .content {
@@ -1105,8 +1096,8 @@ const mainPage = `
       }
       input, button, select {
         width: 90%;
-        font-size: 14px;
-        padding: 10px;
+        font-size: 12px;
+        padding: 8px;
       }
       .modal-content {
         width: 90%;
@@ -1127,12 +1118,11 @@ const mainPage = `
       <input type="text" id="targetUrl" placeholder="请输入目标网址..." required>
       <button type="submit" id="jumpButton">跳转</button>
     </form>
-    <div class="config-section">
-      <label>选择访问语言</label>
+    <button onclick="toggleAdvancedOptions()">高级选项</button>
+    <div class="advanced-options" id="advancedOptions">
       <select id="languageSelect">
         ${supportedLanguages.map(lang => `<option value="${lang.code}" ${lang.code === 'zh-CN' ? 'selected' : ''}>${lang.name}</option>`).join('')}
       </select>
-      <label>模拟设备</label>
       <select id="deviceSelect">
         <option value="none" selected>不模拟</option>
         <option value="desktop">电脑</option>
@@ -1145,18 +1135,32 @@ const mainPage = `
         </div>
         <label for="blockAds">拦截广告</label>
       </div>
-      <button onclick="showBlockExtensionsModal()">配置拦截文件后缀</button>
+      <button class="config-button" onclick="showBlockConfigModal()">配置拦截</button>
+      <button class="config-button" onclick="showBlockElementsModal()">屏蔽元素</button>
     </div>
     <p>声明：本工具仅用于学术研究和文献查阅，请严格遵守相关法律法规。</p>
     <p>By Sak 2025</p>
   </div>
-  <div id="blockExtensionsModal" class="modal">
+  <div id="blockConfigModal" class="modal">
     <div class="modal-content">
-      <h3>配置拦截文件后缀</h3>
-      <p id="blockExtensionsPlaceholder">拦截的文件如jpg,gif用逗号隔开</p>
-      <input type="text" id="blockExtensionsInput" placeholder="">
-      <button onclick="saveBlockExtensions()">保存</button>
-      <button onclick="closeModal()">取消</button>
+      <h3>配置拦截</h3>
+      <p>请输入要拦截的文件扩展名（如 jpg,gif）</p>
+      <input type="text" id="blockExtensionsInput">
+      <button onclick="saveBlockConfig()">保存</button>
+      <button onclick="closeModal('blockConfigModal')">取消</button>
+    </div>
+  </div>
+  <div id="blockElementsModal" class="modal">
+    <div class="modal-content">
+      <h3>屏蔽元素</h3>
+      <p>请输入要屏蔽的 CSS 选择器（如 .ad-banner, #popup-ad）</p>
+      <input type="text" id="blockElementsInput">
+      <select id="injectModeSelect">
+        <option value="global" selected>全局注入</option>
+        <option value="specific">指定链接注入</option>
+      </select>
+      <button onclick="saveBlockElements()">保存</button>
+      <button onclick="closeModal('blockElementsModal')">取消</button>
     </div>
   </div>
   <script>
@@ -1165,8 +1169,6 @@ const mainPage = `
       setTimeout(function() {
         content.classList.add('loaded');
       }, 100);
-
-      // 从 Cookie 加载设置
       const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
       if (languageCookie) {
         document.getElementById('languageSelect').value = languageCookie.split('=')[1];
@@ -1181,16 +1183,18 @@ const mainPage = `
       if (blockExtensionsCookie) {
         document.getElementById('blockExtensionsInput').value = blockExtensionsCookie.split('=')[1];
       }
-
-      // 动态显示/隐藏占位文本
+      const blockElementsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
+      if (blockElementsCookie) {
+        document.getElementById('blockElementsInput').value = blockElementsCookie.split('=')[1];
+      }
+      const injectModeCookie = document.cookie.split('; ').find(row => row.startsWith('${injectModeCookieName}='));
+      if (injectModeCookie) {
+        document.getElementById('injectModeSelect').value = injectModeCookie.split('=')[1];
+      }
       const blockExtensionsInput = document.getElementById('blockExtensionsInput');
-      const blockExtensionsPlaceholder = document.getElementById('blockExtensionsPlaceholder');
-      blockExtensionsInput.addEventListener('input', function() {
-        blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
-      });
-      blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
-
-      // 保存语言和设备设置
+      blockExtensionsInput.placeholder = "请输入要拦截的文件扩展名（如 jpg,gif）";
+      const blockElementsInput = document.getElementById('blockElementsInput');
+      blockElementsInput.placeholder = "请输入要屏蔽的 CSS 选择器（如 .ad-banner, #popup-ad）";
       document.getElementById('languageSelect').addEventListener('change', function() {
         setCookie('${languageCookieName}', this.value);
       });
@@ -1201,29 +1205,31 @@ const mainPage = `
         setCookie('${blockAdsCookieName}', this.checked);
       });
     });
-
-    function redirectToProxy(event) {
-      event.preventDefault();
-      const targetUrl = document.getElementById('targetUrl').value.trim();
-      const language = document.getElementById('languageSelect').value;
-      const currentOrigin = window.location.origin;
-      window.open(currentOrigin + '/' + targetUrl + '?lang=' + language, '_blank');
+    function toggleAdvancedOptions() {
+      const options = document.getElementById('advancedOptions');
+      options.classList.toggle('show');
     }
-
-    function showBlockExtensionsModal() {
-      document.getElementById('blockExtensionsModal').style.display = 'flex';
+    function showBlockConfigModal() {
+      document.getElementById('blockConfigModal').style.display = 'flex';
     }
-
-    function closeModal() {
-      document.getElementById('blockExtensionsModal').style.display = 'none';
+    function showBlockElementsModal() {
+      document.getElementById('blockElementsModal').style.display = 'flex';
     }
-
-    function saveBlockExtensions() {
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    function saveBlockConfig() {
       const extensions = document.getElementById('blockExtensionsInput').value.trim();
       setCookie('${blockExtensionsCookieName}', extensions);
-      closeModal();
+      closeModal('blockConfigModal');
     }
-
+    function saveBlockElements() {
+      const elements = document.getElementById('blockElementsInput').value.trim();
+      const injectMode = document.getElementById('injectModeSelect').value;
+      setCookie('${blockElementsCookieName}', elements);
+      setCookie('${injectModeCookieName}', injectMode);
+      closeModal('blockElementsModal');
+    }
     function setCookie(name, value) {
       const cookieDomain = window.location.hostname;
       const oneWeekLater = new Date();
@@ -1231,12 +1237,19 @@ const mainPage = `
       document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
       document.cookie = name + "=" + value + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
     }
+    function redirectToProxy(event) {
+      event.preventDefault();
+      const targetUrl = document.getElementById('targetUrl').value.trim();
+      const language = document.getElementById('languageSelect').value;
+      const currentOrigin = window.location.origin;
+      window.open(currentOrigin + '/' + targetUrl + '?lang=' + language, '_blank');
+    }
   </script>
 </body>
 </html>
 `;
 
-// 密码页面（保持不变）
+// 密码页面
 const pwdPage = `
 <!DOCTYPE html>
 <html>
@@ -1267,7 +1280,7 @@ const pwdPage = `
 </html>
 `;
 
-// 错误页面（保持不变）
+// 错误页面
 const redirectError = `
 <html><head></head><body><h2>Error while redirecting: the website you want to access to may contain wrong redirect information, and we can not parse the info</h2></body></html>
 `;
@@ -1279,34 +1292,30 @@ async function handleRequest(request) {
   }
 
   var siteCookie = request.headers.get('Cookie');
-
-  // 检查是否已同意代理使用条款
   if (siteCookie != null && siteCookie != "") {
     var agreed = getCook(proxyHintCookieName, siteCookie);
     if (!agreed || agreed !== "agreed") {
       const url = new URL(request.url);
       var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
       if (actualUrlStr == "") {
-        return getHTMLResponse(proxyHintPage); // 首次访问显示协议页面
+        return getHTMLResponse(proxyHintPage);
       } else {
-        return getHTMLResponse(proxyHintPage); // 未同意时，访问目标网站显示协议页面
+        return getHTMLResponse(proxyHintPage);
       }
     }
   } else {
     const url = new URL(request.url);
     var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
     if (actualUrlStr == "") {
-      return getHTMLResponse(proxyHintPage); // 首次访问显示协议页面
+      return getHTMLResponse(proxyHintPage);
     } else {
-      return getHTMLResponse(proxyHintPage); // 未同意时，访问目标网站显示协议页面
+      return getHTMLResponse(proxyHintPage);
     }
   }
 
-  // 密码验证（保持不变）
   if (password != "") {
     if (siteCookie != null && siteCookie != "") {
       var pwd = getCook(passwordCookieName, siteCookie);
-      console.log(pwd);
       if (pwd != null && pwd != "") {
         if (pwd != password) {
           return handleWrongPwd();
@@ -1335,22 +1344,20 @@ Disallow: /`, {
     return getHTMLResponse(mainPage);
   }
 
-  // 检查文件拦截
   const blockExtensions = getCook(blockExtensionsCookieName, siteCookie) || "";
   const blockAds = getCook(blockAdsCookieName, siteCookie) === "true";
   const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase()).filter(ext => ext);
   if (extensions.length > 0) {
     const fileExt = actualUrlStr.split('.').pop().toLowerCase();
     if (extensions.includes(fileExt)) {
-      return new Response(null, { status: 204 }); // 拦截文件，返回空响应
+      return new Response(null, { status: 204 });
     }
   }
 
-  // 广告拦截
   if (blockAds) {
     const urlLower = actualUrlStr.toLowerCase();
     if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) {
-      return new Response(null, { status: 204 }); // 拦截广告，返回空响应
+      return new Response(null, { status: 204 });
     }
   }
 
@@ -1367,7 +1374,6 @@ Disallow: /`, {
     var lastVisit;
     if (siteCookie != null && siteCookie != "") {
       lastVisit = getCook(lastVisitProxyCookie, siteCookie);
-      console.log(lastVisit);
       if (lastVisit != null && lastVisit != "") {
         return getRedirect(thisProxyServerUrlHttps + lastVisit + "/" + actualUrlStr);
       }
@@ -1380,14 +1386,10 @@ Disallow: /`, {
   }
 
   const actualUrl = new URL(actualUrlStr);
-
-  // 获取语言设置
   let selectedLanguage = getCook(languageCookieName, siteCookie) || url.searchParams.get('lang') || 'zh-CN';
   if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) {
-    selectedLanguage = 'zh-CN'; // 默认中文
+    selectedLanguage = 'zh-CN';
   }
-
-  // 获取设备模拟设置
   const deviceType = getCook(deviceCookieName, siteCookie) || 'none';
 
   var checkHostCase = actualUrlStr.substring(actualUrlStr.indexOf("://") + 3);
@@ -1403,14 +1405,11 @@ Disallow: /`, {
   } else {
     finalPos = Math.min(pos1, pos2);
   }
-
   checkHostCase = checkHostCase.substring(0, (finalPos != -1) ? finalPos : checkHostCase.length);
-
   if (checkHostCase.toLowerCase() != checkHostCase) {
     return getRedirect(thisProxyServerUrlHttps + actualUrl.href);
   }
 
-  // 修改请求头以伪装原始域名、语言和设备
   let clientHeaderWithChange = new Headers();
   for (var pair of request.headers.entries()) {
     let value = pair[1].replaceAll(thisProxyServerUrlHttps, actualUrlStr).replaceAll(thisProxyServerUrl_hostOnly, actualUrl.host);
@@ -1419,9 +1418,9 @@ Disallow: /`, {
     } else if (pair[0].toLowerCase() === 'referer') {
       value = value.replace(thisProxyServerUrlHttps, actualUrl.origin + '/');
     } else if (pair[0].toLowerCase() === 'accept-language') {
-      value = selectedLanguage; // 设置用户选择的语言
+      value = selectedLanguage;
     } else if (pair[0].toLowerCase() === 'user-agent' && deviceType !== 'none') {
-      value = deviceUserAgents[deviceType]; // 设置模拟设备的 User-Agent
+      value = deviceSettings[deviceType].userAgent;
     }
     clientHeaderWithChange.set(pair[0], value);
   }
@@ -1459,11 +1458,9 @@ Disallow: /`, {
   var modifiedResponse;
   var bd;
   const contentType = response.headers.get("Content-Type");
-
   if (response.body) {
     if (contentType && contentType.startsWith("text/")) {
       bd = await response.text();
-
       let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\s'"]+)`, 'g');
       bd = bd.replace(regex, (match) => {
         if (match.includes("http")) {
@@ -1472,26 +1469,21 @@ Disallow: /`, {
           return thisProxyServerUrl_hostOnly + "/" + match;
         }
       });
-
       if (contentType && (contentType.includes("html") || contentType.includes("javascript"))) {
         bd = bd.replaceAll("window.location", "window." + replaceUrlObj);
         bd = bd.replaceAll("document.location", "document." + replaceUrlObj);
       }
-
       if (contentType && contentType.includes("text/html") && bd.includes("<html")) {
         bd = covToAbs(bd, actualUrlStr);
         bd = removeIntegrityAttributes(bd);
-
         var hasBom = false;
         if (bd.charCodeAt(0) === 0xFEFF) {
           bd = bd.substring(1);
           hasBom = true;
         }
-
         var inject = "<script>" + proxyHintInjection + httpRequestInjection + "</script>";
         bd = (hasBom ? "\uFEFF" : "") + inject + bd;
       }
-
       modifiedResponse = new Response(bd, response);
     } else {
       modifiedResponse = new Response(response.body, response);
@@ -1502,55 +1494,44 @@ Disallow: /`, {
 
   let headers = modifiedResponse.headers;
   let cookieHeaders = [];
-
   for (let [key, value] of headers.entries()) {
     if (key.toLowerCase() == 'set-cookie') {
       cookieHeaders.push({ headerName: key, headerValue: value });
     }
   }
-
   if (cookieHeaders.length > 0) {
     cookieHeaders.forEach(cookieHeader => {
       let cookies = cookieHeader.headerValue.split(',').map(cookie => cookie.trim());
-
       for (let i = 0; i < cookies.length; i++) {
         let parts = cookies[i].split(';').map(part => part.trim());
-
         let pathIndex = parts.findIndex(part => part.toLowerCase().startsWith('path='));
         let originalPath;
         if (pathIndex !== -1) {
           originalPath = parts[pathIndex].substring("path=".length);
         }
         let absolutePath = "/" + new URL(originalPath, actualUrlStr).href;
-
         if (pathIndex !== -1) {
           parts[pathIndex] = `Path=${absolutePath}`;
         } else {
           parts.push(`Path=${absolutePath}`);
         }
-
         let domainIndex = parts.findIndex(part => part.toLowerCase().startsWith('domain='));
         if (domainIndex !== -1) {
           parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
         } else {
           parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
         }
-
         cookies[i] = parts.join('; ');
       }
-
       headers.set(cookieHeader.headerName, cookies.join(', '));
     });
   }
-
   if (contentType && contentType.includes("text/html") && response.status == 200 && bd.includes("<html")) {
     let cookieValue = lastVisitProxyCookie + "=" + actualUrl.origin + "; Path=/; Domain=" + thisProxyServerUrl_hostOnly;
     headers.append("Set-Cookie", cookieValue);
-    // 设置语言 Cookie
     headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
   }
 
-  // 修改响应头以伪装原始域名
   for (let [key, value] of headers.entries()) {
     if (key.toLowerCase() === 'access-control-allow-origin') {
       headers.set(key, actualUrl.origin);
@@ -1558,16 +1539,13 @@ Disallow: /`, {
       headers.set(key, value.replace(thisProxyServerUrl_hostOnly, actualUrl.host));
     }
   }
-
   modifiedResponse.headers.set('Access-Control-Allow-Origin', actualUrl.origin);
   modifiedResponse.headers.set("X-Frame-Options", "ALLOWALL");
-
   var listHeaderDel = ["Content-Security-Policy", "Permissions-Policy", "Cross-Origin-Embedder-Policy", "Cross-Origin-Resource-Policy"];
   listHeaderDel.forEach(element => {
     modifiedResponse.headers.delete(element);
     modifiedResponse.headers.delete(element + "-Report-Only");
   });
-
   return modifiedResponse;
 }
 
@@ -1584,7 +1562,6 @@ const matchList = [[/href=("|')([^"']*)("|')/g, `href="`], [/src=("|')([^"']*)("
 function covToAbs(body, requestPathNow) {
   var original = [];
   var target = [];
-
   for (var match of matchList) {
     var setAttr = body.matchAll(match[0]);
     if (setAttr != null) {
@@ -1600,7 +1577,7 @@ function covToAbs(body, requestPathNow) {
                 original.push(strReplace);
                 target.push(match[1].toString() + absolutePath + `"`);
               } catch {
-                // 无视
+                // ignore
               }
             }
           }
