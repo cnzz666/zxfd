@@ -1117,119 +1117,93 @@ const mainPage = `
     </div>
   </div>
   <script>
-document.addEventListener('DOMContentLoaded', function() {
-  var content = document.querySelector('.content');
-  setTimeout(function() { content.classList.add('loaded'); }, 100);
-  const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
-  if (languageCookie) document.getElementById('languageSelect').value = languageCookie.split('=')[1];
-  const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
-  if (deviceCookie) document.getElementById('deviceSelect').value = deviceCookie.split('=')[1];
-  const blockAdsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockAdsCookieName}='));
-  document.getElementById('blockAds').checked = blockAdsCookie && blockAdsCookie.split('=')[1] === 'true';
-  const blockExtensionsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockExtensionsCookieName}='));
-  if (blockExtensionsCookie) document.getElementById('blockExtensionsInput').value = blockExtensionsCookie.split('=')[1];
-  const blockElementsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
-  if (blockElementsCookie) document.getElementById('blockElementsInput').value = blockElementsCookie.split('=')[1];
-  const blockElementsScopeCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}='));
-  if (blockElementsScopeCookie) {
-    document.getElementById('blockElementsScope').value = blockElementsScopeCookie.split('=')[1];
-    document.getElementById('blockElementsScopeUrl').style.display = blockElementsScopeCookie.split('=')[1] === 'specific' ? 'block' : 'none';
-    if (blockElementsScopeCookie.split('=')[1] === 'specific') {
-      const scopeUrlCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}_URL='));
-      if (scopeUrlCookie) document.getElementById('blockElementsScopeUrl').value = scopeUrlCookie.split('=')[1];
+    document.addEventListener('DOMContentLoaded', function() {
+      var content = document.querySelector('.content');
+      setTimeout(function() { content.classList.add('loaded'); }, 100);
+      const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
+      if (languageCookie) document.getElementById('languageSelect').value = languageCookie.split('=')[1];
+      const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
+      if (deviceCookie) document.getElementById('deviceSelect').value = deviceCookie.split('=')[1];
+      const blockAdsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockAdsCookieName}='));
+      document.getElementById('blockAds').checked = blockAdsCookie && blockAdsCookie.split('=')[1] === 'true';
+      const blockExtensionsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockExtensionsCookieName}='));
+      if (blockExtensionsCookie) document.getElementById('blockExtensionsInput').value = blockExtensionsCookie.split('=')[1];
+      const blockElementsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
+      if (blockElementsCookie) document.getElementById('blockElementsInput').value = blockElementsCookie.split('=')[1];
+      const blockElementsScopeCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}='));
+      if (blockElementsScopeCookie) {
+        document.getElementById('blockElementsScope').value = blockElementsScopeCookie.split('=')[1];
+        document.getElementById('blockElementsScopeUrl').style.display = blockElementsScopeCookie.split('=')[1] === 'specific' ? 'block' : 'none';
+        if (blockElementsScopeCookie.split('=')[1] === 'specific') {
+          const scopeUrlCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}_URL='));
+          if (scopeUrlCookie) document.getElementById('blockElementsScopeUrl').value = scopeUrlCookie.split('=')[1];
+        }
+      }
+      const blockExtensionsInput = document.getElementById('blockExtensionsInput');
+      const blockExtensionsPlaceholder = document.getElementById('blockExtensionsPlaceholder');
+      blockExtensionsInput.addEventListener('input', function() {
+        blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
+      });
+      blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
+      const blockElementsInput = document.getElementById('blockElementsInput');
+      const blockElementsPlaceholder = document.getElementById('blockElementsPlaceholder');
+      blockElementsInput.addEventListener('input', function() {
+        blockElementsPlaceholder.style.display = blockElementsInput.value ? 'none' : 'block';
+      });
+      blockElementsPlaceholder.style.display = blockElementsInput.value ? 'none' : 'block';
+      const blockElementsScope = document.getElementById('blockElementsScope');
+      const blockElementsScopeUrl = document.getElementById('blockElementsScopeUrl');
+      blockElementsScope.addEventListener('change', function() {
+        blockElementsScopeUrl.style.display = this.value === 'specific' ? 'block' : 'none';
+      });
+      document.getElementById('languageSelect').addEventListener('change', function() {
+        setCookie('${languageCookieName}', this.value);
+      });
+      document.getElementById('deviceSelect').addEventListener('change', function() {
+        setCookie('${deviceCookieName}', this.value);
+      });
+      document.getElementById('blockAds').addEventListener('change', function() {
+        setCookie('${blockAdsCookieName}', this.checked);
+      });
+    });
+    function toggleAdvancedOptions() { document.getElementById('advancedOptions').classList.toggle('active'); }
+    function showUrlModal() { document.getElementById('urlModal').style.display = 'flex'; }
+    function closeUrlModal() { document.getElementById('urlModal').style.display = 'none'; }
+    function showBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'flex'; }
+    function closeBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'none'; }
+    function showBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'flex'; }
+    function closeBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'none'; }
+    function redirectToProxy() {
+      const targetUrl = document.getElementById('targetUrl').value.trim();
+      const language = document.getElementById('languageSelect').value;
+      const currentOrigin = window.location.origin;
+      if (targetUrl) {
+        window.open(currentOrigin + '/' + targetUrl + '?lang=' + language, '_blank');
+      }
+      closeUrlModal();
     }
-  }
-  const blockExtensionsInput = document.getElementById('blockExtensionsInput');
-  const blockExtensionsPlaceholder = document.getElementById('blockExtensionsPlaceholder');
-  blockExtensionsInput.addEventListener('input', function() {
-    blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
-  });
-  blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
-  const blockElementsInput = document.getElementById('blockElementsInput');
-  const blockElementsPlaceholder = document.getElementById('blockElementsPlaceholder');
-  blockElementsInput.addEventListener('input', function() {
-    blockElementsPlaceholder.style.display = blockElementsInput.value ? 'none' : 'block';
-  });
-  blockElementsPlaceholder.style.display = blockElementsInput.value ? 'none' : 'block';
-  const blockElementsScope = document.getElementById('blockElementsScope');
-  const blockElementsScopeUrl = document.getElementById('blockElementsScopeUrl');
-  blockElementsScope.addEventListener('change', function() {
-    blockElementsScopeUrl.style.display = this.value === 'specific' ? 'block' : 'none';
-  });
-  document.getElementById('languageSelect').addEventListener('change', function() {
-    setCookie('${languageCookieName}', this.value);
-  });
-  document.getElementById('deviceSelect').addEventListener('change', function() {
-    setCookie('${deviceCookieName}', this.value);
-  });
-  document.getElementById('blockAds').addEventListener('change', function() {
-    setCookie('${blockAdsCookieName}', this.checked);
-  });
-});
-function toggleAdvancedOptions() {
-  document.getElementById('advancedOptions').classList.toggle('active');
-}
-function showUrlModal() {
-  document.getElementById('urlModal').style.display = 'flex';
-}
-function closeUrlModal() {
-  document.getElementById('urlModal').style.display = 'none';
-}
-function showBlockExtensionsModal() {
-  document.getElementById('blockExtensionsModal').style.display = 'flex';
-}
-function closeBlockExtensionsModal() {
-  document.getElementById('blockExtensionsModal').style.display = 'none';
-}
-function showBlockElementsModal() {
-  document.getElementById('blockElementsModal').style.display = 'flex';
-}
-function closeBlockElementsModal() {
-  document.getElementById('blockElementsModal').style.display = 'none';
-}
-function redirectToProxy() {
-  const targetUrl = document.getElementById('targetUrl').value.trim();
-  const language = document.getElementById('languageSelect').value;
-  const currentOrigin = window.location.origin;
-  if (!targetUrl) {
-    alert('请输入有效的目标网址！');
-    return;
-  }
-  let formattedUrl = targetUrl;
-  if (!formattedUrl.match(/^https?:\/\//)) {
-    formattedUrl = 'https://' + formattedUrl;
-  }
-  try {
-    new URL(formattedUrl); // 验证 URL 格式
-    window.location.href = currentOrigin + '/' + formattedUrl + '?lang=' + language;
-  } catch {
-    alert('请输入有效的 URL 格式（如：https://example.com 或 example.com）！');
-  }
-  closeUrlModal();
-}
-function saveBlockExtensions() {
-  const extensions = document.getElementById('blockExtensionsInput').value.trim();
-  setCookie('${blockExtensionsCookieName}', extensions);
-  closeBlockExtensionsModal();
-}
-function saveBlockElements() {
-  const elements = document.getElementById('blockElementsInput').value.trim();
-  const scope = document.getElementById('blockElementsScope').value;
-  const scopeUrl = document.getElementById('blockElementsScopeUrl').value.trim();
-  setCookie('${blockElementsCookieName}', elements);
-  setCookie('${blockElementsScopeCookieName}', scope);
-  if (scope === 'specific' && scopeUrl) setCookie('${blockElementsScopeCookieName}_URL', scopeUrl);
-  else setCookie('${blockElementsScopeCookieName}_URL', '');
-  closeBlockElementsModal();
-}
-function setCookie(name, value) {
-  const cookieDomain = window.location.hostname;
-  const oneWeekLater = new Date();
-  oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-  document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-  document.cookie = name + "=" + value + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
-}
-
+    function saveBlockExtensions() {
+      const extensions = document.getElementById('blockExtensionsInput').value.trim();
+      setCookie('${blockExtensionsCookieName}', extensions);
+      closeBlockExtensionsModal();
+    }
+    function saveBlockElements() {
+      const elements = document.getElementById('blockElementsInput').value.trim();
+      const scope = document.getElementById('blockElementsScope').value;
+      const scopeUrl = document.getElementById('blockElementsScopeUrl').value.trim();
+      setCookie('${blockElementsCookieName}', elements);
+      setCookie('${blockElementsScopeCookieName}', scope);
+      if (scope === 'specific' && scopeUrl) setCookie('${blockElementsScopeCookieName}_URL', scopeUrl);
+      else setCookie('${blockElementsScopeCookieName}_URL', '');
+      closeBlockElementsModal();
+    }
+    function setCookie(name, value) {
+      const cookieDomain = window.location.hostname;
+      const oneWeekLater = new Date();
+      oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+      document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = name + "=" + value + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+    }
   </script>
 </body>
 </html>
