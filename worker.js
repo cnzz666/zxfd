@@ -13,8 +13,8 @@ const languageCookieName = "__PROXY_LANGUAGE__";
 const deviceCookieName = "__PROXY_DEVICE__";
 const blockExtensionsCookieName = "__PROXY_BLOCK_EXTENSIONS__";
 const blockAdsCookieName = "__PROXY_BLOCK_ADS__";
-const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__"; // 新增：保存屏蔽元素
-const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__"; // 新增：保存屏蔽元素作用域
+const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__";
+const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__";
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location____";
@@ -46,13 +46,13 @@ const deviceLayouts = {
   mobile: { width: 375, height: 667 }
 };
 
-// 广告拦截的关键词（扩展 Google 广告相关域名）
+// 广告拦截关键词
 const adBlockKeywords = [
   "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", "adserver", "popunder", "interstitial",
   "googlesyndication.com", "adsense.google.com", "admob.com", "adclick.g.doubleclick.net"
 ];
 
-// 首次访问时的协议页面
+// 代理提示页面
 const proxyHintPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -61,219 +61,29 @@ const proxyHintPage = `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Proxy Usage Agreement</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      overflow: auto;
-      background-color: #e0f7fa;
-      font-family: 'Roboto', Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-      background-image: url('https://www.loliapi.com/acg/');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-    body::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: inherit;
-      background-size: cover;
-      background-position: center;
-      filter: blur(8px);
-      z-index: -2;
-    }
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2));
-      z-index: -1;
-    }
-    .hint-container {
-      text-align: center;
-      max-width: 80%;
-      padding: 30px;
-      background-color: rgba(255, 255, 255, 0.3);
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 0 0 10px rgba(176, 196, 222, 0.2);
-      backdrop-filter: blur(5px);
-      border: 1px solid rgba(79, 195, 247, 0.3);
-      transform: scale(0.5);
-      opacity: 0.5;
-      filter: blur(10px);
-      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
-      position: relative;
-      z-index: 1;
-      pointer-events: auto;
-    }
-    .hint-container.loaded {
-      transform: scale(1);
-      opacity: 1;
-      filter: blur(0);
-    }
-    .hint-container:hover {
-      transform: scale(1.03);
-      box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 0 0 20px rgba(176, 196, 222, 0.3);
-    }
-    h3 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-      color: #0277bd;
-      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
-    }
-    p {
-      font-size: 16px;
-      line-height: 1.6;
-      margin: 20px 0;
-      color: #333333;
-      opacity: 0.9;
-    }
-    a {
-      color: #0277bd;
-      text-decoration: none;
-      font-weight: bold;
-      transition: color 0.3s ease, transform 0.3s ease;
-    }
-    a:hover {
-      color: #01579b;
-      transform: scale(1.05);
-      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
-    }
-    .checkbox-container {
-      margin: 20px 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      color: #333333;
-    }
-    .checkbox-wrapper {
-      position: relative;
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      margin-right: 10px;
-    }
-    .checkbox-wrapper input {
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      cursor: pointer;
-      z-index: 2;
-    }
-    .checkbox-custom {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 20px;
-      height: 20px;
-      background-color: rgba(255, 255, 255, 0.5);
-      border: 2px solid #0277bd;
-      border-radius: 4px;
-      transition: all 0.3s ease;
-    }
-    .checkbox-wrapper input:checked + .checkbox-custom {
-      background-color: #0277bd;
-      border-color: #0277bd;
-    }
-    .checkbox-custom::after {
-      content: '';
-      position: absolute;
-      display: none;
-      left: 5px;
-      top: 3px;
-      width: 5px;
-      height: 10px;
-      border: solid white;
-      border-width: 0 2px 2px 0;
-      transform: rotate(45deg);
-    }
-    .checkbox-wrapper input:checked + .checkbox-custom::after {
-      display: block;
-    }
-    label {
-      cursor: pointer;
-      user-select: none;
-    }
-    button {
-      background: linear-gradient(45deg, #4fc3f7, #81d4fa);
-      color: #333333;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 25px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin: 15px auto;
-      display: block;
-      width: 80%;
-      max-width: 300px;
-      transition: all 0.3s ease;
-      pointer-events: auto;
-      z-index: 3;
-    }
-    button:disabled {
-      background: #cccccc;
-      cursor: not-allowed;
-      pointer-events: auto;
-    }
-    button:hover:not(:disabled) {
-      background: linear-gradient(45deg, #29b6f6, #4fc3f7);
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
-    }
-    @media (max-width: 768px) {
-      .hint-container {
-        max-width: 90%;
-        padding: 20px;
-      }
-      h3 {
-        font-size: 1.8rem;
-      }
-      p {
-        font-size: 14px;
-      }
-      button {
-        width: 90%;
-        font-size: 14px;
-        padding: 10px;
-      }
-      .checkbox-container {
-        font-size: 12px;
-      }
-      .checkbox-wrapper {
-        width: 18px;
-        height: 18px;
-      }
-      .checkbox-custom {
-        width: 18px;
-        height: 18px;
-      }
-      .checkbox-custom::after {
-        left: 4px;
-        top: 2px;
-        width: 4px;
-        height: 9px;
-      }
-    }
-    @media (min-resolution: 2dppx) {
-      body {
-        background-size: cover;
-      }
-    }
+    html, body { height: 100%; margin: 0; overflow: auto; background-color: #e0f7fa; font-family: 'Roboto', Arial, sans-serif; display: flex; justify-content: center; align-items: center; position: relative; background-image: url('https://www.loliapi.com/acg/'); background-size: cover; background-position: center; background-repeat: no-repeat; }
+    body::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: inherit; background-size: cover; background-position: center; filter: blur(8px); z-index: -2; }
+    body::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2)); z-index: -1; }
+    .hint-container { text-align: center; max-width: 80%; padding: 30px; background-color: rgba(255, 255, 255, 0.3); border-radius: 15px; box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 0 0 10px rgba(176, 196, 222, 0.2); backdrop-filter: blur(5px); border: 1px solid rgba(79, 195, 247, 0.3); transform: scale(0.5); opacity: 0.5; filter: blur(10px); transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out; position: relative; z-index: 1; pointer-events: auto; }
+    .hint-container.loaded { transform: scale(1); opacity: 1; filter: blur(0); }
+    .hint-container:hover { transform: scale(1.03); box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 0 0 20px rgba(176, 196, 222, 0.3); }
+    h3 { font-size: 2.5rem; margin-bottom: 20px; color: #0277bd; text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
+    p { font-size: 16px; line-height: 1.6; margin: 20px 0; color: #333333; opacity: 0.9; }
+    a { color: #0277bd; text-decoration: none; font-weight: bold; transition: color 0.3s ease, transform 0.3s ease; }
+    a:hover { color: #01579b; transform: scale(1.05); text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
+    .checkbox-container { margin: 20px 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #333333; }
+    .checkbox-wrapper { position: relative; display: inline-block; width: 20px; height: 20px; margin-right: 10px; }
+    .checkbox-wrapper input { opacity: 0; width: 100%; height: 100%; position: absolute; cursor: pointer; z-index: 2; }
+    .checkbox-custom { position: absolute; top: 0; left: 0; width: 20px; height: 20px; background-color: rgba(255, 255, 255, 0.5); border: 2px solid #0277bd; border-radius: 4px; transition: all 0.3s ease; }
+    .checkbox-wrapper input:checked + .checkbox-custom { background-color: #0277bd; border-color: #0277bd; }
+    .checkbox-custom::after { content: ''; position: absolute; display: none; left: 5px; top: 3px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .checkbox-wrapper input:checked + .checkbox-custom::after { display: block; }
+    label { cursor: pointer; user-select: none; }
+    button { background: linear-gradient(45deg, #4fc3f7, #81d4fa); color: #333333; padding: 12px 20px; border: none; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin: 15px auto; display: block; width: 80%; max-width: 300px; transition: all 0.3s ease; pointer-events: auto; z-index: 3; }
+    button:disabled { background: #cccccc; cursor: not-allowed; pointer-events: auto; }
+    button:hover:not(:disabled) { background: linear-gradient(45deg, #29b6f6, #4fc3f7); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4); }
+    @media (max-width: 768px) { .hint-container { max-width: 90%; padding: 20px; } h3 { font-size: 1.8rem; } p { font-size: 14px; } button { width: 90%; font-size: 14px; padding: 10px; } .checkbox-container { font-size: 12px; } .checkbox-wrapper { width: 18px; height: 18px; } .checkbox-custom { width: 18px; height: 18px; } .checkbox-custom::after { left: 4px; top: 2px; width: 4px; height: 9px; } }
+    @media (min-resolution: 2dppx) { body { background-size: cover; } }
   </style>
 </head>
 <body>
@@ -294,19 +104,12 @@ const proxyHintPage = `
       var container = document.querySelector('.hint-container');
       var checkbox = document.getElementById('agreeCheckbox');
       var button = document.getElementById('confirmButton');
-
-      setTimeout(function() {
-        container.classList.add('loaded');
-      }, 100);
-
-      checkbox.addEventListener('change', function() {
-        button.disabled = !checkbox.checked;
-      });
-
+      setTimeout(function() { container.classList.add('loaded'); }, 100);
+      checkbox.addEventListener('change', function() { button.disabled = !checkbox.checked; });
       button.addEventListener('click', function() {
         if (!button.disabled) {
           var cookieDomain = window.location.hostname;
-          document.cookie = "__PROXY_HINT_ACK__=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+          document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
           window.location.reload();
         }
       });
@@ -316,60 +119,37 @@ const proxyHintPage = `
 </html>
 `;
 
-// 代理提示注入代码
+// 代理提示注入代码（修复转义问题）
 const proxyHintInjection = `
   document.addEventListener('DOMContentLoaded', () => {
     if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
-
     const existingHint = document.getElementById('__PROXY_HINT_DIV__');
     if (existingHint) existingHint.remove();
-
     var hint = "错误：您必须同意代理使用条款才能访问此网站。请返回代理主页接受条款。";
-
     document.body.insertAdjacentHTML(
       'afterbegin',
       "<div style='position:fixed;left:0;top:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;pointer-events:auto;' id='__PROXY_HINT_DIV__'>" +
-      "<div class='proxy-hint-content' style='position:relative;width:80%;max-width:600px;background-color:rgba(255,255,255,0.3);border-radius:15px;padding:25px;box-shadow:0 8px 32px rgba(79,195,247,0.3);backdrop-filter:blur(5px);border:1px solid rgba(79,195,247,0.3);text-align:center;transform:scale(0.9);opacity:0;transition:transform 0.5s ease-out, opacity 0.5s ease-out;animation:fadeIn 0.5s ease-out forwards;pointer-events:auto;' onclick='event.stopPropagation();'>" +
+      "<div class='proxy-hint-content' style='position:relative;width:80%;max-width:600px;background-color:rgba(255,255,255,0.3);border-radius:15px;padding:25px;box-shadow:0 8px 32px rgba(79,195,247,0.3);backdrop-filter:blur(5px);border:1px solid rgba(79,195,247,0.3);text-align:center;transform:scale(0.9);opacity:0;animation:fadeIn 0.5s ease-out forwards;pointer-events:auto;'>" +
       "<h3 style='margin-top:0;color:#0277bd;font-size:22px;text-shadow:0 0 5px rgba(79,195,247,0.3);'>⚠️ 访问被拒绝</h3>" +
       "<p style='font-size:16px;line-height:1.6;margin:20px 0;color:#333333;'>" + hint + "</p>" +
-      "<button style='background:linear-gradient(45deg,#4fc3f7,#81d4fa);color:#333333;padding:10px 20px;border:none;border-radius:25px;cursor:pointer;font-size:16px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;transition:all 0.3s ease;' onclick='window.location.href=\"/\"'>返回主页</button>" +
-      "</div>" +
-      "</div>"
+      "<button style='background:linear-gradient(45deg,#4fc3f7,#81d4fa);color:#333333;padding:10px 20px;border:none;border-radius:25px;cursor:pointer;font-size:16px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;transition:all 0.3s ease;' onclick='window.location.href=\\"/\\"'>返回主页</button>" +
+      "</div></div>"
     );
-
     const style = document.createElement('style');
-    style.textContent = `
-      @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.9); }
-        to { opacity: 1; transform: scale(1); }
-      }
-      .proxy-hint-content:hover {
-        transform: scale(1.02);
-        box-shadow: 0 12px 40px rgba(79,195,247,0.5);
-      }
-      .proxy-hint-content button:hover {
-        background: linear-gradient(45deg, #29b6f6, #4fc3f7);
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(79,195,247,0.4);
-      }
-      @media (max-width: 768px) {
-        .proxy-hint-content {
-          width: 90%;
-          padding: 20px;
-        }
-        .proxy-hint-content h3 {
-          font-size: 18px;
-        }
-        .proxy-hint-content p {
-          font-size: 14px;
-        }
-      }
-    `;
+    style.textContent = '\
+      @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }\
+      .proxy-hint-content:hover { transform: scale(1.02); box-shadow: 0 12px 40px rgba(79,195,247,0.5); }\
+      .proxy-hint-content button:hover { background: linear-gradient(45deg, #29b6f6, #4fc3f7); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79,195,247,0.4); }\
+      @media (max-width: 768px) {\
+        .proxy-hint-content { width: 90%; padding: 20px; }\
+        .proxy-hint-content h3 { font-size: 18px; }\
+        .proxy-hint-content p { font-size: 14px; }\
+      }';
     document.head.appendChild(style);
   });
 `;
 
-// 伪装注入代码（添加布局伪装）
+// 伪装注入代码
 const disguiseInjection = `
   (function() {
     var now = new URL(window.location.href);
@@ -382,18 +162,12 @@ const disguiseInjection = `
     var originalOrigin = oriUrl.origin;
 
     Object.defineProperty(document, 'domain', {
-      get: function() {
-        return originalHost;
-      },
-      set: function(value) {
-        return value;
-      }
+      get: function() { return originalHost; },
+      set: function(value) { return value; }
     });
 
     Object.defineProperty(window, 'origin', {
-      get: function() {
-        return originalOrigin;
-      }
+      get: function() { return originalOrigin; }
     });
 
     Object.defineProperty(document, 'referrer', {
@@ -409,45 +183,23 @@ const disguiseInjection = `
     if (navigator.userAgentData) {
       Object.defineProperty(navigator, 'userAgentData', {
         get: function() {
-          return {
-            brands: [{ brand: "Chromium", version: "90" }],
-            mobile: false,
-            platform: "Windows"
-          };
+          return { brands: [{ brand: "Chromium", version: "90" }], mobile: false, platform: "Windows" };
         }
       });
     }
 
     var languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
     var selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
-    Object.defineProperty(navigator, 'language', {
-      get: function() {
-        return selectedLanguage;
-      }
-    });
-    Object.defineProperty(navigator, 'languages', {
-      get: function() {
-        return [selectedLanguage];
-      }
-    });
+    Object.defineProperty(navigator, 'language', { get: function() { return selectedLanguage; } });
+    Object.defineProperty(navigator, 'languages', { get: function() { return [selectedLanguage]; } });
 
-    // 伪装页面布局
     var deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
     var deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
     if (deviceType !== 'none') {
       var layouts = ${JSON.stringify(deviceLayouts)};
       var layout = layouts[deviceType] || layouts.desktop;
-      Object.defineProperty(window, 'innerWidth', {
-        get: function() {
-          return layout.width;
-        }
-      });
-      Object.defineProperty(window, 'innerHeight', {
-        get: function() {
-          return layout.height;
-        }
-      });
-      // 注入 viewport meta 标签
+      Object.defineProperty(window, 'innerWidth', { get: function() { return layout.width; } });
+      Object.defineProperty(window, 'innerHeight', { get: function() { return layout.height; } });
       var meta = document.createElement('meta');
       meta.name = 'viewport';
       meta.content = 'width=' + layout.width + ', initial-scale=1.0';
@@ -472,9 +224,7 @@ const blockElementsInjection = `
         mutations.forEach(function(mutation) {
           selectors.forEach(function(selector) {
             try {
-              document.querySelectorAll(selector).forEach(function(el) {
-                el.remove();
-              });
+              document.querySelectorAll(selector).forEach(function(el) { el.remove(); });
             } catch (e) {
               console.log("Error removing element with selector " + selector + ": " + e.message);
             }
@@ -483,24 +233,18 @@ const blockElementsInjection = `
       });
       observer.observe(document.body, { childList: true, subtree: true });
 
-      // 初始移除
       selectors.forEach(function(selector) {
         try {
-          document.querySelectorAll(selector).forEach(function(el) {
-            el.remove();
-          });
+          document.querySelectorAll(selector).forEach(function(el) { el.remove(); });
         } catch (e) {
           console.log("Error removing element with selector " + selector + ": " + e.message);
         }
       });
 
-      // 广告元素移除
       var adSelectors = ${JSON.stringify(adBlockKeywords.map(keyword => `[class*="${keyword}"], [id*="${keyword}"]`))};
       adSelectors.forEach(function(selector) {
         try {
-          document.querySelectorAll(selector).forEach(function(el) {
-            el.remove();
-          });
+          document.querySelectorAll(selector).forEach(function(el) { el.remove(); });
         } catch (e) {
           console.log("Error removing ad element with selector " + selector + ": " + e.message);
         }
@@ -531,32 +275,24 @@ var httpRequestInjection = `
     if (relativePath == null) return null;
     try {
       if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
-    } catch {
-      // ignore
-    }
+    } catch { }
     try {
       if (relativePath && relativePath.startsWith(nowlink)) relativePath = relativePath.substring(nowlink.length);
       if (relativePath && relativePath.startsWith(base + "/")) relativePath = relativePath.substring(base.length + 1);
       if (relativePath && relativePath.startsWith(base)) relativePath = relativePath.substring(base.length);
-    } catch {
-      // ignore
-    }
+    } catch { }
     try {
       var absolutePath = new URL(relativePath, oriUrlStr).href;
       absolutePath = absolutePath.replace(window.location.href, path);
       absolutePath = absolutePath.replace(encodeURI(window.location.href), path);
       absolutePath = absolutePath.replace(encodeURIComponent(window.location.href), path);
-
       absolutePath = absolutePath.replace(nowlink, mainOnly);
       absolutePath = absolutePath.replace(nowlink, encodeURI(mainOnly));
       absolutePath = absolutePath.replace(nowlink, encodeURIComponent(mainOnly));
-
       absolutePath = absolutePath.replace(nowlink, mainOnly.substring(0, mainOnly.length - 1));
       absolutePath = absolutePath.replace(nowlink, encodeURI(mainOnly.substring(0, mainOnly.length - 1)));
       absolutePath = absolutePath.replace(nowlink, encodeURIComponent(mainOnly.substring(0, mainOnly.length - 1)));
-
       absolutePath = absolutePath.replace(base, original_host);
-
       absolutePath = nowlink + absolutePath;
       return absolutePath;
     } catch (e) {
@@ -573,7 +309,6 @@ var httpRequestInjection = `
       console.log("R:" + url);
       return originalOpen.apply(this, arguments);
     };
-
     window.fetch = function(input, init) {
       var url;
       if (typeof input === 'string') {
@@ -583,9 +318,7 @@ var httpRequestInjection = `
       } else {
         url = input;
       }
-
       url = changeURL(url);
-
       console.log("R:" + url);
       if (typeof input === 'string') {
         return originalFetch(url, init);
@@ -594,18 +327,15 @@ var httpRequestInjection = `
         return originalFetch(newRequest, init);
       }
     };
-    
     console.log("NETWORK REQUEST METHOD INJECTED");
   }
 
   function windowOpenInject() {
     const originalOpen = window.open;
-
     window.open = function(url, name, specs) {
       let modifiedUrl = changeURL(url);
       return originalOpen.call(window, modifiedUrl, name, specs);
     };
-
     console.log("WINDOW OPEN INJECTED");
   }
 
@@ -613,15 +343,9 @@ var httpRequestInjection = `
     const originalAppendChild = Node.prototype.appendChild;
     Node.prototype.appendChild = function(child) {
       try {
-        if (child.src) {
-          child.src = changeURL(child.src);
-        }
-        if (child.href) {
-          child.href = changeURL(child.href);
-        }
-      } catch {
-        // ignore
-      }
+        if (child.src) child.src = changeURL(child.src);
+        if (child.href) child.href = changeURL(child.href);
+      } catch { }
       return originalAppendChild.call(this, child);
     };
     console.log("APPEND CHILD INJECTED");
@@ -630,188 +354,90 @@ var httpRequestInjection = `
   function elementPropertyInject() {
     const originalSetAttribute = HTMLElement.prototype.setAttribute;
     HTMLElement.prototype.setAttribute = function(name, value) {
-      if (name == "src" || name == "href") {
-        value = changeURL(value);
-      }
+      if (name == "src" || name == "href") value = changeURL(value);
       originalSetAttribute.call(this, name, value);
     };
     console.log("ELEMENT PROPERTY (new Proxy) INJECTED");
   }
 
   class ProxyLocation {
-    constructor(originalLocation) {
-      this.originalLocation = originalLocation;
-    }
-
+    constructor(originalLocation) { this.originalLocation = originalLocation; }
     getStrNPosition(string, subString, index) {
       return string.split(subString, index).join(subString).length;
     }
-
     getOriginalHref() {
       return window.location.href.substring(this.getStrNPosition(window.location.href, "/", 3) + 1);
     }
-
-    reload(forcedReload) {
-      this.originalLocation.reload(forcedReload);
-    }
-
-    replace(url) {
-      this.originalLocation.replace(changeURL(url));
-    }
-
-    assign(url) {
-      this.originalLocation.assign(changeURL(url));
-    }
-
-    get href() {
-      return this.getOriginalHref();
-    }
-
-    set href(url) {
-      this.originalLocation.href = changeURL(url);
-    }
-
-    get protocol() {
-      return oriUrl.protocol;
-    }
-
-    set protocol(value) {
-      oriUrl.protocol = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get host() {
-      return oriUrl.host;
-    }
-
-    set host(value) {
-      oriUrl.host = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get hostname() {
-      return oriUrl.hostname;
-    }
-
-    set hostname(value) {
-      oriUrl.hostname = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get port() {
-      return oriUrl.port;
-    }
-
-    set port(value) {
-      oriUrl.port = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get pathname() {
-      return oriUrl.pathname;
-    }
-
-    set pathname(value) {
-      oriUrl.pathname = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get search() {
-      return oriUrl.search;
-    }
-
-    set search(value) {
-      oriUrl.search = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get hash() {
-      return oriUrl.hash;
-    }
-
-    set hash(value) {
-      oriUrl.hash = value;
-      window.location.href = nowlink + oriUrl.href;
-    }
-
-    get origin() {
-      return oriUrl.origin;
-    }
+    reload(forcedReload) { this.originalLocation.reload(forcedReload); }
+    replace(url) { this.originalLocation.replace(changeURL(url)); }
+    assign(url) { this.originalLocation.assign(changeURL(url)); }
+    get href() { return this.getOriginalHref(); }
+    set href(url) { this.originalLocation.href = changeURL(url); }
+    get protocol() { return oriUrl.protocol; }
+    set protocol(value) { oriUrl.protocol = value; window.location.href = nowlink + oriUrl.href; }
+    get host() { return oriUrl.host; }
+    set host(value) { oriUrl.host = value; window.location.href = nowlink + oriUrl.href; }
+    get hostname() { return oriUrl.hostname; }
+    set hostname(value) { oriUrl.hostname = value; window.location.href = nowlink + oriUrl.href; }
+    get port() { return oriUrl.port; }
+    set port(value) { oriUrl.port = value; window.location.href = nowlink + oriUrl.href; }
+    get pathname() { return oriUrl.pathname; }
+    set pathname(value) { oriUrl.pathname = value; window.location.href = nowlink + oriUrl.href; }
+    get search() { return oriUrl.search; }
+    set search(value) { oriUrl.search = value; window.location.href = nowlink + oriUrl.href; }
+    get hash() { return oriUrl.hash; }
+    set hash(value) { oriUrl.hash = value; window.location.href = nowlink + oriUrl.href; }
+    get origin() { return oriUrl.origin; }
   }
 
   function documentLocationInject() {
     Object.defineProperty(document, 'URL', {
-      get: function() {
-        return oriUrlStr;
-      },
-      set: function(url) {
-        document.URL = changeURL(url);
-      }
+      get: function() { return oriUrlStr; },
+      set: function(url) { document.URL = changeURL(url); }
     });
-
     Object.defineProperty(document, '${replaceUrlObj}', {
-      get: function() {
-        return new ProxyLocation(window.location);
-      },
-      set: function(url) {
-        window.location.href = changeURL(url);
-      }
+      get: function() { return new ProxyLocation(window.location); },
+      set: function(url) { window.location.href = changeURL(url); }
     });
     console.log("LOCATION INJECTED");
   }
 
   function windowLocationInject() {
     Object.defineProperty(window, '${replaceUrlObj}', {
-      get: function() {
-        return new ProxyLocation(window.location);
-      },
-      set: function(url) {
-        window.location.href = changeURL(url);
-      }
+      get: function() { return new ProxyLocation(window.location); },
+      set: function(url) { window.location.href = changeURL(url); }
     });
-
     console.log("WINDOW LOCATION INJECTED");
   }
 
   function historyInject() {
     const originalPushState = History.prototype.pushState;
     const originalReplaceState = History.prototype.replaceState;
-
     History.prototype.pushState = function(state, title, url) {
       if (!url) return;
-
       if (url.startsWith("/" + oriUrl.href)) url = url.substring(("/" + oriUrl.href).length);
       if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1))) url = url.substring(("/" + oriUrl.href).length - 1);
-
       var u = changeURL(url);
       return originalPushState.apply(this, [state, title, u]);
     };
-
     History.prototype.replaceState = function(state, title, url) {
       if (!url) return;
-
       if (url.startsWith("/" + oriUrl.href)) url = url.substring(("/" + oriUrl.href).length);
       if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1))) url = url.substring(("/" + oriUrl.href).length - 1);
-
       if (url.startsWith("/" + oriUrl.href.replace("://", ":/"))) url = url.substring(("/" + oriUrl.href.replace("://", ":/")).length);
       if (url.startsWith("/" + oriUrl.href.substring(0, oriUrl.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + oriUrl.href).replace("://", ":/").length - 1);
-
       var u = changeURL(url);
       return originalReplaceState.apply(this, [state, title, u]);
     };
-
     console.log("HISTORY INJECTED");
   }
 
   function obsPage() {
     var yProxyObserver = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        traverseAndConvert(mutation);
-      });
+      mutations.forEach(function(mutation) { traverseAndConvert(mutation); });
     });
     var config = { attributes: true, childList: true, subtree: true };
     yProxyObserver.observe(document.body, config);
-
     console.log("OBSERVING THE WEBPAGE...");
   }
 
@@ -837,8 +463,7 @@ var httpRequestInjection = `
       relativePath = element.getAttribute("src");
       setAttr = "src";
     }
-
-    if (setAttr !== "" && relativePath.indexOf(nowlink) != 0) { 
+    if (setAttr !== "" && relativePath.indexOf(nowlink) != 0) {
       if (!relativePath.includes("*")) {
         try {
           var absolutePath = changeURL(relativePath);
@@ -851,9 +476,7 @@ var httpRequestInjection = `
   }
 
   function removeIntegrityAttributesFromElement(element) {
-    if (element.hasAttribute('integrity')) {
-      element.removeAttribute('integrity');
-    }
+    if (element.hasAttribute('integrity')) element.removeAttribute('integrity');
   }
 
   function loopAndConvertToAbs() {
@@ -866,9 +489,7 @@ var httpRequestInjection = `
 
   function covScript() {
     var scripts = document.getElementsByTagName('script');
-    for (var i = 0; i < scripts.length; i++) {
-      covToAbs(scripts[i]);
-    }
+    for (var i = 0; i < scripts.length; i++) covToAbs(scripts[i]);
     setTimeout(covScript, 3000);
   }
 
@@ -897,24 +518,21 @@ var httpRequestInjection = `
       }
       removeIntegrityAttributesFromElement(element);
       covToAbs(element);
-
       var newScript = document.createElement("script");
       newScript.src = element.src;
       newScript.async = element.async;
       newScript.defer = element.defer;
       newScript.alreadyChanged = true;
-
       document.head.appendChild(newScript);
-
       console.log("New script added:", newScript);
     }
   }, true);
   console.log("WINDOW CORS ERROR EVENT ADDED");
 `;
 
-httpRequestInjection = `(function () {` + httpRequestInjection + disguiseInjection + blockElementsInjection + `})();`;
+httpRequestInjection = `(function () { ${httpRequestInjection} ${disguiseInjection} ${blockElementsInjection} })();`;
 
-// 修改后的主页
+// 主页
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -923,280 +541,42 @@ const mainPage = `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Online Proxy</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      overflow: auto;
-      background-color: #e0f7fa;
-    }
-    body {
-      font-family: 'Roboto', Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      color: #333333;
-      background-image: url('https://www.loliapi.com/acg/');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      position: relative;
-      overflow: hidden;
-      filter: none;
-    }
-    body::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: inherit;
-      background-size: cover;
-      background-position: center;
-      filter: blur(8px);
-      z-index: -2;
-    }
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2));
-      z-index: -1;
-    }
-    .content {
-      text-align: center;
-      max-width: 80%;
-      padding: 30px;
-      background-color: rgba(255, 255, 255, 0.3);
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 
-                  0 0 10px rgba(176, 196, 222, 0.2);
-      backdrop-filter: blur(5px);
-      border: 1px solid rgba(79, 195, 247, 0.3);
-      transform: scale(0.5);
-      opacity: 0.5;
-      filter: blur(10px);
-      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
-      position: relative;
-      z-index: 1;
-    }
-    .content.loaded {
-      transform: scale(1);
-      opacity: 1;
-      filter: blur(0);
-    }
-    .content:hover {
-      transform: scale(1.03);
-      box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 
-                  0 0 20px rgba(176, 196, 222, 0.3);
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-      color: #0277bd;
-      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
-    }
-    button, select {
-      margin: 10px auto;
-      padding: 10px 15px;
-      font-size: 14px;
-      border-radius: 25px;
-      outline: none;
-      display: block;
-      width: 60%;
-      max-width: 200px;
-      transition: all 0.3s ease;
-    }
-    select {
-      background-color: rgba(255, 255, 255, 0.5);
-      border: 1px solid rgba(79, 195, 247, 0.5);
-      color: #333333;
-      text-align: center;
-    }
-    select:focus {
-      background-color: rgba(255, 255, 255, 0.7);
-      border-color: #0277bd;
-      box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
-    }
-    button {
-      background: linear-gradient(45deg, #4fc3f7, #81d4fa);
-      border: none;
-      color: #333333;
-      cursor: pointer;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    button:hover {
-      background: linear-gradient(45deg, #29b6f6, #4fc3f7);
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
-    }
-    .config-button {
-      background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5));
-      border: 1px solid rgba(79, 195, 247, 0.5);
-    }
-    .config-button:hover {
-      background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
-    }
-    a {
-      color: #0277bd;
-      text-decoration: none;
-      font-weight: bold;
-      transition: color 0.3s ease, transform 0.3s ease;
-      display: block;
-      margin: 15px 0;
-    }
-    a:hover {
-      color: #01579b;
-      transform: scale(1.05);
-      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
-    }
-    p {
-      margin: 12px 0;
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    .config-section {
-      margin: 20px 0;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-    }
-    .config-section.active {
-      display: flex;
-    }
-    .config-section label {
-      font-size: 14px;
-      margin-bottom: 10px;
-      color: #333333;
-    }
-    .checkbox-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      margin: 10px 0;
-    }
-    .checkbox-wrapper {
-      position: relative;
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      margin-right: 10px;
-    }
-    .checkbox-wrapper input {
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      cursor: pointer;
-      z-index: 2;
-    }
-    .checkbox-custom {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 20px;
-      height: 20px;
-      background-color: rgba(255, 255, 255, 0.5);
-      border: 2px solid #0277bd;
-      border-radius: 4px;
-      transition: all 0.3s ease;
-    }
-    .checkbox-wrapper input:checked + .checkbox-custom {
-      background-color: #0277bd;
-      border-color: #0277bd;
-    }
-    .checkbox-custom::after {
-      content: '';
-      position: absolute;
-      display: none;
-      left: 5px;
-      top: 3px;
-      width: 5px;
-      height: 10px;
-      border: solid white;
-      border-width: 0 2px 2px 0;
-      transform: rotate(45deg);
-    }
-    .checkbox-wrapper input:checked + .checkbox-custom::after {
-      display: block;
-    }
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 9999;
-      justify-content: center;
-      align-items: center;
-    }
-    .modal-content {
-      background-color: rgba(255, 255, 255, 0.9);
-      padding: 20px;
-      border-radius: 15px;
-      max-width: 80%;
-      text-align: center;
-      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
-    }
-    .modal-content input, .modal-content select {
-      width: 90%;
-      margin: 10px auto;
-      padding: 10px;
-      border-radius: 25px;
-      border: 1px solid rgba(79, 195, 247, 0.5);
-      background-color: rgba(255, 255, 255, 0.5);
-      text-align: center;
-    }
-    .modal-content p {
-      font-size: 12px;
-      color: #666;
-      display: block;
-    }
-    .modal-content button {
-      width: 45%;
-      margin: 5px;
-    }
-    .modal-content .config-button {
-      background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5));
-      border: 1px solid rgba(79, 195, 247, 0.5);
-    }
-    .modal-content .config-button:hover {
-      background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
-    }
-    @media (max-width: 768px) {
-      .content {
-        max-width: 90%;
-        padding: 20px;
-      }
-      h1 {
-        font-size: 1.8rem;
-      }
-      button, select {
-        width: 90%;
-        font-size: 12px;
-        padding: 8px;
-      }
-      .modal-content {
-        width: 90%;
-      }
-    }
-    @media (min-resolution: 2dppx) {
-      body {
-        background-size: cover;
-      }
-    }
+    html, body { height: 100%; margin: 0; overflow: auto; background-color: #e0f7fa; font-family: 'Roboto', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; color: #333333; background-image: url('https://www.loliapi.com/acg/'); background-size: cover; background-position: center; background-repeat: no-repeat; position: relative; overflow: hidden; }
+    body::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: inherit; background-size: cover; background-position: center; filter: blur(8px); z-index: -2; }
+    body::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2)); z-index: -1; }
+    .content { text-align: center; max-width: 80%; padding: 30px; background-color: rgba(255, 255, 255, 0.3); border-radius: 15px; box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 0 0 10px rgba(176, 196, 222, 0.2); backdrop-filter: blur(5px); border: 1px solid rgba(79, 195, 247, 0.3); transform: scale(0.5); opacity: 0.5; filter: blur(10px); transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out; position: relative; z-index: 1; }
+    .content.loaded { transform: scale(1); opacity: 1; filter: blur(0); }
+    .content:hover { transform: scale(1.03); box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 0 0 20px rgba(176, 196, 222, 0.3); }
+    h1 { font-size: 2.5rem; margin-bottom: 20px; color: #0277bd; text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
+    button, select { margin: 10px auto; padding: 10px 15px; font-size: 14px; border-radius: 25px; outline: none; display: block; width: 60%; max-width: 200px; transition: all 0.3s ease; }
+    select { background-color: rgba(255, 255, 255, 0.5); border: 1px solid rgba(79, 195, 247, 0.5); color: #333333; text-align: center; }
+    select:focus { background-color: rgba(255, 255, 255, 0.7); border-color: #0277bd; box-shadow: 0 0 10px rgba(79, 195, 247, 0.3); }
+    button { background: linear-gradient(45deg, #4fc3f7, #81d4fa); border: none; color: #333333; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+    button:hover { background: linear-gradient(45deg, #29b6f6, #4fc3f7); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4); }
+    .config-button { background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5)); border: 1px solid rgba(79, 195, 247, 0.5); }
+    .config-button:hover { background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7)); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4); }
+    a { color: #0277bd; text-decoration: none; font-weight: bold; transition: color 0.3s ease, transform 0.3s ease; display: block; margin: 15px 0; }
+    a:hover { color: #01579b; transform: scale(1.05); text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
+    p { margin: 12px 0; font-size: 14px; opacity: 0.9; }
+    .config-section { margin: 20px 0; display: none; flex-direction: column; align-items: center; }
+    .config-section.active { display: flex; }
+    .config-section label { font-size: 14px; margin-bottom: 10px; color: #333333; }
+    .checkbox-container { display: flex; align-items: center; justify-content: center; font-size: 14px; margin: 10px 0; }
+    .checkbox-wrapper { position: relative; display: inline-block; width: 20px; height: 20px; margin-right: 10px; }
+    .checkbox-wrapper input { opacity: 0; width: 100%; height: 100%; position: absolute; cursor: pointer; z-index: 2; }
+    .checkbox-custom { position: absolute; top: 0; left: 0; width: 20px; height: 20px; background-color: rgba(255, 255, 255, 0.5); border: 2px solid #0277bd; border-radius: 4px; transition: all 0.3s ease; }
+    .checkbox-wrapper input:checked + .checkbox-custom { background-color: #0277bd; border-color: #0277bd; }
+    .checkbox-custom::after { content: ''; position: absolute; display: none; left: 5px; top: 3px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .checkbox-wrapper input:checked + .checkbox-custom::after { display: block; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: 9999; justify-content: center; align-items: center; }
+    .modal-content { background-color: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 15px; max-width: 80%; text-align: center; box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3); }
+    .modal-content input, .modal-content select { width: 90%; margin: 10px auto; padding: 10px; border-radius: 25px; border: 1px solid rgba(79, 195, 247, 0.5); background-color: rgba(255, 255, 255, 0.5); text-align: center; }
+    .modal-content p { font-size: 12px; color: #666; display: block; }
+    .modal-content button { width: 45%; margin: 5px; }
+    .modal-content .config-button { background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5)); border: 1px solid rgba(79, 195, 247, 0.5); }
+    .modal-content .config-button:hover { background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7)); }
+    @media (max-width: 768px) { .content { max-width: 90%; padding: 20px; } h1 { font-size: 1.8rem; } button, select { width: 90%; font-size: 12px; padding: 8px; } .modal-content { width: 90%; } }
+    @media (min-resolution: 2dppx) { body { background-size: cover; } }
   </style>
 </head>
 <body>
@@ -1265,63 +645,43 @@ const mainPage = `
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       var content = document.querySelector('.content');
-      setTimeout(function() {
-        content.classList.add('loaded');
-      }, 100);
-
-      // 从 Cookie 加载设置
+      setTimeout(function() { content.classList.add('loaded'); }, 100);
       const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
-      if (languageCookie) {
-        document.getElementById('languageSelect').value = languageCookie.split('=')[1];
-      }
+      if (languageCookie) document.getElementById('languageSelect').value = languageCookie.split('=')[1];
       const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
-      if (deviceCookie) {
-        document.getElementById('deviceSelect').value = deviceCookie.split('=')[1];
-      }
+      if (deviceCookie) document.getElementById('deviceSelect').value = deviceCookie.split('=')[1];
       const blockAdsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockAdsCookieName}='));
       document.getElementById('blockAds').checked = blockAdsCookie && blockAdsCookie.split('=')[1] === 'true';
       const blockExtensionsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockExtensionsCookieName}='));
-      if (blockExtensionsCookie) {
-        document.getElementById('blockExtensionsInput').value = blockExtensionsCookie.split('=')[1];
-      }
+      if (blockExtensionsCookie) document.getElementById('blockExtensionsInput').value = blockExtensionsCookie.split('=')[1];
       const blockElementsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
-      if (blockElementsCookie) {
-        document.getElementById('blockElementsInput').value = blockElementsCookie.split('=')[1];
-      }
+      if (blockElementsCookie) document.getElementById('blockElementsInput').value = blockElementsCookie.split('=')[1];
       const blockElementsScopeCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}='));
       if (blockElementsScopeCookie) {
         document.getElementById('blockElementsScope').value = blockElementsScopeCookie.split('=')[1];
         document.getElementById('blockElementsScopeUrl').style.display = blockElementsScopeCookie.split('=')[1] === 'specific' ? 'block' : 'none';
         if (blockElementsScopeCookie.split('=')[1] === 'specific') {
           const scopeUrlCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}_URL='));
-          if (scopeUrlCookie) {
-            document.getElementById('blockElementsScopeUrl').value = scopeUrlCookie.split('=')[1];
-          }
+          if (scopeUrlCookie) document.getElementById('blockElementsScopeUrl').value = scopeUrlCookie.split('=')[1];
         }
       }
-
-      // 动态显示/隐藏占位文本
       const blockExtensionsInput = document.getElementById('blockExtensionsInput');
       const blockExtensionsPlaceholder = document.getElementById('blockExtensionsPlaceholder');
       blockExtensionsInput.addEventListener('input', function() {
         blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
       });
       blockExtensionsPlaceholder.style.display = blockExtensionsInput.value ? 'none' : 'block';
-
       const blockElementsInput = document.getElementById('blockElementsInput');
       const blockElementsPlaceholder = document.getElementById('blockElementsPlaceholder');
       blockElementsInput.addEventListener('input', function() {
         blockElementsPlaceholder.style.display = blockElementsInput.value ? 'none' : 'block';
       });
       blockElementsPlaceholder.style.display = blockElementsInput.value ? 'none' : 'block';
-
       const blockElementsScope = document.getElementById('blockElementsScope');
       const blockElementsScopeUrl = document.getElementById('blockElementsScopeUrl');
       blockElementsScope.addEventListener('change', function() {
         blockElementsScopeUrl.style.display = this.value === 'specific' ? 'block' : 'none';
       });
-
-      // 保存设置
       document.getElementById('languageSelect').addEventListener('change', function() {
         setCookie('${languageCookieName}', this.value);
       });
@@ -1332,36 +692,13 @@ const mainPage = `
         setCookie('${blockAdsCookieName}', this.checked);
       });
     });
-
-    function toggleAdvancedOptions() {
-      const advancedOptions = document.getElementById('advancedOptions');
-      advancedOptions.classList.toggle('active');
-    }
-
-    function showUrlModal() {
-      document.getElementById('urlModal').style.display = 'flex';
-    }
-
-    function closeUrlModal() {
-      document.getElementById('urlModal').style.display = 'none';
-    }
-
-    function showBlockExtensionsModal() {
-      document.getElementById('blockExtensionsModal').style.display = 'flex';
-    }
-
-    function closeBlockExtensionsModal() {
-      document.getElementById('blockExtensionsModal').style.display = 'none';
-    }
-
-    function showBlockElementsModal() {
-      document.getElementById('blockElementsModal').style.display = 'flex';
-    }
-
-    function closeBlockElementsModal() {
-      document.getElementById('blockElementsModal').style.display = 'none';
-    }
-
+    function toggleAdvancedOptions() { document.getElementById('advancedOptions').classList.toggle('active'); }
+    function showUrlModal() { document.getElementById('urlModal').style.display = 'flex'; }
+    function closeUrlModal() { document.getElementById('urlModal').style.display = 'none'; }
+    function showBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'flex'; }
+    function closeBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'none'; }
+    function showBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'flex'; }
+    function closeBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'none'; }
     function redirectToProxy() {
       const targetUrl = document.getElementById('targetUrl').value.trim();
       const language = document.getElementById('languageSelect').value;
@@ -1369,27 +706,21 @@ const mainPage = `
       window.open(currentOrigin + '/' + targetUrl + '?lang=' + language, '_blank');
       closeUrlModal();
     }
-
     function saveBlockExtensions() {
       const extensions = document.getElementById('blockExtensionsInput').value.trim();
       setCookie('${blockExtensionsCookieName}', extensions);
       closeBlockExtensionsModal();
     }
-
     function saveBlockElements() {
       const elements = document.getElementById('blockElementsInput').value.trim();
       const scope = document.getElementById('blockElementsScope').value;
       const scopeUrl = document.getElementById('blockElementsScopeUrl').value.trim();
       setCookie('${blockElementsCookieName}', elements);
       setCookie('${blockElementsScopeCookieName}', scope);
-      if (scope === 'specific' && scopeUrl) {
-        setCookie('${blockElementsScopeCookieName}_URL', scopeUrl);
-      } else {
-        setCookie('${blockElementsScopeCookieName}_URL', '');
-      }
+      if (scope === 'specific' && scopeUrl) setCookie('${blockElementsScopeCookieName}_URL', scopeUrl);
+      else setCookie('${blockElementsScopeCookieName}_URL', '');
       closeBlockElementsModal();
     }
-
     function setCookie(name, value) {
       const cookieDomain = window.location.hostname;
       const oneWeekLater = new Date();
@@ -1405,30 +736,27 @@ const mainPage = `
 const pwdPage = `
 <!DOCTYPE html>
 <html>
-    <head>
-        <script>
-            function setPassword() {
-                try {
-                    var cookieDomain = window.location.hostname;
-                    var password = document.getElementById('password').value;
-                    var currentOrigin = window.location.origin;
-                    var oneWeekLater = new Date();
-                    oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-                    document.cookie = "${passwordCookieName}" + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-                    document.cookie = "${passwordCookieName}" + "=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
-                } catch(e) {
-                    alert(e.message);
-                }
-                location.reload();
-            }
-        </script>
-    </head>
-    <body>
-        <div>
-            <input id="password" type="password" placeholder="请输入密码">
-            <button onclick="setPassword()">提交</button>
-        </div>
-    </body>
+<head>
+  <script>
+    function setPassword() {
+      try {
+        var cookieDomain = window.location.hostname;
+        var password = document.getElementById('password').value;
+        var oneWeekLater = new Date();
+        oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+        document.cookie = "${passwordCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+        document.cookie = "${passwordCookieName}=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      } catch(e) { alert(e.message); }
+      location.reload();
+    }
+  </script>
+</head>
+<body>
+  <div>
+    <input id="password" type="password" placeholder="请输入密码">
+    <button onclick="setPassword()">提交</button>
+  </div>
+</body>
 </html>
 `;
 
@@ -1443,93 +771,58 @@ async function handleRequest(request) {
   }
 
   var siteCookie = request.headers.get('Cookie');
-
   if (siteCookie != null && siteCookie != "") {
     var agreed = getCook(proxyHintCookieName, siteCookie);
     if (!agreed || agreed !== "agreed") {
       const url = new URL(request.url);
       var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
-      if (actualUrlStr == "") {
-        return getHTMLResponse(proxyHintPage);
-      } else {
-        return getHTMLResponse(proxyHintPage);
-      }
+      return getHTMLResponse(proxyHintPage);
     }
   } else {
     const url = new URL(request.url);
     var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
-    if (actualUrlStr == "") {
-      return getHTMLResponse(proxyHintPage);
-    } else {
-      return getHTMLResponse(proxyHintPage);
-    }
+    return getHTMLResponse(proxyHintPage);
   }
 
   if (password != "") {
     if (siteCookie != null && siteCookie != "") {
       var pwd = getCook(passwordCookieName, siteCookie);
       if (pwd != null && pwd != "") {
-        if (pwd != password) {
-          return handleWrongPwd();
-        }
-      } else {
-        return handleWrongPwd();
-      }
-    } else {
-      return handleWrongPwd();
-    }
+        if (pwd != password) return handleWrongPwd();
+      } else return handleWrongPwd();
+    } else return handleWrongPwd();
   }
 
   const url = new URL(request.url);
-  if (request.url.endsWith("favicon.ico")) {
-    return getRedirect("https://www.baidu.com/favicon.ico");
-  }
+  if (request.url.endsWith("favicon.ico")) return getRedirect("https://www.baidu.com/favicon.ico");
   if (request.url.endsWith("robots.txt")) {
-    return new Response(`User-Agent: *
-Disallow: /`, {
-      headers: { "Content-Type": "text/plain" },
-    });
+    return new Response(`User-Agent: *\nDisallow: /`, { headers: { "Content-Type": "text/plain" } });
   }
 
   var actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
-  if (actualUrlStr == "") {
-    return getHTMLResponse(mainPage);
-  }
+  if (actualUrlStr == "") return getHTMLResponse(mainPage);
 
   const blockExtensions = getCook(blockExtensionsCookieName, siteCookie) || "";
   const blockAds = getCook(blockAdsCookieName, siteCookie) === "true";
   const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase()).filter(ext => ext);
   if (extensions.length > 0) {
     const fileExt = actualUrlStr.split('.').pop().toLowerCase();
-    if (extensions.includes(fileExt)) {
-      return new Response(null, { status: 204 });
-    }
+    if (extensions.includes(fileExt)) return new Response(null, { status: 204 });
   }
 
   if (blockAds) {
     const urlLower = actualUrlStr.toLowerCase();
-    if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) {
-      return new Response(null, { status: 204 });
-    }
+    if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) return new Response(null, { status: 204 });
   }
 
   try {
     var test = actualUrlStr;
-    if (!test.startsWith("http")) {
-      test = "https://" + test;
-    }
+    if (!test.startsWith("http")) test = "https://" + test;
     var u = new URL(test);
-    if (!u.host.includes(".")) {
-      throw new Error();
-    }
+    if (!u.host.includes(".")) throw new Error();
   } catch {
-    var lastVisit;
-    if (siteCookie != null && siteCookie != "") {
-      lastVisit = getCook(lastVisitProxyCookie, siteCookie);
-      if (lastVisit != null && lastVisit != "") {
-        return getRedirect(thisProxyServerUrlHttps + lastVisit + "/" + actualUrlStr);
-      }
-    }
+    var lastVisit = getCook(lastVisitProxyCookie, siteCookie);
+    if (lastVisit != null && lastVisit != "") return getRedirect(thisProxyServerUrlHttps + lastVisit + "/" + actualUrlStr);
     return getHTMLResponse("获取 Cookie 时出错：<br> siteCookie: " + siteCookie + "<br>" + "lastSite: " + lastVisit);
   }
 
@@ -1538,54 +831,28 @@ Disallow: /`, {
   }
 
   const actualUrl = new URL(actualUrlStr);
-
   let selectedLanguage = getCook(languageCookieName, siteCookie) || url.searchParams.get('lang') || 'zh-CN';
-  if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) {
-    selectedLanguage = 'zh-CN';
-  }
-
+  if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) selectedLanguage = 'zh-CN';
   const deviceType = getCook(deviceCookieName, siteCookie) || 'none';
 
   var checkHostCase = actualUrlStr.substring(actualUrlStr.indexOf("://") + 3);
   var pos1 = checkHostCase.indexOf("\\");
   var pos2 = checkHostCase.indexOf("/");
-  var finalPos;
-  if (pos1 === -1 && pos2 === -1) {
-    finalPos = -1;
-  } else if (pos1 === -1) {
-    finalPos = pos2;
-  } else if (pos2 === -1) {
-    finalPos = pos1;
-  } else {
-    finalPos = Math.min(pos1, pos2);
-  }
-
-  checkHostCase = checkHostCase.substring(0, (finalPos != -1) ? finalPos : checkHostCase.length);
-
-  if (checkHostCase.toLowerCase() != checkHostCase) {
-    return getRedirect(thisProxyServerUrlHttps + actualUrl.href);
-  }
+  var finalPos = (pos1 === -1 && pos2 === -1) ? -1 : (pos1 === -1 ? pos2 : (pos2 === -1 ? pos1 : Math.min(pos1, pos2)));
+  checkHostCase = checkHostCase.substring(0, finalPos != -1 ? finalPos : checkHostCase.length);
+  if (checkHostCase.toLowerCase() != checkHostCase) return getRedirect(thisProxyServerUrlHttps + actualUrl.href);
 
   let clientHeaderWithChange = new Headers();
   for (var pair of request.headers.entries()) {
     let value = pair[1].replaceAll(thisProxyServerUrlHttps, actualUrlStr).replaceAll(thisProxyServerUrl_hostOnly, actualUrl.host);
-    if (pair[0].toLowerCase() === 'origin') {
-      value = actualUrl.origin;
-    } else if (pair[0].toLowerCase() === 'referer') {
-      value = value.replace(thisProxyServerUrlHttps, actualUrl.origin + '/');
-    } else if (pair[0].toLowerCase() === 'accept-language') {
-      value = selectedLanguage;
-    } else if (pair[0].toLowerCase() === 'user-agent' && deviceType !== 'none') {
-      value = deviceUserAgents[deviceType];
-    }
+    if (pair[0].toLowerCase() === 'origin') value = actualUrl.origin;
+    else if (pair[0].toLowerCase() === 'referer') value = value.replace(thisProxyServerUrlHttps, actualUrl.origin + '/');
+    else if (pair[0].toLowerCase() === 'accept-language') value = selectedLanguage;
+    else if (pair[0].toLowerCase() === 'user-agent' && deviceType !== 'none') value = deviceUserAgents[deviceType];
     clientHeaderWithChange.set(pair[0], value);
   }
-  if (!clientHeaderWithChange.has('Origin')) {
-    clientHeaderWithChange.set('Origin', actualUrl.origin);
-  }
-  if (!clientHeaderWithChange.has('Accept-Language')) {
-    clientHeaderWithChange.set('Accept-Language', selectedLanguage);
-  }
+  if (!clientHeaderWithChange.has('Origin')) clientHeaderWithChange.set('Origin', actualUrl.origin);
+  if (!clientHeaderWithChange.has('Accept-Language')) clientHeaderWithChange.set('Accept-Language', selectedLanguage);
 
   let clientRequestBodyWithChange;
   if (request.body) {
@@ -1598,7 +865,7 @@ Disallow: /`, {
   const modifiedRequest = new Request(actualUrl, {
     headers: clientHeaderWithChange,
     method: request.method,
-    body: (request.body) ? clientRequestBodyWithChange : request.body,
+    body: request.body ? clientRequestBodyWithChange : request.body,
     redirect: "manual"
   });
 
@@ -1607,46 +874,30 @@ Disallow: /`, {
     try {
       return getRedirect(thisProxyServerUrlHttps + new URL(response.headers.get("Location"), actualUrlStr).href);
     } catch {
-      getHTMLResponse(redirectError + "<br>the redirect url:" + response.headers.get("Location") + ";the url you are now at:" + actualUrlStr);
+      return getHTMLResponse(redirectError + "<br>the redirect url:" + response.headers.get("Location") + ";the url you are now at:" + actualUrlStr);
     }
   }
 
   var modifiedResponse;
   var bd;
   const contentType = response.headers.get("Content-Type");
-
   if (response.body) {
     if (contentType && contentType.startsWith("text/")) {
       bd = await response.text();
-
       let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\s'"]+)`, 'g');
-      bd = bd.replace(regex, (match) => {
-        if (match.includes("http")) {
-          return thisProxyServerUrlHttps + match;
-        } else {
-          return thisProxyServerUrl_hostOnly + "/" + match;
-        }
-      });
-
+      bd = bd.replace(regex, (match) => match.includes("http") ? thisProxyServerUrlHttps + match : thisProxyServerUrl_hostOnly + "/" + match);
       if (contentType && (contentType.includes("html") || contentType.includes("javascript"))) {
         bd = bd.replaceAll("window.location", "window." + replaceUrlObj);
         bd = bd.replaceAll("document.location", "document." + replaceUrlObj);
       }
-
       if (contentType && contentType.includes("text/html") && bd.includes("<html")) {
         bd = covToAbs(bd, actualUrlStr);
         bd = removeIntegrityAttributes(bd);
-
-        var hasBom = false;
-        if (bd.charCodeAt(0) === 0xFEFF) {
-          bd = bd.substring(1);
-          hasBom = true;
-        }
-
+        var hasBom = bd.charCodeAt(0) === 0xFEFF;
+        if (hasBom) bd = bd.substring(1);
         var inject = "<script>" + proxyHintInjection + httpRequestInjection + "</script>";
         bd = (hasBom ? "\uFEFF" : "") + inject + bd;
       }
-
       modifiedResponse = new Response(bd, response);
     } else {
       modifiedResponse = new Response(response.body, response);
@@ -1657,64 +908,43 @@ Disallow: /`, {
 
   let headers = modifiedResponse.headers;
   let cookieHeaders = [];
-
   for (let [key, value] of headers.entries()) {
-    if (key.toLowerCase() == 'set-cookie') {
-      cookieHeaders.push({ headerName: key, headerValue: value });
-    }
+    if (key.toLowerCase() == 'set-cookie') cookieHeaders.push({ headerName: key, headerValue: value });
   }
-
   if (cookieHeaders.length > 0) {
     cookieHeaders.forEach(cookieHeader => {
       let cookies = cookieHeader.headerValue.split(',').map(cookie => cookie.trim());
-
       for (let i = 0; i < cookies.length; i++) {
         let parts = cookies[i].split(';').map(part => part.trim());
-
         let pathIndex = parts.findIndex(part => part.toLowerCase().startsWith('path='));
         let originalPath;
-        if (pathIndex !== -1) {
-          originalPath = parts[pathIndex].substring("path=".length);
-        }
+        if (pathIndex !== -1) originalPath = parts[pathIndex].substring("path=".length);
         let absolutePath = "/" + new URL(originalPath, actualUrlStr).href;
-
-        if (pathIndex !== -1) {
-          parts[pathIndex] = `Path=${absolutePath}`;
-        } else {
-          parts.push(`Path=${absolutePath}`);
-        }
-
+        if (pathIndex !== -1) parts[pathIndex] = `Path=${absolutePath}`;
+        else parts.push(`Path=${absolutePath}`);
         let domainIndex = parts.findIndex(part => part.toLowerCase().startsWith('domain='));
-        if (domainIndex !== -1) {
-          parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
-        } else {
-          parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
-        }
-
+        if (domainIndex !== -1) parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
+        else parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
         cookies[i] = parts.join('; ');
       }
-
       headers.set(cookieHeader.headerName, cookies.join(', '));
     });
   }
 
   if (contentType && contentType.includes("text/html") && response.status == 200 && bd.includes("<html")) {
-    let cookieValue = lastVisitProxyCookie + "=" + actualUrl.origin + "; Path=/; Domain=" + thisProxyServerUrl_hostOnly;
-    headers.append("Set-Cookie", cookieValue);
+    headers.append("Set-Cookie", lastVisitProxyCookie + "=" + actualUrl.origin + "; Path=/; Domain=" + thisProxyServerUrl_hostOnly);
     headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
   }
 
   for (let [key, value] of headers.entries()) {
-    if (key.toLowerCase() === 'access-control-allow-origin') {
-      headers.set(key, actualUrl.origin);
-    } else if (key.toLowerCase() === 'content-security-policy' || key.toLowerCase() === 'content-security-policy-report-only') {
+    if (key.toLowerCase() === 'access-control-allow-origin') headers.set(key, actualUrl.origin);
+    else if (key.toLowerCase() === 'content-security-policy' || key.toLowerCase() === 'content-security-policy-report-only') {
       headers.set(key, value.replace(thisProxyServerUrl_hostOnly, actualUrl.host));
     }
   }
 
   modifiedResponse.headers.set('Access-Control-Allow-Origin', actualUrl.origin);
   modifiedResponse.headers.set("X-Frame-Options", "ALLOWALL");
-
   var listHeaderDel = ["Content-Security-Policy", "Permissions-Policy", "Cross-Origin-Embedder-Policy", "Cross-Origin-Resource-Policy"];
   listHeaderDel.forEach(element => {
     modifiedResponse.headers.delete(element);
@@ -1737,7 +967,6 @@ const matchList = [[/href=("|')([^"']*)("|')/g, `href="`], [/src=("|')([^"']*)("
 function covToAbs(body, requestPathNow) {
   var original = [];
   var target = [];
-
   for (var match of matchList) {
     var setAttr = body.matchAll(match[0]);
     if (setAttr != null) {
@@ -1752,18 +981,14 @@ function covToAbs(body, requestPathNow) {
                 var absolutePath = thisProxyServerUrlHttps + new URL(relativePath, requestPathNow).href;
                 original.push(strReplace);
                 target.push(match[1].toString() + absolutePath + `"`);
-              } catch {
-                // 无视
-              }
+              } catch { }
             }
           }
         }
       }
     }
   }
-  for (var i = 0; i < original.length; i++) {
-    body = body.replace(original[i], target[i]);
-  }
+  for (var i = 0; i < original.length; i++) body = body.replace(original[i], target[i]);
   return body;
 }
 
@@ -1778,26 +1003,17 @@ function isPosEmbed(html, pos) {
   let end = html.indexOf('>', pos);
   if (end === -1) end = html.length;
   let content = html.slice(start + 1, end);
-  if (content.includes(">") || content.includes("<")) {
-    return true;
-  }
+  if (content.includes(">") || content.includes("<")) return true;
   return false;
 }
 
 function handleWrongPwd() {
-  if (showPasswordPage) {
-    return getHTMLResponse(pwdPage);
-  } else {
-    return getHTMLResponse("<h1>403 Forbidden</h1><br>您无权访问此网页。");
-  }
+  if (showPasswordPage) return getHTMLResponse(pwdPage);
+  else return getHTMLResponse("<h1>403 Forbidden</h1><br>您无权访问此网页。");
 }
 
 function getHTMLResponse(html) {
-  return new Response(html, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8"
-    }
-  });
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
 function getRedirect(url) {
