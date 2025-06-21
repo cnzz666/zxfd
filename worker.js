@@ -48,13 +48,13 @@ const adBlockKeywords = [
   "googlesyndication.com", "adsense.google.com", "admob.com", "adclick.g.doubleclick.net"
 ];
 
-// 新增：安全的用户输入清理函数
+// 安全的用户输入清理函数
 function sanitizeInput(input) {
   if (!input) return '';
   return input.replace(/[<>"]/g, '').replace(/javascript:/gi, '');
 }
 
-// 新增：安全的 URL 验证函数
+// 安全的 URL 验证函数
 function isValidUrl(url) {
   try {
     const parsed = new URL(url);
@@ -64,7 +64,7 @@ function isValidUrl(url) {
   }
 }
 
-// 新增：优化后的 Cookie 解析函数
+// 优化后的 Cookie 解析函数
 function getCookie(cookiename, cookies) {
   if (!cookies) return '';
   try {
@@ -78,7 +78,7 @@ function getCookie(cookiename, cookies) {
   }
 }
 
-// 新增：安全的重定向函数
+// 安全的重定向函数
 function getSafeRedirect(url) {
   const sanitizedUrl = sanitizeInput(url);
   if (!isValidUrl(sanitizedUrl)) {
@@ -211,7 +211,6 @@ setTimeout(() => {
 
 // 定义 httpRequestInjection 核心逻辑
 const httpRequestInjectionCore = `
-//---***========================================***---information---***========================================***---
 var nowURL = new URL(window.location.href);
 var proxy_host = nowURL.host;
 var proxy_protocol = nowURL.protocol;
@@ -227,7 +226,6 @@ original_website_host = original_website_host.split('/')[0];
 
 var original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
 
-//---***========================================***---通用func---***========================================***---
 function changeURL(relativePath){
   if(relativePath == null) return null;
   try{
@@ -266,7 +264,6 @@ function getOriginalUrl(url){
   return url;
 }
 
-//---***========================================***---注入网络---***========================================***---
 function networkInject(){
   var originalOpen = XMLHttpRequest.prototype.open;
   var originalFetch = window.fetch;
@@ -300,7 +297,6 @@ function networkInject(){
   console.log("NETWORK REQUEST METHOD INJECTED");
 }
 
-//---***========================================***---注入window.open---***========================================***---
 function windowOpenInject(){
   const originalOpen = window.open;
 
@@ -312,7 +308,6 @@ function windowOpenInject(){
   console.log("WINDOW OPEN INJECTED");
 }
 
-//---***========================================***---注入append元素---***========================================***---
 function appendChildInject(){
   const originalAppendChild = Node.prototype.appendChild;
   Node.prototype.appendChild = function(child) {
@@ -327,11 +322,10 @@ function appendChildInject(){
       //ignore
     }
     return originalAppendChild.call(this, child);
-};
-console.log("APPEND CHILD INJECTED");
+  };
+  console.log("APPEND CHILD INJECTED");
 }
 
-//---***========================================***---注入元素的src和href---***========================================***---
 function elementPropertyInject(){
   const originalSetAttribute = HTMLElement.prototype.setAttribute;
   HTMLElement.prototype.setAttribute = function (name, value) {
@@ -367,7 +361,6 @@ function elementPropertyInject(){
   console.log("ELEMENT PROPERTY (src / href) INJECTED");
 }
 
-//---***========================================***---注入location---***========================================***---
 class ProxyLocation {
   constructor(originalLocation) {
       this.originalLocation = originalLocation;
@@ -476,17 +469,17 @@ function documentLocationInject(){
     set: function (url) {
         document.URL = changeURL(url);
     }
-});
+  });
 
-Object.defineProperty(document, '${replaceUrlObj}', {
+  Object.defineProperty(document, '${replaceUrlObj}', {
       get: function () {
           return new ProxyLocation(window.location);
       },  
       set: function (url) {
           window.location.href = changeURL(url);
       }
-});
-console.log("LOCATION INJECTED");
+  });
+  console.log("LOCATION INJECTED");
 }
 
 function windowLocationInject() {
@@ -502,7 +495,6 @@ function windowLocationInject() {
   console.log("WINDOW LOCATION INJECTED");
 }
 
-//---***========================================***---注入历史---***========================================***---
 function historyInject(){
   const originalPushState = History.prototype.pushState;
   const originalReplaceState = History.prototype.replaceState;
@@ -533,7 +525,6 @@ function historyInject(){
   console.log("HISTORY INJECTED");
 }
 
-//---***========================================***---Hook观察界面---***========================================***---
 function obsPage() {
   var yProxyObserver = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
@@ -603,7 +594,6 @@ function covScript() {
   setTimeout(covScript, 3000);
 }
 
-//---***========================================***---操作---***========================================***---
 networkInject();
 windowOpenInject();
 elementPropertyInject();
@@ -611,7 +601,6 @@ documentLocationInject();
 windowLocationInject();
 historyInject();
 
-//---***========================================***---在window.load后的操作---***-------------------------------------------
 window.addEventListener('load', () => {
   loopAndConvertToAbs();
   console.log("CONVERTING SCRIPT PATH");
@@ -620,7 +609,6 @@ window.addEventListener('load', () => {
 });
 console.log("WINDOW ONLOAD EVENT ADDED");
 
-//---***========================================***在window.error的时候---***-------------------------------------------
 window.addEventListener('error', event => {
   var element = event.target || event.srcElement;
   if (element.tagName === 'SCRIPT') {
@@ -644,8 +632,8 @@ window.addEventListener('error', event => {
   }
 }, true);
 console.log("WINDOW CORS ERROR EVENT ADDED");
+`;
 
-// 组合所有注入脚本
 const finalInjection = `
 (function () {
   ${httpRequestInjectionCore}
@@ -1157,13 +1145,9 @@ async function handleRequest(request) {
     if (responseContentType && responseContentType.startsWith("text/")) {
       bd = await response.text();
 
-      let regex = /https?:\/\/(?!${escapeRegExp(thisProxyServerUrl_hostOnly)})[^\s'"]+/g;
-      bd = bd.replace(regex, (match) => {
-        if (match.includes("http")) {
-          return thisProxyServerUrlHttps + match;
-        } else {
-          return thisProxyServerUrl_hostOnly + "/" + match;
-        }
+      let regex = /(https?:\/\/)(?!${escapeRegExp(thisProxyServerUrl_hostOnly)})([^\s'"]+)/g;
+      bd = bd.replace(regex, (match, protocol, path) => {
+        return thisProxyServerUrlHttps + protocol + path;
       });
 
       if (responseContentType && (responseContentType.includes("html") || responseContentType.includes("javascript"))) {
