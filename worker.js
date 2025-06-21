@@ -209,7 +209,8 @@ setTimeout(() => {
 }, 5000);
 `;
 
-var httpRequestInjection = `
+// 定义 httpRequestInjection 核心逻辑
+const httpRequestInjectionCore = `
 //---***========================================***---information---***========================================***---
 var nowURL = new URL(window.location.href);
 var proxy_host = nowURL.host;
@@ -529,18 +530,6 @@ function historyInject(){
     return originalReplaceState.apply(this, [state, title, u]);
   };
 
-  History.prototype.back = function () {
-    return originalBack.apply(this);
-  };
-
-  History.prototype.forward = function () {
-    return originalForward.apply(this);
-  };
-
-  History.prototype.go = function (delta) {
-    return originalGo.apply(this, [delta]);
-  };
-
   console.log("HISTORY INJECTED");
 }
 
@@ -656,9 +645,10 @@ window.addEventListener('error', event => {
 }, true);
 console.log("WINDOW CORS ERROR EVENT ADDED");
 
-httpRequestInjection = `
+// 组合所有注入脚本
+const finalInjection = `
 (function () {
-  ${httpRequestInjection}
+  ${httpRequestInjectionCore}
   ${disguiseInjection}
   ${blockElementsInjection}
   setTimeout(() => { document.getElementById("${injectedJsId}").remove(); }, 1);
@@ -1195,7 +1185,7 @@ async function handleRequest(request) {
         <!DOCTYPE html>
         <script id="${injectedJsId}">
         ${((!hasProxyHintCook) ? proxyHintInjection : "")}
-        ${httpRequestInjection}
+        ${finalInjection}
         </script>
         `;
 
