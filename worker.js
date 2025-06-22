@@ -1,4 +1,4 @@
-// 监听 fetch 事件，处理所有传入的 HTTP 请求
+// worker.js
 addEventListener('fetch', event => {
   try {
     const url = new URL(event.request.url);
@@ -10,7 +10,7 @@ addEventListener('fetch', event => {
   }
 });
 
-// 全局变量定义
+// Global Variables
 const str = "/";
 const lastVisitProxyCookie = "__PROXY_VISITEDSITE__";
 const passwordCookieName = "__PROXY_PWD__";
@@ -21,7 +21,7 @@ const blockExtensionsCookieName = "__PROXY_BLOCK_EXTENSIONS__";
 const blockAdsCookieName = "__PROXY_BLOCK_ADS__";
 const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__";
 const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__";
-const tripleProxyCookieName = "__PROXY_TRIPLE__";
+const customHeadersCookieName = "__PROXY_CUSTOM_HEADERS__";
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location_yproxy__";
@@ -29,7 +29,12 @@ const injectedJsId = "__yproxy_injected_js_id__";
 let thisProxyServerUrlHttps;
 let thisProxyServerUrl_hostOnly;
 
-// 支持的语言列表
+// Rate Limiting Configuration
+const RATE_LIMIT = 100; // Requests per minute
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
+const requestCounts = new Map();
+
+// Supported Languages
 const supportedLanguages = [
   { code: "zh-CN", name: "中文 (简体)" },
   { code: "en-US", name: "English (US)" },
@@ -43,7 +48,7 @@ const supportedLanguages = [
   { code: "ja-JP", name: "日本語" }
 ];
 
-// 设备模拟的 User-Agent 和布局
+// Device Simulation
 const deviceUserAgents = {
   desktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
@@ -54,253 +59,13 @@ const deviceLayouts = {
   mobile: { width: 375, height: 667 }
 };
 
-// 广告拦截关键词
+// Ad Blocking Keywords
 const adBlockKeywords = [
   "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", "adserver", "popunder", "interstitial",
   "googlesyndication.com", "adsense.google.com", "admob.com", "adclick.g.doubleclick.net"
 ];
 
-// 代理提示页面
-const proxyHintPage = `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Proxy Usage Agreement</title>
-  <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #fff;
-    }
-    .container {
-      background: rgba(255, 255, 255, 0.95);
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      max-width: 500px;
-      text-align: center;
-      color: #333;
-      animation: fadeIn 0.5s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    h3 {
-      margin-bottom: 1rem;
-      font-size: 1.8rem;
-      color: #1e3c72;
-    }
-    p {
-      font-size: 1rem;
-      line-height: 1.6;
-      margin-bottom: 1.5rem;
-    }
-    a {
-      color: #2a5298;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .checkbox-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-    }
-    input[type="checkbox"] {
-      margin-right: 0.5rem;
-      width: 18px;
-      height: 18px;
-      cursor: pointer;
-    }
-    label {
-      font-size: 0.9rem;
-      user-select: none;
-    }
-    button {
-      background: linear-gradient(90deg, #2a5298, #1e3c72);
-      color: white;
-      border: none;
-      padding: 0.8rem 1.5rem;
-      border-radius: 25px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.3s, transform 0.2s;
-    }
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    button:hover:not(:disabled) {
-      background: linear-gradient(90deg, #1e3c72, #2a5298);
-      transform: translateY(-2px);
-    }
-    @media (max-width: 480px) {
-      .container {
-        margin: 1rem;
-        padding: 1.5rem;
-      }
-      h3 {
-        font-size: 1.5rem;
-      }
-      p, label {
-        font-size: 0.85rem;
-      }
-      button {
-        padding: 0.7rem 1.2rem;
-        font-size: 0.9rem;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h3>⚠️ 代理使用协议</h3>
-    <p>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。详情请参阅 <a href="https://github.com/1234567Yang/cf-proxy-ex/">使用条款</a>。</p>
-    <div class="checkbox-container">
-      <input type="checkbox" id="agreeCheckbox">
-      <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
-    </div>
-    <button id="confirmButton" disabled>同意</button>
-  </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const checkbox = document.getElementById('agreeCheckbox');
-      const button = document.getElementById('confirmButton');
-      checkbox.addEventListener('change', () => {
-        button.disabled = !checkbox.checked;
-      });
-      button.addEventListener('click', () => {
-        if (!button.disabled) {
-          const cookieDomain = window.location.hostname;
-          document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
-          window.location.reload();
-        }
-      });
-    });
-  </script>
-</body>
-</html>
-`;
-
-// 三级代理 IP 显示弹窗
-const ipDisplayInjection = `
-(function() {
-  if (!document.cookie.includes("${tripleProxyCookieName}=true")) return;
-  const ensureDomReady = (callback) => {
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(callback, 0);
-    } else {
-      document.addEventListener('DOMContentLoaded', callback);
-    }
-  };
-  ensureDomReady(() => {
-    const style = document.createElement('style');
-    style.textContent = \`
-      .modal {
-        display: flex;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 999999;
-        justify-content: center;
-        align-items: center;
-      }
-      .modal-content {
-        background: rgba(255, 255, 255, 0.9);
-        padding: 20px;
-        border-radius: 15px;
-        max-width: 80%;
-        text-align: center;
-        box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
-      }
-      .modal-content h3 {
-        margin-bottom: 15px;
-        color: #1e3c72;
-      }
-      .modal-content p {
-        margin: 10px 0;
-        color: #333;
-      }
-      .modal-content button {
-        background: linear-gradient(90deg, #2a5298, #1e3c72);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 25px;
-        cursor: pointer;
-        margin-top: 10px;
-      }
-      .modal-content button:hover {
-        background: linear-gradient(90deg, #1e3c72, #2a5298);
-      }
-    \`;
-    document.head.appendChild(style);
-    const fetchIpInfo = async (url, level) => {
-      try {
-        const ipRes = await fetch(url, { cache: 'no-store' });
-        if (!ipRes.ok) throw new Error('IP fetch failed');
-        const ipData = await ipRes.json();
-        const locationRes = await fetch('http://ip-api.com/json/' + ipData.ip + '?lang=zh-CN');
-        if (!locationRes.ok) throw new Error('Location fetch failed');
-        const locationData = await locationRes.json();
-        return {
-          ip: ipData.ip,
-          location: \`\${locationData.city || '未知'}, \${locationData.regionName || '未知'}, \${locationData.country || '未知'}\`,
-          company: locationData.org || '未知公司',
-          port: 443
-        };
-      } catch (e) {
-        return { error: \`级别 \${level} IP 获取失败: \${e.message}\` };
-      }
-    };
-    Promise.all([
-      fetchIpInfo('https://api.ipify.org?format=json', 1),
-      fetchIpInfo('${thisProxyServerUrlHttps}https://api.ipify.org?format=json', 2),
-      fetchIpInfo('${thisProxyServerUrlHttps}${thisProxyServerUrlHttps}https://api.ipify.org?format=json', 3)
-    ]).then(([level1, level2, level3]) => {
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      const modalContent = document.createElement('div');
-      modalContent.className = 'modal-content';
-      let content = '<h3>代理 IP 信息</h3>';
-      if (level1.error || level2.error || level3.error) {
-        content += '<p style="color: #e53935;">部分或全部 IP 获取失败，请检查网络或稍后重试。</p>';
-        if (level1.error) content += \`<p>\${level1.error}</p>\`;
-        if (level2.error) content += \`<p>\${level2.error}</p>\`;
-        if (level3.error) content += \`<p>\${level3.error}</p>\`;
-      } else {
-        content += \`
-          <p>一级代理: \${level1.ip} (\${level1.location}) \${level1.company} 端口: \${level1.port}</p>
-          <p>二级代理: \${level2.ip} (\${level2.location}) \${level2.company} 端口: \${level2.port}</p>
-          <p>三级代理: \${level3.ip} (\${level3.location}) \${level3.company} 端口: \${level3.port}</p>
-        \`;
-      }
-      content += '<button onclick="this.parentElement.parentElement.remove()">关闭</button>';
-      modalContent.innerHTML = content;
-      modal.appendChild(modalContent);
-      document.body.appendChild(modal);
-    }).catch(e => {
-      console.error('IP display failed:', e.message);
-    });
-  });
-})();
-`;
-
-// 代理提示注入代码
+// Proxy Hint Injection
 const proxyHintInjection = `
 setTimeout(() => {
   if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
@@ -319,7 +84,7 @@ setTimeout(() => {
 }, 5000);
 `;
 
-// 伪装注入代码
+// Disguise Injection
 const disguiseInjection = `
 (function() {
   const now = new URL(window.location.href);
@@ -362,7 +127,7 @@ const disguiseInjection = `
 })();
 `;
 
-// 元素屏蔽注入代码
+// Block Elements Injection
 const blockElementsInjection = `
 (function() {
   const blockElements = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
@@ -396,32 +161,32 @@ const blockElementsInjection = `
 })();
 `;
 
-// HTTP 请求注入代码
+// HTTP Request Injection (from Secondary Code)
 const httpRequestInjection = `
 (function() {
-  const nowURL = new URL(window.location.href);
-  const proxy_host = nowURL.host;
-  const proxy_protocol = nowURL.protocol;
-  const proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
-  let original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
-  let original_website_url = new URL(original_website_url_str);
-  let original_website_href = nowURL.pathname.substring(1);
-  if (!original_website_href.startsWith("http")) original_website_href = "https://" + original_website_href;
-  let original_website_host = original_website_url_str.substring(original_website_url_str.indexOf("://") + "://".length);
+  var nowURL = new URL(window.location.href);
+  var proxy_host = nowURL.host;
+  var proxy_protocol = nowURL.protocol;
+  var proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
+  var original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
+  var original_website_url = new URL(original_website_url_str);
+  var original_website_href = nowURL.pathname.substring(1);
+  if(!original_website_href.startsWith("http")) original_website_href = "https://" + original_website_href;
+  var original_website_host = original_website_url_str.substring(original_website_url_str.indexOf("://") + "://".length);
   original_website_host = original_website_host.split('/')[0];
-  let original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
+  var original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
   function changeURL(relativePath) {
-    if (!relativePath || relativePath === 'about:blank') return null;
+    if(relativePath == null) return null;
     try {
-      if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
+      if(relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
     } catch {}
     try {
-      if (relativePath.startsWith(proxy_host_with_schema)) relativePath = relativePath.substring(proxy_host_with_schema.length);
-      if (relativePath.startsWith(proxy_host + "/")) relativePath = relativePath.substring(proxy_host.length + 1);
-      if (relativePath.startsWith(proxy_host)) relativePath = relativePath.substring(proxy_host.length);
+      if(relativePath && relativePath.startsWith(proxy_host_with_schema)) relativePath = relativePath.substring(proxy_host_with_schema.length);
+      if(relativePath && relativePath.startsWith(proxy_host + "/")) relativePath = relativePath.substring(proxy_host.length + 1);
+      if(relativePath && relativePath.startsWith(proxy_host)) relativePath = relativePath.substring(proxy_host.length);
     } catch {}
     try {
-      let absolutePath = new URL(relativePath, original_website_url_str).href;
+      var absolutePath = new URL(relativePath, original_website_url_str).href;
       absolutePath = absolutePath.replace(window.location.href, original_website_href);
       absolutePath = absolutePath.replace(encodeURI(window.location.href), encodeURI(original_website_href));
       absolutePath = absolutePath.replace(encodeURIComponent(window.location.href), encodeURIComponent(original_website_href));
@@ -435,20 +200,20 @@ const httpRequestInjection = `
     }
   }
   function getOriginalUrl(url) {
-    if (url == null) return null;
-    if (url.startsWith(proxy_host_with_schema)) return url.substring(proxy_host_with_schema.length);
+    if(url == null) return null;
+    if(url.startsWith(proxy_host_with_schema)) return url.substring(proxy_host_with_schema.length);
     return url;
   }
   function networkInject() {
-    const originalOpen = XMLHttpRequest.prototype.open;
-    const originalFetch = window.fetch;
+    var originalOpen = XMLHttpRequest.prototype.open;
+    var originalFetch = window.fetch;
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       url = changeURL(url);
       if (!url) return;
       return originalOpen.apply(this, arguments);
     };
     window.fetch = function(input, init) {
-      let url;
+      var url;
       if (typeof input === 'string') {
         url = input;
       } else if (input instanceof Request) {
@@ -478,8 +243,8 @@ const httpRequestInjection = `
     const originalAppendChild = Node.prototype.appendChild;
     Node.prototype.appendChild = function(child) {
       try {
-        if (child.src) child.src = changeURL(child.src);
-        if (child.href) child.href = changeURL(child.href);
+        if(child.src) child.src = changeURL(child.src);
+        if(child.href) child.href = changeURL(child.href);
       } catch {}
       return originalAppendChild.call(this, child);
     };
@@ -579,20 +344,20 @@ const httpRequestInjection = `
     const originalReplaceState = History.prototype.replaceState;
     History.prototype.pushState = function(state, title, url) {
       if (!url) return;
-      if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
-      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
-      if (url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
-      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
+      if(url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
+      if(url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
       const u = changeURL(url);
       if (!u) return;
       return originalPushState.apply(this, [state, title, u]);
     };
     History.prototype.replaceState = function(state, title, url) {
       if (!url) return;
-      if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
-      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
-      if (url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
-      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
+      if(url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
+      if(url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
       const u = changeURL(url);
       if (!u) return;
       return originalReplaceState.apply(this, [state, title, u]);
@@ -677,11 +442,10 @@ const httpRequestInjection = `
   }, true);
   ${disguiseInjection}
   ${blockElementsInjection}
-  ${ipDisplayInjection}
 })();
 `;
 
-// 主页 HTML
+// Main Page HTML (Updated with Scrollable Modal)
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -903,16 +667,19 @@ const mainPage = `
       z-index: 9999;
       justify-content: center;
       align-items: center;
+      overflow-y: auto;
     }
     .modal-content {
       background-color: rgba(255, 255, 255, 0.9);
       padding: 20px;
       border-radius: 15px;
       max-width: 80%;
+      max-height: 80vh;
+      overflow-y: auto;
       text-align: center;
       box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
     }
-    .modal-content input, .modal-content select {
+    .modal-content input, .modal-content select, .modal-content textarea {
       width: 90%;
       margin: 10px auto;
       padding: 10px;
@@ -937,6 +704,23 @@ const mainPage = `
     .modal-content .config-button:hover {
       background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
     }
+    .dark-mode {
+      background-color: #1a1a1a;
+      color: #ffffff;
+    }
+    .dark-mode .content, .dark-mode .modal-content {
+      background-color: rgba(40, 40, 40, 0.9);
+      color: #ffffff;
+    }
+    .dark-mode button {
+      background: linear-gradient(45deg, #0288d1, #4fc3f7);
+      color: #ffffff;
+    }
+    .dark-mode select, .dark-mode input, .dark-mode textarea {
+      background-color: rgba(60, 60, 60, 0.5);
+      color: #ffffff;
+      border-color: #0288d1;
+    }
     @media (max-width: 768px) {
       .content {
         max-width: 90%;
@@ -945,7 +729,7 @@ const mainPage = `
       h1 {
         font-size: 1.8rem;
       }
-      button, select {
+      button, select, input, textarea {
         width: 90%;
         font-size: 12px;
         padding: 8px;
@@ -987,13 +771,14 @@ const mainPage = `
       </div>
       <div class="checkbox-container">
         <div class="checkbox-wrapper">
-          <input type="checkbox" id="tripleProxy">
+          <input type="checkbox" id="darkMode">
           <span class="checkbox-custom"></span>
         </div>
-        <label for="tripleProxy">启用三级代理（模拟暗网分层代理）</label>
+        <label for="darkMode">启用暗黑模式</label>
       </div>
       <button class="config-button" onclick="showBlockExtensionsModal()">配置拦截器</button>
       <button class="config-button" onclick="showBlockElementsModal()">屏蔽元素</button>
+      <button class="config-button" onclick="showCustomHeadersModal()">自定义头</button>
     </div>
     <p>声明：本工具仅用于学术研究和文献查阅，请严格遵守相关法律法规。</p>
     <p>By Sak 2025</p>
@@ -1032,6 +817,30 @@ const mainPage = `
       <button class="config-button" onclick="closeBlockElementsModal()">取消</button>
     </div>
   </div>
+  <div id="customHeadersModal" class="modal">
+    <div class="modal-content">
+      <h3>自定义 HTTP 头</h3>
+      <p>输入自定义 HTTP 头，格式为 key:value，每行一个</p>
+      <textarea id="customHeadersInput" placeholder="X-Custom-Header: Value\nAnother-Header: AnotherValue"></textarea>
+      <button onclick="saveCustomHeaders()">保存</button>
+      <button class="config-button" onclick="closeCustomHeadersModal()">取消</button>
+    </div>
+  </div>
+  <div id="proxyHintModal" class="modal">
+    <div class="modal-content">
+      <h3>⚠️ 代理使用协议</h3>
+      <p>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。详情请参阅 <a href="https://github.com/1234567Yang/cf-proxy-ex/">使用条款</a>。</p>
+      <div class="checkbox-container">
+        <div class="checkbox-wrapper">
+          <input type="checkbox" id="agreeCheckbox">
+          <span class="checkbox-custom"></span>
+        </div>
+        <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
+      </div>
+      <button id="confirmButton" disabled>同意</button>
+      <button class="config-button" onclick="closeProxyHintModal()">取消</button>
+    </div>
+  </div>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const content = document.querySelector('.content');
@@ -1045,7 +854,8 @@ const mainPage = `
         if (cookies['${languageCookieName}']) document.getElementById('languageSelect').value = cookies['${languageCookieName}'];
         if (cookies['${deviceCookieName}']) document.getElementById('deviceSelect').value = cookies['${deviceCookieName}'];
         document.getElementById('blockAds').checked = cookies['${blockAdsCookieName}'] === 'true';
-        document.getElementById('tripleProxy').checked = cookies['${tripleProxyCookieName}'] === 'true';
+        document.getElementById('darkMode').checked = cookies['darkMode'] === 'true';
+        if (cookies['darkMode'] === 'true') document.body.classList.add('dark-mode');
         if (cookies['${blockExtensionsCookieName}']) document.getElementById('blockExtensionsInput').value = cookies['${blockExtensionsCookieName}'];
         if (cookies['${blockElementsCookieName}']) document.getElementById('blockElementsInput').value = cookies['${blockElementsCookieName}'];
         if (cookies['${blockElementsScopeCookieName}']) {
@@ -1055,20 +865,27 @@ const mainPage = `
             document.getElementById('blockElementsScopeUrl').value = cookies['${blockElementsScopeCookieName}_URL'];
           }
         }
+        if (cookies['${customHeadersCookieName}']) document.getElementById('customHeadersInput').value = cookies['${customHeadersCookieName}'];
       };
       loadCookies();
       const updatePlaceholder = (inputId, placeholderId) => {
         const input = document.getElementById(inputId);
         const placeholder = document.getElementById(placeholderId);
-        input.addEventListener('input', () => {
+        if (input && placeholder) {
+          input.addEventListener('input', () => {
+            placeholder.style.display = input.value ? 'none' : 'block';
+          });
           placeholder.style.display = input.value ? 'none' : 'block';
-        });
-        placeholder.style.display = input.value ? 'none' : 'block';
+        }
       };
       updatePlaceholder('blockExtensionsInput', 'blockExtensionsPlaceholder');
       updatePlaceholder('blockElementsInput', 'blockElementsPlaceholder');
       document.getElementById('blockElementsScope').addEventListener('change', function() {
         document.getElementById('blockElementsScopeUrl').style.display = this.value === 'specific' ? 'block' : 'none';
+      });
+      document.getElementById('darkMode').addEventListener('change', function() {
+        document.body.classList.toggle('dark-mode', this.checked);
+        setCookie('darkMode', this.checked);
       });
       const setCookie = (name, value) => {
         const cookieDomain = window.location.hostname;
@@ -1079,7 +896,20 @@ const mainPage = `
       document.getElementById('languageSelect').addEventListener('change', function() { setCookie('${languageCookieName}', this.value); });
       document.getElementById('deviceSelect').addEventListener('change', function() { setCookie('${deviceCookieName}', this.value); });
       document.getElementById('blockAds').addEventListener('change', function() { setCookie('${blockAdsCookieName}', this.checked); });
-      document.getElementById('tripleProxy').addEventListener('change', function() { setCookie('${tripleProxyCookieName}', this.checked); });
+      const checkbox = document.getElementById('agreeCheckbox');
+      const button = document.getElementById('confirmButton');
+      if (checkbox && button) {
+        checkbox.addEventListener('change', () => {
+          button.disabled = !checkbox.checked;
+        });
+        button.addEventListener('click', () => {
+          if (!button.disabled) {
+            const cookieDomain = window.location.hostname;
+            document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+            window.location.reload();
+          }
+        });
+      }
     });
     function toggleAdvancedOptions() {
       const advancedOptions = document.getElementById('advancedOptions');
@@ -1093,15 +923,16 @@ const mainPage = `
     function closeBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'none'; }
     function showBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'flex'; }
     function closeBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'none'; }
+    function showCustomHeadersModal() { document.getElementById('customHeadersModal').style.display = 'flex'; }
+    function closeCustomHeadersModal() { document.getElementById('customHeadersModal').style.display = 'none'; }
+    function closeProxyHintModal() { document.getElementById('proxyHintModal').style.display = 'none'; }
     function redirectTo() {
       const targetUrl = document.getElementById('targetUrl').value.trim();
       const language = document.getElementById('languageSelect').value;
-      const tripleProxy = document.getElementById('tripleProxy').checked;
       const currentOrigin = window.location.origin;
       if (targetUrl) {
         let finalUrl = currentOrigin + '/' + (targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl);
         if (language) finalUrl += finalUrl.includes('?') ? '&lang=' + language : '?lang=' + language;
-        if (tripleProxy) finalUrl += finalUrl.includes('?') ? '&triple=true' : '?triple=true';
         window.open(finalUrl, '_blank');
       }
       closeUrlModal();
@@ -1132,12 +963,21 @@ const mainPage = `
       }
       closeBlockElementsModal();
     }
+    function saveCustomHeaders() {
+      const headers = document.getElementById('customHeadersInput').value.trim();
+      const cookieDomain = window.location.hostname;
+      const oneWeekLater = new Date();
+      oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+      document.cookie = "${customHeadersCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${customHeadersCookieName}=" + encodeURIComponent(headers) + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      closeCustomHeadersModal();
+    }
   </script>
 </body>
 </html>
 `;
 
-// 密码页面
+// Password Page
 const pwdPage = `
 <!DOCTYPE html>
 <html>
@@ -1210,56 +1050,70 @@ const pwdPage = `
 </html>
 `;
 
-// 重定向错误页面
+// Redirect Error Page
 const redirectError = `
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head><body><h2>重定向错误：目标网站可能包含错误的跳转信息，无法解析</h2></body></html>
 `;
 
-// 主处理函数
-async function handleRequest(request, proxyLevel = 0) {
+// Main Request Handler
+async function handleRequest(request) {
   try {
+    // Rate Limiting
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const now = Date.now();
+    const clientData = requestCounts.get(clientIp) || { count: 0, timestamp: now };
+    if (now - clientData.timestamp > RATE_LIMIT_WINDOW) {
+      clientData.count = 0;
+      clientData.timestamp = now;
+    }
+    clientData.count++;
+    if (clientData.count > RATE_LIMIT) {
+      return new Response('Too Many Requests', { status: 429 });
+    }
+    requestCounts.set(clientIp, clientData);
+
     const url = new URL(request.url);
     const cache = caches.default;
     const contentType = request.headers.get('Content-Type') || '';
     const isStatic = contentType.includes('image/') || contentType.includes('text/css') || contentType.includes('application/javascript');
 
-    // 检查缓存
+    // Check Cache
     if (isStatic) {
       const cacheKey = new Request(url.toString(), { method: 'GET' });
       const cachedResponse = await cache.match(cacheKey);
       if (cachedResponse) return cachedResponse;
     }
 
-    // 防止爬虫
+    // Prevent Crawlers
     const userAgent = request.headers.get('User-Agent') || '';
     if (userAgent.includes("Bytespider")) {
       return getHTMLResponse("爬虫被禁止使用代理。");
     }
 
-    // 检查代理提示 Cookie
+    // Check Proxy Hint Cookie
     const siteCookie = request.headers.get('Cookie') || '';
     if (!siteCookie.includes(`${proxyHintCookieName}=agreed`)) {
-      return getHTMLResponse(proxyHintPage);
+      return getHTMLResponse(mainPage.replace('<div id="proxyHintModal" class="modal">', '<div id="proxyHintModal" class="modal" style="display: flex;">'));
     }
 
-    // 检查密码
+    // Check Password
     if (password) {
       const pwd = getCook(siteCookie, passwordCookieName);
       if (!pwd || pwd !== password) return handleWrongPwd();
     }
 
-    // 处理 favicon 和 robots.txt
+    // Handle Favicon and Robots.txt
     if (url.pathname.endsWith("favicon.ico")) return getRedirect("https://www.baidu.com/favicon.ico");
     if (url.pathname.endsWith("robots.txt")) {
       return new Response(`User-Agent: *\nDisallow: /`, { headers: { "Content-Type": "text/plain" } });
     }
 
-    // 显示主页
+    // Show Main Page
     const actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
     if (!actualUrlStr) return getHTMLResponse(mainPage);
 
-    // 检查文件扩展名拦截
+    // Check File Extension Blocking
     const blockExtensions = getCook(siteCookie, blockExtensionsCookieName) || "";
     const blockAds = getCook(siteCookie, blockAdsCookieName) === "true";
     const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase()).filter(ext => ext);
@@ -1268,13 +1122,13 @@ async function handleRequest(request, proxyLevel = 0) {
       if (extensions.includes(fileExt)) return new Response(null, { status: 204 });
     }
 
-    // 检查广告拦截
+    // Check Ad Blocking
     if (blockAds) {
       const urlLower = actualUrlStr.toLowerCase();
       if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) return new Response(null, { status: 204 });
     }
 
-    // 验证目标 URL
+    // Validate Target URL
     let test = actualUrlStr;
     if (!test.startsWith("http")) test = "https://" + test;
     try {
@@ -1286,34 +1140,31 @@ async function handleRequest(request, proxyLevel = 0) {
       return getHTMLResponse("无效的 URL 或无法获取上次访问的站点。");
     }
 
-    // 处理不带协议的 URL
+    // Handle URLs without Protocol
     if (!actualUrlStr.startsWith("http") && !actualUrlStr.includes("://")) {
       return getRedirect(thisProxyServerUrlHttps + "https://" + actualUrlStr);
     }
 
     const actualUrl = new URL(actualUrlStr);
 
-    // 检查主机名大小写
+    // Check Host Case
     if (actualUrlStr !== actualUrl.href) return getRedirect(thisProxyServerUrlHttps + actualUrl.href);
 
-    // 检查三级代理
-    const tripleProxy = getCook(siteCookie, tripleProxyCookieName) === "true" || url.searchParams.get('triple') === 'true';
-    if (tripleProxy && proxyLevel < 3) {
-      const newRequest = new Request(thisProxyServerUrlHttps + actualUrlStr, {
-        headers: request.headers,
-        method: request.method,
-        body: request.body,
-        redirect: "manual"
-      });
-      return handleRequest(newRequest, proxyLevel + 1);
-    }
-
-    // 获取语言和设备设置
+    // Get Language and Device Settings
     let selectedLanguage = getCook(siteCookie, languageCookieName) || url.searchParams.get('lang') || 'zh-CN';
     if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) selectedLanguage = 'zh-CN';
     const deviceType = getCook(siteCookie, deviceCookieName) || 'none';
 
-    // 修改请求头
+    // Handle WebSocket
+    if (request.headers.get('Upgrade') === 'websocket') {
+      const wsRequest = new Request(actualUrl, {
+        headers: request.headers,
+        method: request.method
+      });
+      return fetch(wsRequest);
+    }
+
+    // Modify Request Headers
     const clientHeaderWithChange = new Headers();
     for (const [key, value] of request.headers.entries()) {
       let newValue = value.replace(thisProxyServerUrlHttps, actualUrlStr).replace(thisProxyServerUrl_hostOnly, actualUrl.host);
@@ -1326,7 +1177,16 @@ async function handleRequest(request, proxyLevel = 0) {
     if (!clientHeaderWithChange.has('Origin')) clientHeaderWithChange.set('Origin', actualUrl.origin);
     if (!clientHeaderWithChange.has('Accept-Language')) clientHeaderWithChange.set('Accept-Language', selectedLanguage);
 
-    // 修改请求体
+    // Add Custom Headers
+    const customHeaders = getCook(siteCookie, customHeadersCookieName) || '';
+    if (customHeaders) {
+      customHeaders.split('\n').forEach(header => {
+        const [key, value] = header.split(':').map(s => s.trim());
+        if (key && value) clientHeaderWithChange.set(key, value);
+      });
+    }
+
+    // Modify Request Body
     let clientRequestBodyWithChange;
     if (request.body) {
       clientRequestBodyWithChange = await request.text();
@@ -1335,7 +1195,7 @@ async function handleRequest(request, proxyLevel = 0) {
         .replace(thisProxyServerUrl_hostOnly, actualUrl.host);
     }
 
-    // 创建修改后的请求
+    // Create Modified Request
     const modifiedRequest = new Request(actualUrl, {
       headers: clientHeaderWithChange,
       method: request.method,
@@ -1343,7 +1203,7 @@ async function handleRequest(request, proxyLevel = 0) {
       redirect: "manual"
     });
 
-    // 发送请求
+    // Send Request
     const response = await fetch(modifiedRequest);
     if (response.status.toString().startsWith("3") && response.headers.get("Location")) {
       try {
@@ -1355,7 +1215,7 @@ async function handleRequest(request, proxyLevel = 0) {
       }
     }
 
-    // 处理响应
+    // Process Response
     let modifiedResponse;
     let bd;
     const responseContentType = response.headers.get("Content-Type") || '';
@@ -1363,7 +1223,7 @@ async function handleRequest(request, proxyLevel = 0) {
     if (response.body) {
       if (responseContentType.startsWith("text/")) {
         bd = await response.text();
-        const regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\\s'"]+)`, 'g');
+        let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\\s'"]+)`, 'g');
         bd = bd.replace(regex, match => match.includes("http") ? thisProxyServerUrlHttps + match : thisProxyServerUrl_hostOnly + "/" + match);
         if (responseContentType.includes("html") || responseContentType.includes("javascript")) {
           bd = bd.replace(/window\.location/g, "window." + replaceUrlObj);
@@ -1392,7 +1252,7 @@ async function handleRequest(request, proxyLevel = 0) {
       modifiedResponse = new Response(response.body, response);
     }
 
-    // 缓存静态内容
+    // Cache Static Content
     if (isStatic && response.status === 200) {
       const cacheKey = new Request(url.toString(), { method: 'GET' });
       const cacheResponse = new Response(modifiedResponse.body, {
@@ -1405,7 +1265,7 @@ async function handleRequest(request, proxyLevel = 0) {
       await cache.put(cacheKey, cacheResponse.clone());
     }
 
-    // 处理响应头中的 Cookie
+    // Process Response Headers
     const headers = modifiedResponse.headers;
     const cookieHeaders = [];
     for (const [key, value] of headers.entries()) {
@@ -1431,7 +1291,7 @@ async function handleRequest(request, proxyLevel = 0) {
       });
     }
 
-    // 设置 Cookie 和响应头
+    // Set Cookies and Headers
     if (responseContentType.includes("text/html") && response.status === 200 && bd.includes("<html")) {
       headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
       headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
@@ -1467,7 +1327,7 @@ async function handleRequest(request, proxyLevel = 0) {
   }
 }
 
-// 工具函数
+// Utility Functions
 function escapeRegExp(string) {
   return string.replace(/[.*+\-?^${}()|[\]\\]/g, '\\$&');
 }
