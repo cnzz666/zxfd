@@ -9,7 +9,7 @@ const str = "/";
 const lastVisitProxyCookie = "__PROXY_VISITEDSITE__";
 const passwordCookieName = "__PROXY_PWD__";
 const proxyHintCookieName = "__PROXY_HINT__";
-const tripleProxyCookieName = "__PROXY_TRIPLE__"; // 新增 cookie 用于记录三级代理设置
+const tripleProxyCookieName = "__PROXY_TRIPLE__";
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location__yproxy__"
@@ -37,385 +37,382 @@ setTimeout(() => {
 `;
 
 var httpRequestInjection = `
-var nowURL = new URL(window.location.href);
-var proxy_host = nowURL.host;
-var proxy_protocol = nowURL.protocol;
-var proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
-var original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
-var original_website_url = new URL(original_website_url_str);
+(function () {
+  var nowURL = new URL(window.location.href);
+  var proxy_host = nowURL.host;
+  var proxy_protocol = nowURL.protocol;
+  var proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
+  var original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
+  var original_website_url = new URL(original_website_url_str);
 
-var original_website_href = nowURL.pathname.substring(1);
-if (!original_website_href.startsWith("http")) original_website_href = "https://" + original_website_href;
+  var original_website_href = nowURL.pathname.substring(1);
+  if (!original_website_href.startsWith("http")) original_website_href = "https://" + original_website_href;
 
-var original_website_host = original_website_url_str.substring(original_website_url_str.indexOf("://") + "://".length);
-original_website_host = original_website_host.split('/')[0];
+  var original_website_host = original_website_url_str.substring(original_website_url_str.indexOf("://") + "://".length);
+  original_website_host = original_website_host.split('/')[0];
 
-var original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
+  var original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
 
-function changeURL(relativePath) {
-  if (relativePath == null) return null;
-  try {
-    if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
-  } catch {
-    // ignore
-  }
-  try {
-    if (relativePath && relativePath.startsWith(proxy_host_with_schema)) relativePath = relativePath.substring(proxy_host_with_schema.length);
-    if (relativePath && relativePath.startsWith(proxy_host + "/")) relativePath = relativePath.substring(proxy_host.length + 1);
-    if (relativePath && relativePath.startsWith(proxy_host)) relativePath = relativePath.substring(proxy_host.length);
-  } catch {
-    // ignore
-  }
-  try {
-    var absolutePath = new URL(relativePath, original_website_url_str).href;
-    absolutePath = absolutePath.replace(window.location.href, original_website_href);
-    absolutePath = absolutePath.replace(encodeURI(window.location.href), encodeURI(original_website_href));
-    absolutePath = absolutePath.replace(encodeURIComponent(window.location.href), encodeURIComponent(original_website_href));
-    absolutePath = absolutePath.replace(proxy_host, original_website_host);
-    absolutePath = absolutePath.replace(encodeURI(proxy_host), encodeURI(original_website_host));
-    absolutePath = absolutePath.replace(encodeURIComponent(proxy_host), encodeURIComponent(original_website_host));
-    absolutePath = proxy_host_with_schema + absolutePath;
-    return absolutePath;
-  } catch (e) {
-    console.log("Exception occurred: " + e.message + original_website_url_str + "   " + relativePath);
-    return "";
-  }
-}
-
-function getOriginalUrl(url) {
-  if (url == null) return null;
-  if (url.startsWith(proxy_host_with_schema)) return url.substring(proxy_host_with_schema.length);
-  return url;
-}
-
-function networkInject() {
-  var originalOpen = XMLHttpRequest.prototype.open;
-  var originalFetch = window.fetch;
-  XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
-    url = changeURL(url);
-    console.log("R:" + url);
-    return originalOpen.apply(this, arguments);
-  };
-  window.fetch = function (input, init) {
-    var url;
-    if (typeof input === 'string') {
-      url = input;
-    } else if (input instanceof Request) {
-      url = input.url;
-    } else {
-      url = input;
-    }
-    url = changeURL(url);
-    console.log("R:" + url);
-    if (typeof input === 'string') {
-      return originalFetch(url, init);
-    } else {
-      const newRequest = new Request(url, input);
-      return originalFetch(newRequest, init);
-    }
-  };
-  console.log("NETWORK REQUEST METHOD INJECTED");
-}
-
-function windowOpenInject() {
-  const originalOpen = window.open;
-  window.open = function (url, name, specs) {
-    let modifiedUrl = changeURL(url);
-    return originalOpen.call(window, modifiedUrl, name, specs);
-  };
-  console.log("WINDOW OPEN INJECTED");
-}
-
-function appendChildInject() {
-  const originalAppendChild = Node.prototype.appendChild;
-  Node.prototype.appendChild = function (child) {
+  function changeURL(relativePath) {
+    if (relativePath == null) return null;
     try {
-      if (child.src) {
-        child.src = changeURL(child.src);
-      }
-      if (child.href) {
-        child.href = changeURL(child.href);
-      }
+      if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
     } catch {
       // ignore
     }
-    return originalAppendChild.call(this, child);
-  };
-  console.log("APPEND CHILD INJECTED");
-}
-
-function elementPropertyInject() {
-  const originalSetAttribute = HTMLElement.prototype.setAttribute;
-  HTMLElement.prototype.setAttribute = function (name, value) {
-    if (name == "src" || name == "href") {
-      value = changeURL(value);
+    try {
+      if (relativePath && relativePath.startsWith(proxy_host_with_schema)) relativePath = relativePath.substring(proxy_host_with_schema.length);
+      if (relativePath && relativePath.startsWith(proxy_host + "/")) relativePath = relativePath.substring(proxy_host.length + 1);
+      if (relativePath && relativePath.startsWith(proxy_host)) relativePath = relativePath.substring(proxy_host.length);
+    } catch {
+      // ignore
     }
-    originalSetAttribute.call(this, name, value);
-  };
-  const originalGetAttribute = HTMLElement.prototype.getAttribute;
-  HTMLElement.prototype.getAttribute = function (name) {
-    const val = originalGetAttribute.call(this, name);
-    if (name == "href" || name == "src") {
-      return getOriginalUrl(val);
+    try {
+      var absolutePath = new URL(relativePath, original_website_url_str).href;
+      absolutePath = absolutePath.replace(window.location.href, original_website_href);
+      absolutePath = absolutePath.replace(encodeURI(window.location.href), encodeURI(original_website_href));
+      absolutePath = absolutePath.replace(encodeURIComponent(window.location.href), encodeURIComponent(original_website_href));
+      absolutePath = absolutePath.replace(proxy_host, original_website_host);
+      absolutePath = absolutePath.replace(encodeURI(proxy_host), encodeURI(original_website_host));
+      absolutePath = absolutePath.replace(encodeURIComponent(proxy_host), encodeURIComponent(original_website_host));
+      absolutePath = proxy_host_with_schema + absolutePath;
+      return absolutePath;
+    } catch (e) {
+      console.log("Exception occurred: " + e.message + original_website_url_str + "   " + relativePath);
+      return "";
     }
-    return val;
-  };
-  console.log("ELEMENT PROPERTY (get/set attribute) INJECTED");
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'href');
-  Object.defineProperty(HTMLAnchorElement.prototype, 'href', {
-    get: function () {
-      const real = descriptor.get.call(this);
-      return getOriginalUrl(real);
-    },
-    set: function (val) {
-      descriptor.set.call(this, changeURL(val));
-    },
-    configurable: true
-  });
-  console.log("ELEMENT PROPERTY (src / href) INJECTED");
-}
+  }
 
-class ProxyLocation {
-  constructor(originalLocation) {
-    this.originalLocation = originalLocation;
+  function getOriginalUrl(url) {
+    if (url == null) return null;
+    if (url.startsWith(proxy_host_with_schema)) return url.substring(proxy_host_with_schema.length);
+    return url;
   }
-  getStrNPosition(string, subString, index) {
-    return string.split(subString, index).join(subString).length;
-  }
-  getOriginalHref() {
-    return window.location.href.substring(this.getStrNPosition(window.location.href, "/", 3) + 1);
-  }
-  reload(forcedReload) {
-    this.originalLocation.reload(forcedReload);
-  }
-  replace(url) {
-    this.originalLocation.replace(changeURL(url));
-  }
-  assign(url) {
-    this.originalLocation.assign(changeURL(url));
-  }
-  get href() {
-    return this.getOriginalHref();
-  }
-  set href(url) {
-    this.originalLocation.href = changeURL(url);
-  }
-  get protocol() {
-    return original_website_url.protocol;
-  }
-  set protocol(value) {
-    original_website_url.protocol = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get host() {
-    return original_website_url.host;
-  }
-  set host(value) {
-    original_website_url.host = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get hostname() {
-    return original_website_url.hostname;
-  }
-  set hostname(value) {
-    original_website_url.hostname = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get port() {
-    return original_website_url.port;
-  }
-  set port(value) {
-    original_website_url.port = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get pathname() {
-    return original_website_url.pathname;
-  }
-  set pathname(value) {
-    original_website_url.pathname = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get search() {
-    return original_website_url.search;
-  }
-  set search(value) {
-    original_website_url.search = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get hash() {
-    return original_website_url.hash;
-  }
-  set hash(value) {
-    original_website_url.hash = value;
-    window.location.href = proxy_host_with_schema + original_website_url.href;
-  }
-  get origin() {
-    return original_website_url.origin;
-  }
-}
 
-function documentLocationInject() {
-  Object.defineProperty(document, 'URL', {
-    get: function () {
-      return original_website_url_str;
-    },
-    set: function (url) {
-      document.URL = changeURL(url);
-    }
-  });
-  Object.defineProperty(document, '${replaceUrlObj}', {
-    get: function () {
-      return new ProxyLocation(window.location);
-    },
-    set: function (url) {
-      window.location.href = changeURL(url);
-    }
-  });
-  console.log("LOCATION INJECTED");
-}
-
-function windowLocationInject() {
-  Object.defineProperty(window, '${replaceUrlObj}', {
-    get: function () {
-      return new ProxyLocation(window.location);
-    },
-    set: function (url) {
-      window.location.href = changeURL(url);
-    }
-  });
-  console.log("WINDOW LOCATION INJECTED");
-}
-
-function historyInject() {
-  const originalPushState = History.prototype.pushState;
-  const originalReplaceState = History.prototype.replaceState;
-  History.prototype.pushState = function (state, title, url) {
-    if (!url) return;
-    if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
-    if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
-    var u = changeURL(url);
-    return originalPushState.apply(this, [state, title, u]);
-  };
-  History.prototype.replaceState = function (state, title, url) {
-    if (!url) return;
-    if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
-    if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
-    if (url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
-    if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
-    var u = changeURL(url);
-    return originalReplaceState.apply(this, [state, title, u]);
-  };
-  console.log("HISTORY INJECTED");
-}
-
-function obsPage() {
-  var yProxyObserver = new MutationObserver(function (mutations) {
-    mutations.forEach(function (mutation) {
-      traverseAndConvert(mutation);
-    });
-  });
-  var config = { attributes: true, childList: true, subtree: true };
-  yProxyObserver.observe(document.body, config);
-  console.log("OBSERVING THE WEBPAGE...");
-}
-
-function traverseAndConvert(node) {
-  if (node instanceof HTMLElement) {
-    removeIntegrityAttributesFromElement(node);
-    covToAbs(node);
-    node.querySelectorAll('*').forEach(function (child) {
-      removeIntegrityAttributesFromElement(child);
-      covToAbs(child);
-    });
+  function networkInject() {
+    var originalOpen = XMLHttpRequest.prototype.open;
+    var originalFetch = window.fetch;
+    XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
+      url = changeURL(url);
+      console.log("R:" + url);
+      return originalOpen.apply(this, arguments);
+    };
+    window.fetch = function (input, init) {
+      var url;
+      if (typeof input === 'string') {
+        url = input;
+      } else if (input instanceof Request) {
+        url = input.url;
+      } else {
+        url = input;
+      }
+      url = changeURL(url);
+      console.log("R:" + url);
+      if (typeof input === 'string') {
+        return originalFetch(url, init);
+      } else {
+        const newRequest = new Request(url, input);
+        return originalFetch(newRequest, init);
+      }
+    };
+    console.log("NETWORK REQUEST METHOD INJECTED");
   }
-}
 
-function covToAbs(element) {
-  var relativePath = "";
-  var setAttr = "";
-  if (element instanceof HTMLElement && element.hasAttribute("href")) {
-    relativePath = element.getAttribute("href");
-    setAttr = "href";
+  function windowOpenInject() {
+    const originalOpen = window.open;
+    window.open = function (url, name, specs) {
+      let modifiedUrl = changeURL(url);
+      return originalOpen.call(window, modifiedUrl, name, specs);
+    };
+    console.log("WINDOW OPEN INJECTED");
   }
-  if (element instanceof HTMLElement && element.hasAttribute("src")) {
-    relativePath = element.getAttribute("src");
-    setAttr = "src";
-  }
-  if (setAttr !== "" && relativePath.indexOf(proxy_host_with_schema) != 0) {
-    if (!relativePath.includes("*")) {
+
+  function appendChildInject() {
+    const originalAppendChild = Node.prototype.appendChild;
+    Node.prototype.appendChild = function (child) {
       try {
-        var absolutePath = changeURL(relativePath);
-        element.setAttribute(setAttr, absolutePath);
-      } catch (e) {
-        console.log("Exception occurred: " + e.message + original_website_href + "   " + relativePath);
+        if (child.src) {
+          child.src = changeURL(child.src);
+        }
+        if (child.href) {
+          child.href = changeURL(child.href);
+        }
+      } catch {
+        // ignore
+      }
+      return originalAppendChild.call(this, child);
+    };
+    console.log("APPEND CHILD INJECTED");
+  }
+
+  function elementPropertyInject() {
+    const originalSetAttribute = HTMLElement.prototype.setAttribute;
+    HTMLElement.prototype.setAttribute = function (name, value) {
+      if (name == "src" || name == "href") {
+        value = changeURL(value);
+      }
+      originalSetAttribute.call(this, name, value);
+    };
+    const originalGetAttribute = HTMLElement.prototype.getAttribute;
+    HTMLElement.prototype.getAttribute = function (name) {
+      const val = originalGetAttribute.call(this, name);
+      if (name == "href" || name == "src") {
+        return getOriginalUrl(val);
+      }
+      return val;
+    };
+    console.log("ELEMENT PROPERTY (get/set attribute) INJECTED");
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'href');
+    Object.defineProperty(HTMLAnchorElement.prototype, 'href', {
+      get: function () {
+        const real = descriptor.get.call(this);
+        return getOriginalUrl(real);
+      },
+      set: function (val) {
+        descriptor.set.call(this, changeURL(val));
+      },
+      configurable: true
+    });
+    console.log("ELEMENT PROPERTY (src / href) INJECTED");
+  }
+
+  class ProxyLocation {
+    constructor(originalLocation) {
+      this.originalLocation = originalLocation;
+    }
+    getStrNPosition(string, subString, index) {
+      return string.split(subString, index).join(subString).length;
+    }
+    getOriginalHref() {
+      return window.location.href.substring(this.getStrNPosition(window.location.href, "/", 3) + 1);
+    }
+    reload(forcedReload) {
+      this.originalLocation.reload(forcedReload);
+    }
+    replace(url) {
+      this.originalLocation.replace(changeURL(url));
+    }
+    assign(url) {
+      this.originalLocation.assign(changeURL(url));
+    }
+    get href() {
+      return this.getOriginalHref();
+    }
+    set href(url) {
+      this.originalLocation.href = changeURL(url);
+    }
+    get protocol() {
+      return original_website_url.protocol;
+    }
+    set protocol(value) {
+      original_website_url.protocol = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get host() {
+      return original_website_url.host;
+    }
+    set host(value) {
+      original_website_url.host = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get hostname() {
+      return original_website_url.hostname;
+    }
+    set hostname(value) {
+      original_website_url.hostname = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get port() {
+      return original_website_url.port;
+    }
+    set port(value) {
+      original_website_url.port = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get pathname() {
+      return original_website_url.pathname;
+    }
+    set pathname(value) {
+      original_website_url.pathname = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get search() {
+      return original_website_url.search;
+    }
+    set search(value) {
+      original_website_url.search = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get hash() {
+      return original_website_url.hash;
+    }
+    set hash(value) {
+      original_website_url.hash = value;
+      window.location.href = proxy_host_with_schema + original_website_url.href;
+    }
+    get origin() {
+      return original_website_url.origin;
+    }
+  }
+
+  function documentLocationInject() {
+    Object.defineProperty(document, 'URL', {
+      get: function () {
+        return original_website_url_str;
+      },
+      set: function (url) {
+        document.URL = changeURL(url);
+      }
+    });
+    Object.defineProperty(document, '${replaceUrlObj}', {
+      get: function () {
+        return new ProxyLocation(window.location);
+      },
+      set: function (url) {
+        window.location.href = changeURL(url);
+      }
+    });
+    console.log("LOCATION INJECTED");
+  }
+
+  function windowLocationInject() {
+    Object.defineProperty(window, '${replaceUrlObj}', {
+      get: function () {
+        return new ProxyLocation(window.location);
+      },
+      set: function (url) {
+        window.location.href = changeURL(url);
+      }
+    });
+    console.log("WINDOW LOCATION INJECTED");
+  }
+
+  function historyInject() {
+    const originalPushState = History.prototype.pushState;
+    const originalReplaceState = History.prototype.replaceState;
+    History.prototype.pushState = function (state, title, url) {
+      if (!url) return;
+      if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
+      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
+      var u = changeURL(url);
+      return originalPushState.apply(this, [state, title, u]);
+    };
+    History.prototype.replaceState = function (state, title, url) {
+      if (!url) return;
+      if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
+      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
+      if (url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
+      if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
+      var u = changeURL(url);
+      return originalReplaceState.apply(this, [state, title, u]);
+    };
+    console.log("HISTORY INJECTED");
+  }
+
+  function obsPage() {
+    var yProxyObserver = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        traverseAndConvert(mutation);
+      });
+    });
+    var config = { attributes: true, childList: true, subtree: true };
+    yProxyObserver.observe(document.body, config);
+    console.log("OBSERVING THE WEBPAGE...");
+  }
+
+  function traverseAndConvert(node) {
+    if (node instanceof HTMLElement) {
+      removeIntegrityAttributesFromElement(node);
+      covToAbs(node);
+      node.querySelectorAll('*').forEach(function (child) {
+        removeIntegrityAttributesFromElement(child);
+        covToAbs(child);
+      });
+    }
+  }
+
+  function covToAbs(element) {
+    var relativePath = "";
+    var setAttr = "";
+    if (element instanceof HTMLElement && element.hasAttribute("href")) {
+      relativePath = element.getAttribute("href");
+      setAttr = "href";
+    }
+    if (element instanceof HTMLElement && element.hasAttribute("src")) {
+      relativePath = element.getAttribute("src");
+      setAttr = "src";
+    }
+    if (setAttr !== "" && relativePath.indexOf(proxy_host_with_schema) != 0) {
+      if (!relativePath.includes("*")) {
+        try {
+          var absolutePath = changeURL(relativePath);
+          element.setAttribute(setAttr, absolutePath);
+        } catch (e) {
+          console.log("Exception occurred: " + e.message + original_website_href + "   " + relativePath);
+        }
       }
     }
   }
-}
 
-function removeIntegrityAttributesFromElement(element) {
-  if (element.hasAttribute('integrity')) {
-    element.removeAttribute('integrity');
-  }
-}
-
-function loopAndConvertToAbs() {
-  for (var ele of document.querySelectorAll('*')) {
-    removeIntegrityAttributesFromElement(ele);
-    covToAbs(ele);
-  }
-  console.log("LOOPED EVERY ELEMENT");
-}
-
-function covScript() {
-  var scripts = document.getElementsByTagName('script');
-  for (var i = 0; i < scripts.length; i++) {
-    covToAbs(scripts[i]);
-  }
-  setTimeout(covScript, 3000);
-}
-
-networkInject();
-windowOpenInject();
-elementPropertyInject();
-documentLocationInject();
-windowLocationInject();
-historyInject();
-
-window.addEventListener('load', () => {
-  loopAndConvertToAbs();
-  console.log("CONVERTING SCRIPT PATH");
-  obsPage();
-  covScript();
-});
-console.log("WINDOW ONLOAD EVENT ADDED");
-
-window.addEventListener('error', event => {
-  var element = event.target || event.srcElement;
-  if (element.tagName === 'SCRIPT') {
-    console.log("Found problematic script:", element);
-    if (element.alreadyChanged) {
-      console.log("this script has already been injected, ignoring this problematic script...");
-      return;
+  function removeIntegrityAttributesFromElement(element) {
+    if (element.hasAttribute('integrity')) {
+      element.removeAttribute('integrity');
     }
-    removeIntegrityAttributesFromElement(element);
-    covToAbs(element);
-    var newScript = document.createElement("script");
-    newScript.src = element.src;
-    newScript.async = element.async;
-    newScript.defer = element.defer;
-    newScript.alreadyChanged = true;
-    document.head.appendChild(newScript);
-    console.log("New script added:", newScript);
   }
-}, true);
-console.log("WINDOW CORS ERROR EVENT ADDED");
 
-httpRequestInjection = `
-(function () {
-  ${httpRequestInjection}
-  setTimeout(()=>{document.getElementById("${injectedJsId}").remove();}, 1);
-})();
+  function loopAndConvertToAbs() {
+    for (var ele of document.querySelectorAll('*')) {
+      removeIntegrityAttributesFromElement(ele);
+      covToAbs(ele);
+    }
+    console.log("LOOPED EVERY ELEMENT");
+  }
+
+  function covScript() {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+      covToAbs(scripts[i]);
+    }
+    setTimeout(covScript, 3000);
+  }
+
+  networkInject();
+  windowOpenInject();
+  appendChildInject();
+  elementPropertyInject();
+  documentLocationInject();
+  windowLocationInject();
+  historyInject();
+
+  window.addEventListener('load', () => {
+    loopAndConvertToAbs();
+    console.log("CONVERTING SCRIPT PATH");
+    obsPage();
+    covScript();
+  });
+  console.log("WINDOW ONLOAD EVENT ADDED");
+
+  window.addEventListener('error', event => {
+    var element = event.target aforementioned || event.srcElement;
+    if (element.tagName === 'SCRIPT') {
+      console.log("Found problematic script:", element);
+      if (element.alreadyChanged) {
+        console.log("this script has already been injected, ignoring this problematic script...");
+        return;
+      }
+      removeIntegrityAttributesFromElement(element);
+      covToAbs(element);
+      var newScript = document.createElement("script");
+      newScript.src = element.src;
+      newScript.async = element.async;
+      newScript.defer = element.defer;
+      newScript.alreadyChanged = true;
+      document.head.appendChild(newScript);
+      console.log("New script added:", newScript);
+    }
+  }, true);
+  console.log("WINDOW CORS ERROR EVENT ADDED");
+})(); // IIFE 结束
 `;
 
 const mainPage = `
@@ -614,10 +611,9 @@ Disallow: /`, {
 
   const actualUrl = new URL(actualUrlStr);
 
-  // 检查是否启用三级代理
   var enableTripleProxy = getCook(tripleProxyCookieName, siteCookie) === "true";
   if (enableTripleProxy) {
-    var proxyUrl = "https://another-proxy.com/" + actualUrlStr; // 假设的三级代理服务器地址
+    var proxyUrl = "https://another-proxy.com/" + actualUrlStr;
     return fetch(proxyUrl, {
       method: request.method,
       headers: request.headers,
@@ -746,7 +742,6 @@ Disallow: /`, {
     }
   }
 
-  // 安全改进：设置宽松的 CSP 和 SAMEORIGIN 的 X-Frame-Options
   headers.set("Content-Security-Policy", "default-src 'self' https:; script-src 'self' https: 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' https: data:; media-src 'self' https:; frame-src 'self' https:; font-src 'self' https:; connect-src 'self' https:;");
   headers.set("X-Frame-Options", "SAMEORIGIN");
   headers.set('Access-Control-Allow-Origin', '*');
