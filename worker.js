@@ -1,30 +1,32 @@
 // 监听 fetch 事件，处理所有传入的 HTTP 请求
 addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  const proxyServerUrlHttps = `${url.protocol}//${url.hostname}/`; // 代理服务器的 HTTPS URL
-  const proxyServerUrlHostOnly = url.host; // 代理服务器的主机名
-  event.respondWith(handleRequest(event.request, proxyServerUrlHttps, proxyServerUrlHostOnly));
+  thisProxyServerUrlHttps = `${url.protocol}//${url.hostname}/`; // 代理服务器的 HTTPS URL
+  thisProxyServerUrl_hostOnly = url.host; // 代理服务器的主机名
+  event.respondWith(handleRequest(event.request));
 });
 
-// 全局常量定义
-const STR = "/"; // URL 分隔符
-const LAST_VISIT_PROXY_COOKIE = "__PROXY_VISITEDSITE__"; // 记录最后访问的网站
-const PASSWORD_COOKIE_NAME = "__PROXY_PWD__"; // 密码 Cookie 名称
-const PROXY_HINT_COOKIE_NAME = "__PROXY_HINT_ACK__"; // 代理提示 Cookie
-const LANGUAGE_COOKIE_NAME = "__PROXY_LANGUAGE__"; // 语言选择 Cookie
-const DEVICE_COOKIE_NAME = "__PROXY_DEVICE__"; // 设备模拟 Cookie
-const BLOCK_EXTENSIONS_COOKIE_NAME = "__PROXY_BLOCK_EXTENSIONS__"; // 拦截文件扩展名 Cookie
-const BLOCK_ADS_COOKIE_NAME = "__PROXY_BLOCK_ADS__"; // 拦截广告 Cookie
-const BLOCK_ELEMENTS_COOKIE_NAME = "__PROXY_BLOCK_ELEMENTS__"; // 屏蔽元素 Cookie
-const BLOCK_ELEMENTS_SCOPE_COOKIE_NAME = "__PROXY_BLOCK_ELEMENTS_SCOPE__"; // 屏蔽元素范围 Cookie
-const TRIPLE_PROXY_COOKIE_NAME = "__PROXY_TRIPLE__"; // 三级代理开关 Cookie
-const PASSWORD = ""; // 代理密码（空表示无密码）
-const SHOW_PASSWORD_PAGE = true; // 是否显示密码页面
-const REPLACE_URL_OBJ = "__location_yproxy__"; // 替换 window.location 的对象名
-const INJECTED_JS_ID = "__yproxy_injected_js_id__"; // 注入脚本的 ID
+// 全局变量定义
+const str = "/"; // URL 分隔符
+const lastVisitProxyCookie = "__PROXY_VISITEDSITE__"; // 记录最后访问的网站
+const passwordCookieName = "__PROXY_PWD__"; // 密码 Cookie 名称
+const proxyHintCookieName = "__PROXY_HINT_ACK__"; // 代理提示 Cookie
+const languageCookieName = "__PROXY_LANGUAGE__"; // 语言选择 Cookie
+const deviceCookieName = "__PROXY_DEVICE__"; // 设备模拟 Cookie
+const blockExtensionsCookieName = "__PROXY_BLOCK_EXTENSIONS__"; // 拦截文件扩展名 Cookie
+const blockAdsCookieName = "__PROXY_BLOCK_ADS__"; // 拦截广告 Cookie
+const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__"; // 屏蔽元素 Cookie
+const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__"; // 屏蔽元素范围 Cookie
+const tripleProxyCookieName = "__PROXY_TRIPLE__"; // 三级代理开关 Cookie
+const password = ""; // 代理密码（空表示无密码）
+const showPasswordPage = true; // 是否显示密码页面
+const replaceUrlObj = "__location_yproxy__"; // 替换 window.location 的对象名
+const injectedJsId = "__yproxy_injected_js_id__"; // 注入脚本的 ID
+var thisProxyServerUrlHttps; // 代理服务器 HTTPS URL
+var thisProxyServerUrl_hostOnly; // 代理服务器主机名
 
 // 支持的语言列表
-const SUPPORTED_LANGUAGES = [
+const supportedLanguages = [
   { code: "zh-CN", name: "中文 (简体)" },
   { code: "en-US", name: "English (US)" },
   { code: "es-ES", name: "Español" },
@@ -38,135 +40,146 @@ const SUPPORTED_LANGUAGES = [
 ];
 
 // 设备模拟的 User-Agent 和布局
-const DEVICE_USER_AGENTS = {
+const deviceUserAgents = {
   desktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
 };
 
-const DEVICE_LAYOUTS = {
+const deviceLayouts = {
   desktop: { width: 1920, height: 1080 },
   mobile: { width: 375, height: 667 }
 };
 
 // 广告拦截关键词
-const AD_BLOCK_KEYWORDS = [
+const adBlockKeywords = [
   "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", "adserver", "popunder", "interstitial",
   "googlesyndication.com", "adsense.google.com", "admob.com", "adclick.g.doubleclick.net"
 ];
 
-// 三级代理IP显示弹窗（仅在启用三级代理时显示）
-const TRIPLE_PROXY_IP_POPUP = `
-<div id="tripleProxyIpPopup" style="position: fixed; top: 20px; right: 20px; z-index: 999999; background: rgba(255, 255, 255, 0.9); border-radius: 10px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); max-width: 300px; font-family: 'Roboto', Arial, sans-serif; backdrop-filter: blur(5px); transition: all 0.3s ease;">
-  <h3 style="margin: 0 0 10px; font-size: 18px; color: #0277bd;">代理IP信息</h3>
-  <p id="ipInfo" style="margin: 0; font-size: 14px; color: #333;">加载中...</p>
-  <button onclick="document.getElementById('tripleProxyIpPopup').remove()" style="margin-top: 10px; padding: 8px 15px; background: linear-gradient(45deg, #4fc3f7, #81d4fa); border: none; border-radius: 20px; color: #333; cursor: pointer; font-size: 12px;">关闭</button>
-</div>
-<script>
-  async function fetchIpInfo() {
-    try {
-      const response = await fetch('https://ipinfo.io/json');
-      const data = await response.json();
-      const ipInfo = document.getElementById('ipInfo');
-      ipInfo.innerHTML = \`
-        Proxy Level 1: \${data.ip} (\${data.city}, \${data.country})<br>
-        Proxy Level 2: \${data.ip} (\${data.city}, \${data.country})<br>
-        Proxy Level 3: \${data.ip} (\${data.city}, \${data.country})
-      \`;
-    } catch (e) {
-      document.getElementById('ipInfo').innerHTML = '无法获取IP信息';
-    }
-  }
-  window.onload = () => {
-    setTimeout(fetchIpInfo, 1000); // 延迟加载，确保页面稳定
-  };
-</script>
-`;
-
-// 代理提示页面（优化后的样式）
-const PROXY_HINT_PAGE = `
+// 代理提示页面
+const proxyHintPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>代理使用协议</title>
+  <title>Proxy Usage Agreement</title>
   <style>
-    html, body {
-      height: 100%; margin: 0; overflow: auto; background-color: #e0f7fa;
-      font-family: 'Roboto', Arial, sans-serif; display: flex; justify-content: center; align-items: center;
-      position: relative; background-image: url('https://www.loliapi.com/acg/'); background-size: cover;
-      background-position: center; background-repeat: no-repeat;
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #fff;
     }
-    body::after {
-      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background-image: inherit; background-size: cover; background-position: center;
-      filter: blur(8px); z-index: -2;
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      text-align: center;
+      color: #333;
+      animation: fadeIn 0.5s ease-in-out;
     }
-    body::before {
-      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2)); z-index: -1;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-    .hint-container {
-      text-align: center; max-width: 80%; padding: 30px; background: rgba(255, 255, 255, 0.3);
-      border-radius: 15px; box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3); backdrop-filter: blur(5px);
-      border: 1px solid rgba(79, 195, 247, 0.3); transform: scale(0.5); opacity: 0.5; filter: blur(10px);
-      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out; position: relative; z-index: 1;
+    h3 {
+      margin-bottom: 1rem;
+      font-size: 1.8rem;
+      color: #1e3c72;
     }
-    .hint-container.loaded { transform: scale(1); opacity: 1; filter: blur(0); }
-    .hint-container:hover {
-      transform: scale(1.03); box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5);
+    p {
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
     }
-    h3 { font-size: 2.5rem; margin-bottom: 20px; color: #0277bd; text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
-    p { font-size: 16px; line-height: 1.6; margin: 20px 0; color: #333; opacity: 0.9; }
-    a { color: #0277bd; text-decoration: none; font-weight: bold; transition: color 0.3s ease; }
-    a:hover { color: #01579b; transform: scale(1.05); text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
-    .checkbox-container { margin: 20px 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #333; }
-    .checkbox-wrapper { position: relative; display: inline-block; width: 20px; height: 20px; margin-right: 10px; }
-    .checkbox-wrapper input { opacity: 0; width: 100%; height: 100%; position: absolute; cursor: pointer; z-index: 2; }
-    .checkbox-custom { position: absolute; top: 0; left: 0; width: 20px; height: 20px; background: rgba(255, 255, 255, 0.5); border: 2px solid #0277bd; border-radius: 4px; transition: all 0.3s ease; }
-    .checkbox-wrapper input:checked + .checkbox-custom { background: #0277bd; border-color: #0277bd; }
-    .checkbox-custom::after { content: ''; position: absolute; display: none; left: 5px; top: 3px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-    .checkbox-wrapper input:checked + .checkbox-custom::after { display: block; }
-    label { cursor: pointer; user-select: none; }
-    button { background: linear-gradient(45deg, #4fc3f7, #81d4fa); color: #333; padding: 12px 20px; border: none; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin: 15px auto; display: block; width: 80%; max-width: 300px; transition: all 0.3s ease; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    button:hover:not(:disabled) { background: linear-gradient(45deg, #29b6f6, #4fc3f7); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4); }
-    @media (max-width: 768px) {
-      .hint-container { max-width: 90%; padding: 20px; }
-      h3 { font-size: 1.8rem; }
-      p { font-size: 14px; }
-      button { width: 90%; font-size: 14px; padding: 10px; }
-      .checkbox-container { font-size: 12px; }
-      .checkbox-wrapper { width: 18px; height: 18px; }
-      .checkbox-custom { width: 18px; height: 18px; }
-      .checkbox-custom::after { left: 4px; top: 2px; width: 4px; height: 9px; }
+    a {
+      color: #2a5298;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    input[type="checkbox"] {
+      margin-right: 0.5rem;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    label {
+      font-size: 0.9rem;
+      user-select: none;
+    }
+    button {
+      background: linear-gradient(90deg, #2a5298, #1e3c72);
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 25px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      background: linear-gradient(90deg, #1e3c72, #2a5298);
+      transform: translateY(-2px);
+    }
+    @media (max-width: 480px) {
+      .container {
+        margin: 1rem;
+        padding: 1.5rem;
+      }
+      h3 {
+        font-size: 1.5rem;
+      }
+      p, label {
+        font-size: 0.85rem;
+      }
+      button {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.9rem;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="hint-container">
+  <div class="container">
     <h3>⚠️ 代理使用协议</h3>
     <p>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。详情请参阅 <a href="https://github.com/1234567Yang/cf-proxy-ex/">使用条款</a>。</p>
     <div class="checkbox-container">
-      <div class="checkbox-wrapper">
-        <input type="checkbox" id="agreeCheckbox">
-        <span class="checkbox-custom"></span>
-      </div>
+      <input type="checkbox" id="agreeCheckbox">
       <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
     </div>
     <button id="confirmButton" disabled>同意</button>
   </div>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const container = document.querySelector('.hint-container');
       const checkbox = document.getElementById('agreeCheckbox');
       const button = document.getElementById('confirmButton');
-      setTimeout(() => container.classList.add('loaded'), 100);
-      checkbox.addEventListener('change', () => button.disabled = !checkbox.checked);
+      checkbox.addEventListener('change', () => {
+        button.disabled = !checkbox.checked;
+      });
       button.addEventListener('click', () => {
         if (!button.disabled) {
           const cookieDomain = window.location.hostname;
-          document.cookie = "${PROXY_HINT_COOKIE_NAME}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+          document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
           window.location.reload();
         }
       });
@@ -176,28 +189,72 @@ const PROXY_HINT_PAGE = `
 </html>
 `;
 
-// 代理提示注入代码（页面内提示条）
-const PROXY_HINT_INJECTION = `
+// 三级代理 IP 显示弹窗（仅在三级代理启用时显示）
+const ipDisplayInjection = `
+(function() {
+  if (!document.cookie.includes("${tripleProxyCookieName}=true")) return;
+  setTimeout(() => {
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => {
+          const ip1 = data.ip;
+          fetch('https://ipapi.co/' + ip1 + '/json/')
+            .then(res => res.json())
+            .then(location1 => {
+              const region1 = location1.region || '未知地区';
+              fetch('${thisProxyServerUrlHttps}https://api.ipify.org?format=json', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
+                .then(res => res.json())
+                .then(data2 => {
+                  const ip2 = data2.ip;
+                  fetch('${thisProxyServerUrlHttps}https://ipapi.co/' + ip2 + '/json/', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
+                    .then(res => res.json())
+                    .then(location2 => {
+                      const region2 = location2.region || '未知地区';
+                      fetch('${thisProxyServerUrlHttps}${thisProxyServerUrlHttps}https://api.ipify.org?format=json', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
+                        .then(res => res.json())
+                        .then(data3 => {
+                          const ip3 = data3.ip;
+                          fetch('${thisProxyServerUrlHttps}${thisProxyServerUrlHttps}https://ipapi.co/' + ip3 + '/json/', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
+                            .then(res => res.json())
+                            .then(location3 => {
+                              const region3 = location3.region || '未知地区';
+                              const ipInfo = \`一级代理 IP: \${ip1} (\${region1})<br>二级代理 IP: \${ip2} (\${region2})<br>三级代理 IP: \${ip3} (\${region3})\`;
+                              const div = document.createElement('div');
+                              div.style = 'position: fixed; bottom: 20px; right: 20px; background: rgba(0, 0, 0, 0.8); color: white; padding: 15px; border-radius: 8px; z-index: 999999; font-size: 14px;';
+                              div.innerHTML = \`\${ipInfo}<br><button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #2a5298; color: white; border: none; border-radius: 5px; cursor: pointer;">关闭</button>\`;
+                              document.body.appendChild(div);
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    }
+  }, 2000);
+})();
+`;
+
+// 代理提示注入代码
+const proxyHintInjection = `
 setTimeout(() => {
-  if (document.cookie.includes("${PROXY_HINT_COOKIE_NAME}=agreed")) return;
-  const hint = "警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href='https://github.com/1234567Yang/cf-proxy-ex/' style='color:rgb(250,250,180);'>https://github.com/1234567Yang/cf-proxy-ex/</a>。";
+  if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
+  const hint = "警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href='https://github.com/1234567Yang/cf-proxy-ex/' style='color: #ffd700;'>https://github.com/1234567Yang/cf-proxy-ex/</a>。";
+  const div = document.createElement('div');
+  div.id = "__PROXY_HINT_DIV__";
+  div.style = "position: fixed; left: 0; top: 0; width: 100%; margin: 0; padding: 0; display: block; z-index: 99999999999999999999999; user-select: none; cursor: pointer;";
+  div.innerHTML = \`<span style="position: absolute; width: calc(100% - 20px); min-height: 30px; font-size: 18px; color: yellow; background: rgba(180, 0, 0, 0.9); text-align: center; border-radius: 5px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">\${hint}</span>\`;
+  div.onclick = () => div.remove();
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    document.body.insertAdjacentHTML(
-      'afterbegin',
-      \`<div style="position:fixed;left:0px;top:0px;width:100%;margin:0px;padding:0px;display:block;z-index:99999999999999999999999;user-select:none;cursor:pointer;" id="__PROXY_HINT_DIV__" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">
-        <span style="position:absolute;width:calc(100% - 20px);min-height:30px;font-size:18px;color:yellow;background:rgb(180,0,0);text-align:center;border-radius:5px;padding-left:10px;padding-right:10px;padding-top:1px;padding-bottom:1px;">
-          \${hint}
-        </span>
-      </div>\`
-    );
+    document.body.insertAdjacentElement('afterbegin', div);
   } else {
-    alert(hint);
+    document.addEventListener('DOMContentLoaded', () => document.body.insertAdjacentElement('afterbegin', div));
   }
 }, 5000);
 `;
 
-// 伪装注入代码（模拟原始网站环境）
-const DISGUISE_INJECTION = `
+// 伪装注入代码
+const disguiseInjection = `
 (function() {
   const now = new URL(window.location.href);
   const proxyBase = now.host;
@@ -230,15 +287,15 @@ const DISGUISE_INJECTION = `
     });
   }
 
-  const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${LANGUAGE_COOKIE_NAME}='));
+  const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
   const selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
   Object.defineProperty(navigator, 'language', { get: () => selectedLanguage });
   Object.defineProperty(navigator, 'languages', { get: () => [selectedLanguage] });
 
-  const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${DEVICE_COOKIE_NAME}='));
+  const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
   const deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
   if (deviceType !== 'none') {
-    const layouts = ${JSON.stringify(DEVICE_LAYOUTS)};
+    const layouts = ${JSON.stringify(deviceLayouts)};
     const layout = layouts[deviceType] || layouts.desktop;
     Object.defineProperty(window, 'innerWidth', { get: () => layout.width });
     Object.defineProperty(window, 'innerHeight', { get: () => layout.height });
@@ -253,10 +310,10 @@ const DISGUISE_INJECTION = `
 `;
 
 // 元素屏蔽注入代码
-const BLOCK_ELEMENTS_INJECTION = `
+const blockElementsInjection = `
 (function() {
-  const blockElements = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ELEMENTS_COOKIE_NAME}='));
-  const blockElementsScope = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ELEMENTS_SCOPE_COOKIE_NAME}='));
+  const blockElements = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
+  const blockElementsScope = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}='));
   const selectors = blockElements ? blockElements.split('=')[1].split(',').map(s => s.trim()) : [];
   const scope = blockElementsScope ? blockElementsScope.split('=')[1] : 'global';
   const currentUrl = window.location.href;
@@ -283,7 +340,7 @@ const BLOCK_ELEMENTS_INJECTION = `
       }
     });
 
-    const adSelectors = ${JSON.stringify(AD_BLOCK_KEYWORDS.map(keyword => `[class*="${keyword}"], [id*="${keyword}"]`))};
+    const adSelectors = ${JSON.stringify(adBlockKeywords.map(keyword => `[class*="${keyword}"], [id*="${keyword}"]`))};
     adSelectors.forEach(selector => {
       try {
         document.querySelectorAll(selector).forEach(el => el.remove());
@@ -297,8 +354,8 @@ const BLOCK_ELEMENTS_INJECTION = `
 })();
 `;
 
-// HTTP 请求注入代码（确保全局代理）
-const HTTP_REQUEST_INJECTION = `
+// HTTP 请求注入代码（融合二改代码，确保全局代理）
+const httpRequestInjection = `
 (function() {
   const nowURL = new URL(window.location.href);
   const proxy_host = nowURL.host;
@@ -335,7 +392,7 @@ const HTTP_REQUEST_INJECTION = `
       absolutePath = proxy_host_with_schema + absolutePath;
       return absolutePath;
     } catch (e) {
-      console.log("Exception occurred: " + e.message + " | Original URL: " + original_website_url_str + " | Relative Path: " + relativePath);
+      console.log("Exception occurred: " + e.message + original_website_url_str + "   " + relativePath);
       return null;
     }
   }
@@ -385,6 +442,18 @@ const HTTP_REQUEST_INJECTION = `
       return originalOpen.call(window, modifiedUrl, name, specs);
     };
     console.log("WINDOW OPEN INJECTED");
+  }
+
+  function appendChildInject() {
+    const originalAppendChild = Node.prototype.appendChild;
+    Node.prototype.appendChild = function(child) {
+      try {
+        if (child.src) child.src = changeURL(child.src);
+        if (child.href) child.href = changeURL(child.href);
+      } catch {}
+      return originalAppendChild.call(this, child);
+    };
+    console.log("APPEND CHILD INJECTED");
   }
 
   function elementPropertyInject() {
@@ -469,7 +538,7 @@ const HTTP_REQUEST_INJECTION = `
       get: () => original_website_url_str,
       set: url => document.URL = changeURL(url) || url
     });
-    Object.defineProperty(document, '${REPLACE_URL_OBJ}', {
+    Object.defineProperty(document, '${replaceUrlObj}', {
       get: () => new ProxyLocation(window.location),
       set: url => window.location.href = changeURL(url) || url
     });
@@ -477,7 +546,7 @@ const HTTP_REQUEST_INJECTION = `
   }
 
   function windowLocationInject() {
-    Object.defineProperty(window, '${REPLACE_URL_OBJ}', {
+    Object.defineProperty(window, '${replaceUrlObj}', {
       get: () => new ProxyLocation(window.location),
       set: url => window.location.href = changeURL(url) || url
     });
@@ -547,7 +616,7 @@ const HTTP_REQUEST_INJECTION = `
           const absolutePath = changeURL(relativePath);
           if (absolutePath) element.setAttribute(setAttr, absolutePath);
         } catch (e) {
-          console.log("Error converting to absolute path: " + e.message + " | Original URL: " + original_website_href + " | Relative Path: " + relativePath);
+          console.log("Error converting to absolute path: " + e.message + original_website_href + "   " + relativePath);
         }
       }
     }
@@ -562,7 +631,7 @@ const HTTP_REQUEST_INJECTION = `
       removeIntegrityAttributesFromElement(ele);
       covToAbs(ele);
     }
-    console.log("LOOPED EVERY ELEMENT");
+    console.log("LOOPED EVERYTHING ELEMENT");
   }
 
   function covScript() {
@@ -573,6 +642,7 @@ const HTTP_REQUEST_INJECTION = `
 
   networkInject();
   windowOpenInject();
+  appendChildInject();
   elementPropertyInject();
   documentLocationInject();
   windowLocationInject();
@@ -607,80 +677,289 @@ const HTTP_REQUEST_INJECTION = `
   }, true);
   console.log("WINDOW CORS ERROR EVENT ADDED");
 
-  ${DISGUISE_INJECTION}
-  ${BLOCK_ELEMENTS_INJECTION}
+  ${disguiseInjection}
+  ${blockElementsInjection}
+  ${ipDisplayInjection}
 })();
 `;
 
-// 主页 HTML（优化后的界面）
-const MAIN_PAGE = `
+// 主页 HTML（保留原有样式）
+const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web在线代理</title>
+  <title>Web Online Proxy</title>
   <style>
     html, body {
-      height: 100%; margin: 0; overflow: auto; background-color: #e0f7fa;
-      font-family: 'Roboto', Arial, sans-serif; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; min-height: 100vh; color: #333;
-      background-image: url('https://www.loliapi.com/acg/'); background-size: cover;
-      background-position: center; background-repeat: no-repeat; position: relative;
+      height: 100%;
+      margin: 0;
+      overflow: auto;
+      background-color: #e0f7fa;
+      font-family: 'Roboto', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #333333;
+      background-image: url('https://www.loliapi.com/acg/');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      overflow: hidden;
     }
     body::after {
-      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background-image: inherit; background-size: cover; background-position: center;
-      filter: blur(8px); z-index: -2;
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: inherit;
+      background-size: cover;
+      background-position: center;
+      filter: blur(8px);
+      z-index: -2;
     }
     body::before {
-      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2)); z-index: -1;
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, rgba(79, 195, 247, 0.2), rgba(176, 196, 222, 0.2));
+      z-index: -1;
     }
     .content {
-      text-align: center; max-width: 80%; padding: 30px; background: rgba(255, 255, 255, 0.3);
-      border-radius: 15px; box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3); backdrop-filter: blur(5px);
-      border: 1px solid rgba(79, 195, 247, 0.3); transform: scale(0.5); opacity: 0.5; filter: blur(10px);
-      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out; position: relative; z-index: 1;
+      text-align: center;
+      max-width: 80%;
+      padding: 30px;
+      background-color: rgba(255, 255, 255, 0.3);
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 0 0 10px rgba(176, 196, 222, 0.2);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(79, 195, 247, 0.3);
+      transform: scale(0.5);
+      opacity: 0.5;
+      filter: blur(10px);
+      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
+      position: relative;
+      z-index: 1;
     }
-    .content.loaded { transform: scale(1); opacity: 1; filter: blur(0); }
-    .content:hover { transform: scale(1.03); box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5); }
-    h1 { font-size: 2.5rem; margin-bottom: 20px; color: #0277bd; text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
+    .content.loaded {
+      transform: scale(1);
+      opacity: 1;
+      filter: blur(0);
+    }
+    .content:hover {
+      transform: scale(1.03);
+      box-shadow: 0 12px 40px rgba(79, 195, 247, 0.5), 0 0 20px rgba(176, 196, 222, 0.3);
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      color: #0277bd;
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
+    }
     button, select {
-      margin: 10px auto; padding: 10px 15px; font-size: 14px; border-radius: 25px; outline: none;
-      display: block; width: 60%; max-width: 200px; transition: all 0.3s ease;
+      margin: 10px auto;
+      padding: 10px 15px;
+      font-size: 14px;
+      border-radius: 25px;
+      outline: none;
+      display: block;
+      width: 60%;
+      max-width: 200px;
+      transition: all 0.3s ease;
     }
-    select { background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(79, 195, 247, 0.5); color: #333; text-align: center; }
-    select:focus { background: rgba(255, 255, 255, 0.7); border-color: #0277bd; box-shadow: 0 0 10px rgba(79, 195, 247, 0.3); }
-    button { background: linear-gradient(45deg, #4fc3f7, #81d4fa); border: none; color: #333; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-    button:hover { background: linear-gradient(45deg, #29b6f6, #4fc3f7); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4); }
-    .config-button { background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5)); border: 1px solid rgba(79, 195, 247, 0.5); }
-    .config-button:hover { background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7)); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4); }
-    a { color: #0277bd; text-decoration: none; font-weight: bold; transition: color 0.3s ease; display: block; margin: 15px 0; }
-    a:hover { color: #01579b; transform: scale(1.05); text-shadow: 0 0 5px rgba(79, 195, 247, 0.3); }
-    p { margin: 12px 0; font-size: 14px; opacity: 0.9; }
-    .config-section { margin: 20px 0; display: none; flex-direction: column; align-items: center; }
-    .config-section.active { display: flex; }
-    .config-section label { font-size: 14px; margin-bottom: 10px; color: #333; }
-    .checkbox-container { display: flex; align-items: center; justify-content: center; font-size: 14px; margin: 10px 0; }
-    .checkbox-wrapper { position: relative; display: inline-block; width: 20px; height: 20px; margin-right: 10px; }
-    .checkbox-wrapper input { opacity: 0; width: 100%; height: 100%; position: absolute; cursor: pointer; z-index: 2; }
-    .checkbox-custom { position: absolute; top: 0; left: 0; width: 20px; height: 20px; background: rgba(255, 255, 255, 0.5); border: 2px solid #0277bd; border-radius: 4px; transition: all 0.3s ease; }
-    .checkbox-wrapper input:checked + .checkbox-custom { background: #0277bd; border-color: #0277bd; }
-    .checkbox-custom::after { content: ''; position: absolute; display: none; left: 5px; top: 3px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-    .checkbox-wrapper input:checked + .checkbox-custom::after { display: block; }
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: 9999; justify-content: center; align-items: center; }
-    .modal-content { background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 15px; max-width: 80%; text-align: center; box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3); }
-    .modal-content input, .modal-content select { width: 90%; margin: 10px auto; padding: 10px; border-radius: 25px; border: 1px solid rgba(79, 195, 247, 0.5); background: rgba(255, 255, 255, 0.5); text-align: center; }
-    .modal-content p { font-size: 12px; color: #666; display: block; }
-    .modal-content button { width: 45%; margin: 5px; }
-    .modal-content .config-button { background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5)); border: 1px solid rgba(79, 195, 247, 0.5); }
-    .modal-content .config-button:hover { background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7)); }
+    select {
+      background-color: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(79, 195, 247, 0.5);
+      color: #333333;
+      text-align: center;
+    }
+    select:focus {
+      background-color: rgba(255, 255, 255, 0.7);
+      border-color: #0277bd;
+      box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+    }
+    button {
+      background: linear-gradient(45deg, #4fc3f7, #81d4fa);
+      border: none;
+      color: #333333;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    button:hover {
+      background: linear-gradient(45deg, #29b6f6, #4fc3f7);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+    }
+    .config-button {
+      background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5));
+      border: 1px solid rgba(79, 195, 247, 0.5);
+    }
+    .config-button:hover {
+      background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+    }
+    a {
+      color: #0277bd;
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.3s ease, transform 0.3s ease;
+      display: block;
+      margin: 15px 0;
+    }
+    a:hover {
+      color: #01579b;
+      transform: scale(1.05);
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
+    }
+    p {
+      margin: 12px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .config-section {
+      margin: 20px 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+    .config-section.active {
+      display: flex;
+    }
+    .config-section label {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: #333333;
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+    .checkbox-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+    .checkbox-wrapper input {
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .checkbox-custom {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      background-color: rgba(255, 255, 255, 0.5);
+      border: 2px solid #0277bd;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+    .checkbox-wrapper input:checked + .checkbox-custom {
+      background-color: #0277bd;
+      border-color: #0277bd;
+    }
+    .checkbox-custom::after {
+      content: '';
+      position: absolute;
+      display: none;
+      left: 5px;
+      top: 3px;
+      width: 5px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .checkbox-wrapper input:checked + .checkbox-custom::after {
+      display: block;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 20px;
+      border-radius: 15px;
+      max-width: 80%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
+    }
+    .modal-content input, .modal-content select {
+      width: 90%;
+      margin: 10px auto;
+      padding: 10px;
+      border-radius: 25px;
+      border: 1px solid rgba(79, 195, 247, 0.5);
+      background-color: rgba(255, 255, 255, 0.5);
+      text-align: center;
+    }
+    .modal-content p {
+      font-size: 12px;
+      color: #666;
+      display: block;
+    }
+    .modal-content button {
+      width: 45%;
+      margin: 5px;
+    }
+    .modal-content .config-button {
+      background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5));
+      border: 1px solid rgba(79, 195, 247, 0.5);
+    }
+    .modal-content .config-button:hover {
+      background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
+    }
     @media (max-width: 768px) {
-      .content { max-width: 90%; padding: 20px; }
-      h1 { font-size: 1.8rem; }
-      button, select { width: 90%; font-size: 12px; padding: 8px; }
-      .modal-content { width: 90%; }
+      .content {
+        max-width: 90%;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 1.8rem;
+      }
+      button, select {
+        width: 90%;
+        font-size: 12px;
+        padding: 8px;
+      }
+      .modal-content {
+        width: 90%;
+      }
+    }
+    @media (min-resolution: 2dppx) {
+      body {
+        background-size: cover;
+      }
     }
   </style>
 </head>
@@ -693,7 +972,7 @@ const MAIN_PAGE = `
     <div class="config-section" id="advancedOptions">
       <label>选择语言</label>
       <select id="languageSelect">
-        ${SUPPORTED_LANGUAGES.map(lang => `<option value="${lang.code}" ${lang.code === 'zh-CN' ? 'selected' : ''}>${lang.name}</option>`).join('')}
+        ${supportedLanguages.map(lang => `<option value="${lang.code}" ${lang.code === 'zh-CN' ? 'selected' : ''}>${lang.name}</option>`).join('')}
       </select>
       <label>模拟设备</label>
       <select id="deviceSelect">
@@ -713,7 +992,7 @@ const MAIN_PAGE = `
           <input type="checkbox" id="tripleProxy">
           <span class="checkbox-custom"></span>
         </div>
-        <label for="tripleProxy">启用三级代理</label>
+        <label for="tripleProxy">启用三级代理（模拟暗网分层代理）</label>
       </div>
       <button class="config-button" onclick="showBlockExtensionsModal()">配置拦截器</button>
       <button class="config-button" onclick="showBlockElementsModal()">屏蔽元素</button>
@@ -725,7 +1004,7 @@ const MAIN_PAGE = `
   <div id="urlModal" class="modal">
     <div class="modal-content">
       <h3>输入目标网址</h3>
-      <p id="urlPlaceholder">请输入目标地址（例如：baike.baidu.com）</p>
+      <p id="urlPlaceholder">请输入目标地址（例如：baike.example.com）</p>
       <input type="text" id="targetUrl" placeholder="">
       <button onclick="redirectTo()">跳转</button>
       <button class="config-button" onclick="closeUrlModal()">取消</button>
@@ -734,7 +1013,7 @@ const MAIN_PAGE = `
   <div id="blockExtensionsModal" class="modal">
     <div class="modal-content">
       <h3>配置拦截器</h3>
-      <p id="blockExtensionsPlaceholder">请输入需要拦截的文件扩展名（例如：jpg, gif），以逗号分隔</p>
+      <p id="blockExtensionsPlaceholder">请输入需要拦截的文件扩展名（例如：jpg, gif），以逗号分隔符</p>
       <input type="text" id="blockExtensionsInput" placeholder="">
       <button onclick="saveBlockExtensions()">保存</button>
       <button class="config-button" onclick="closeBlockExtensionsModal()">取消</button>
@@ -743,7 +1022,7 @@ const MAIN_PAGE = `
   <div id="blockElementsModal" class="modal">
     <div class="modal-content">
       <h3>屏蔽元素</h3>
-      <p id="blockElementsPlaceholder">请输入需要屏蔽的 CSS 选择器（例如：.ad, #banner），以逗号分隔</p>
+      <p id="blockElementsPlaceholder">请输入需要屏蔽的 CSS 选择器（例如：.ad, #banner），以逗号分隔符</p>
       <input type="text" id="blockElementsInput" placeholder="">
       <label>注入范围</label>
       <select id="blockElementsScope">
@@ -759,24 +1038,24 @@ const MAIN_PAGE = `
     document.addEventListener('DOMContentLoaded', () => {
       const content = document.querySelector('.content');
       setTimeout(() => content.classList.add('loaded'), 100);
-      const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${LANGUAGE_COOKIE_NAME}='));
+      const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
       if (languageCookie) document.getElementById('languageSelect').value = languageCookie.split('=')[1];
-      const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${DEVICE_COOKIE_NAME}='));
+      const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
       if (deviceCookie) document.getElementById('deviceSelect').value = deviceCookie.split('=')[1];
-      const blockAdsCookie = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ADS_COOKIE_NAME}='));
+      const blockAdsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockAdsCookieName}='));
       document.getElementById('blockAds').checked = blockAdsCookie && blockAdsCookie.split('=')[1] === 'true';
-      const tripleProxyCookie = document.cookie.split('; ').find(row => row.startsWith('${TRIPLE_PROXY_COOKIE_NAME}='));
+      const tripleProxyCookie = document.cookie.split('; ').find(row => row.startsWith('${tripleProxyCookieName}='));
       document.getElementById('tripleProxy').checked = tripleProxyCookie && tripleProxyCookie.split('=')[1] === 'true';
-      const blockExtensionsCookie = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_EXTENSIONS_COOKIE_NAME}='));
+      const blockExtensionsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockExtensionsCookieName}='));
       if (blockExtensionsCookie) document.getElementById('blockExtensionsInput').value = blockExtensionsCookie.split('=')[1];
-      const blockElementsCookie = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ELEMENTS_COOKIE_NAME}='));
+      const blockElementsCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
       if (blockElementsCookie) document.getElementById('blockElementsInput').value = blockElementsCookie.split('=')[1];
-      const blockElementsScopeCookie = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ELEMENTS_SCOPE_COOKIE_NAME}='));
+      const blockElementsScopeCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}='));
       if (blockElementsScopeCookie) {
         document.getElementById('blockElementsScope').value = blockElementsScopeCookie.split('=')[1];
         document.getElementById('blockElementsScopeUrl').style.display = blockElementsScopeCookie.split('=')[1] === 'specific' ? 'block' : 'none';
         if (blockElementsScopeCookie.split('=')[1] === 'specific') {
-          const scopeUrlCookie = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ELEMENTS_SCOPE_COOKIE_NAME}_URL='));
+          const scopeUrlCookie = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}_URL='));
           if (scopeUrlCookie) document.getElementById('blockElementsScopeUrl').value = scopeUrlCookie.split('=')[1];
         }
       }
@@ -798,16 +1077,16 @@ const MAIN_PAGE = `
         blockElementsScopeUrl.style.display = this.value === 'specific' ? 'block' : 'none';
       });
       document.getElementById('languageSelect').addEventListener('change', () => {
-        setCookie('${LANGUAGE_COOKIE_NAME}', this.value);
+        setCookie('${languageCookieName}', this.value);
       });
       document.getElementById('deviceSelect').addEventListener('change', () => {
-        setCookie('${DEVICE_COOKIE_NAME}', this.value);
+        setCookie('${deviceCookieName}', this.value);
       });
       document.getElementById('blockAds').addEventListener('change', () => {
-        setCookie('${BLOCK_ADS_COOKIE_NAME}', this.checked);
+        setCookie('${blockAdsCookieName}', this.checked);
       });
       document.getElementById('tripleProxy').addEventListener('change', () => {
-        setCookie('${TRIPLE_PROXY_COOKIE_NAME}', this.checked);
+        setCookie('${tripleProxyCookieName}', this.checked);
       });
     });
     function toggleAdvancedOptions() { document.getElementById('advancedOptions').classList.toggle('active'); }
@@ -832,17 +1111,17 @@ const MAIN_PAGE = `
     }
     function saveBlockExtensions() {
       const extensions = document.getElementById('blockExtensionsInput').value.trim();
-      setCookie('${BLOCK_EXTENSIONS_COOKIE_NAME}', extensions);
+      setCookie('${blockExtensionsCookieName}', extensions);
       closeBlockExtensionsModal();
     }
     function saveBlockElements() {
       const elements = document.getElementById('blockElementsInput').value.trim();
       const scope = document.getElementById('blockElementsScope').value;
       const scopeUrl = document.getElementById('blockElementsScopeUrl').value.trim();
-      setCookie('${BLOCK_ELEMENTS_COOKIE_NAME}', elements);
-      setCookie('${BLOCK_ELEMENTS_SCOPE_COOKIE_NAME}', scope);
-      if (scope === 'specific' && scopeUrl) setCookie('${BLOCK_ELEMENTS_SCOPE_COOKIE_NAME}_URL', scopeUrl);
-      else setCookie('${BLOCK_ELEMENTS_SCOPE_COOKIE_NAME}_URL', '');
+      setCookie('${blockElementsCookieName}', elements);
+      setCookie('${blockElementsScopeCookieName}', scope);
+      if (scope === 'specific' && scopeUrl) setCookie('${blockElementsScopeCookieName}_URL', scopeUrl);
+      else setCookie('${blockElementsScopeCookieName}_URL', '');
       closeBlockElementsModal();
     }
     function setCookie(name, value) {
@@ -858,10 +1137,53 @@ const MAIN_PAGE = `
 `;
 
 // 密码页面
-const PWD_PAGE = `
+const pwdPage = `
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>请输入密码</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      color: #333;
+    }
+    input {
+      padding: 0.8rem;
+      margin-bottom: 1rem;
+      border: 1px solid #2a5298;
+      border-radius: 25px;
+      width: 200px;
+      font-size: 1rem;
+    }
+    button {
+      background: linear-gradient(90deg, #2a5298, #1e3c72);
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: linear-gradient(90deg, #1e3c72, #2a5298);
+      transform: translateY(-2px);
+    }
+  </style>
   <script>
     function setPassword() {
       try {
@@ -869,15 +1191,17 @@ const PWD_PAGE = `
         const password = document.getElementById('password').value;
         const oneWeekLater = new Date();
         oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-        document.cookie = "${PASSWORD_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-        document.cookie = "${PASSWORD_COOKIE_NAME}=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
-      } catch (e) { alert(e.message); }
-      location.reload();
+        document.cookie = "${passwordCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+        document.cookie = "${passwordCookieName}=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+        location.reload();
+      } catch (e) {
+        alert(e.message);
+      }
     }
   </script>
 </head>
 <body>
-  <div>
+  <div class="container">
     <input id="password" type="password" placeholder="请输入密码">
     <button onclick="setPassword()">提交</button>
   </div>
@@ -886,12 +1210,13 @@ const PWD_PAGE = `
 `;
 
 // 重定向错误页面
-const REDIRECT_ERROR = `
-<html><head></head><body><h2>重定向错误：目标网站可能包含错误的跳转信息，无法解析</h2></body></html>
+const redirectError = `
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head><body><h2>重定向错误：目标网站可能包含错误的跳转信息，无法解析</h2></body></html>
 `;
 
 // 主处理函数，处理所有 HTTP 请求
-async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnly, proxyLevel = 0) {
+async function handleRequest(request, proxyLevel = 0) {
   const url = new URL(request.url);
   const cache = caches.default;
   const contentType = request.headers.get('Content-Type') || '';
@@ -915,14 +1240,15 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
 
   // 检查代理提示 Cookie
   const siteCookie = request.headers.get('Cookie') || '';
-  if (!siteCookie.includes(`${PROXY_HINT_COOKIE_NAME}=agreed`)) {
-    return getHTMLResponse(PROXY_HINT_PAGE);
+  if (!siteCookie.includes(`${proxyHintCookieName}=agreed`)) {
+    const actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
+    return getHTMLResponse(proxyHintPage);
   }
 
   // 检查密码
-  if (PASSWORD !== "") {
-    const pwd = getCook(siteCookie, PASSWORD_COOKIE_NAME);
-    if (!pwd || pwd !== PASSWORD) return handleWrongPwd();
+  if (password) {
+    const pwd = getCook(siteCookie, passwordCookieName);
+    if (!pwd || pwd !== password) return handleWrongPwd();
   }
 
   // 处理 favicon 和 robots.txt 请求
@@ -932,12 +1258,12 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
   }
 
   // 显示主页
-  const actualUrlStr = url.pathname.substring(url.pathname.indexOf(STR) + STR.length) + url.search + url.hash;
-  if (actualUrlStr === "") return getHTMLResponse(MAIN_PAGE);
+  const actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
+  if (!actualUrlStr) return getHTMLResponse(mainPage);
 
   // 检查文件扩展名拦截
-  const blockExtensions = getCook(siteCookie, BLOCK_EXTENSIONS_COOKIE_NAME) || "";
-  const blockAds = getCook(siteCookie, BLOCK_ADS_COOKIE_NAME) === "true";
+  const blockExtensions = getCook(siteCookie, blockExtensionsCookieName) || "";
+  const blockAds = getCook(siteCookie, blockAdsCookieName) === "true";
   const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase()).filter(ext => ext);
   if (extensions.length > 0) {
     const fileExt = actualUrlStr.split('.').pop().toLowerCase();
@@ -947,7 +1273,7 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
   // 检查广告拦截
   if (blockAds) {
     const urlLower = actualUrlStr.toLowerCase();
-    if (AD_BLOCK_KEYWORDS.some(keyword => urlLower.includes(keyword))) return new Response(null, { status: 204 });
+    if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) return new Response(null, { status: 204 });
   }
 
   // 验证目标 URL
@@ -957,46 +1283,46 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
     const u = new URL(test);
     if (!u.host.includes(".")) throw new Error();
   } catch {
-    const lastVisit = getCook(siteCookie, LAST_VISIT_PROXY_COOKIE);
-    if (lastVisit) return getRedirect(proxyServerUrlHttps + lastVisit + "/" + actualUrlStr);
+    const lastVisit = getCook(siteCookie, lastVisitProxyCookie);
+    if (lastVisit) return getRedirect(thisProxyServerUrlHttps + lastVisit + "/" + actualUrlStr);
     return getHTMLResponse("获取 Cookie 时出错：<br> siteCookie: " + siteCookie + "<br>" + "lastSite: " + lastVisit);
   }
 
   // 处理不带协议的 URL
   if (!actualUrlStr.startsWith("http") && !actualUrlStr.includes("://")) {
-    return getRedirect(proxyServerUrlHttps + "https://" + actualUrlStr);
+    return getRedirect(thisProxyServerUrlHttps + "https://" + actualUrlStr);
   }
 
   const actualUrl = new URL(actualUrlStr);
 
   // 检查主机名大小写
-  if (actualUrlStr !== actualUrl.href) return getRedirect(proxyServerUrlHttps + actualUrl.href);
+  if (actualUrlStr !== actualUrl.href) return getRedirect(thisProxyServerUrlHttps + actualUrl.href);
 
   // 检查是否启用三级代理
-  const tripleProxy = getCook(siteCookie, TRIPLE_PROXY_COOKIE_NAME) === "true" || url.searchParams.get('triple') === 'true';
+  const tripleProxy = getCook(siteCookie, tripleProxyCookieName) === "true" || url.searchParams.get('triple') === 'true';
   if (tripleProxy && proxyLevel < 3) {
-    const newRequest = new Request(proxyServerUrlHttps + actualUrlStr, {
+    const newRequest = new Request(thisProxyServerUrlHttps + actualUrlStr, {
       headers: request.headers,
       method: request.method,
       body: request.body,
       redirect: "manual"
     });
-    return handleRequest(newRequest, proxyServerUrlHttps, proxyServerUrlHostOnly, proxyLevel + 1);
+    return handleRequest(newRequest, proxyLevel + 1);
   }
 
   // 获取语言和设备设置
-  let selectedLanguage = getCook(siteCookie, LANGUAGE_COOKIE_NAME) || url.searchParams.get('lang') || 'zh-CN';
-  if (!SUPPORTED_LANGUAGES.some(lang => lang.code === selectedLanguage)) selectedLanguage = 'zh-CN';
-  const deviceType = getCook(siteCookie, DEVICE_COOKIE_NAME) || 'none';
+  let selectedLanguage = getCook(siteCookie, languageCookieName) || url.searchParams.get('lang') || 'zh-CN';
+  if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) selectedLanguage = 'zh-CN';
+  const deviceType = getCook(siteCookie, deviceCookieName) || 'none';
 
   // 修改请求头
   const clientHeaderWithChange = new Headers();
   for (const [key, value] of request.headers.entries()) {
-    let newValue = value.replace(proxyServerUrlHttps, actualUrlStr).replace(proxyServerUrlHostOnly, actualUrl.host);
+    let newValue = value.replace(thisProxyServerUrlHttps, actualUrlStr).replace(thisProxyServerUrl_hostOnly, actualUrl.host);
     if (key.toLowerCase() === 'origin') newValue = actualUrl.origin;
-    if (key.toLowerCase() === 'referer') newValue = newValue.replace(proxyServerUrlHttps, actualUrl.origin + '/');
+    if (key.toLowerCase() === 'referer') newValue = newValue.replace(thisProxyServerUrlHttps, actualUrl.origin + '/');
     if (key.toLowerCase() === 'accept-language') newValue = selectedLanguage;
-    if (key.toLowerCase() === 'user-agent' && deviceType !== 'none') newValue = DEVICE_USER_AGENTS[deviceType];
+    if (key.toLowerCase() === 'user-agent' && deviceType !== 'none') newValue = deviceUserAgents[deviceType];
     clientHeaderWithChange.set(key, newValue);
   }
   if (!clientHeaderWithChange.has('Origin')) clientHeaderWithChange.set('Origin', actualUrl.origin);
@@ -1007,8 +1333,8 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
   if (request.body) {
     clientRequestBodyWithChange = await request.text();
     clientRequestBodyWithChange = clientRequestBodyWithChange
-      .replace(proxyServerUrlHttps, actualUrlStr)
-      .replace(proxyServerUrlHostOnly, actualUrl.host);
+      .replace(thisProxyServerUrlHttps, actualUrlStr)
+      .replace(thisProxyServerUrl_hostOnly, actualUrl.host);
   }
 
   // 创建修改后的请求
@@ -1025,9 +1351,9 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
     try {
       const redirectUrl = new URL(response.headers.get("Location"), actualUrlStr).href;
       if (redirectUrl === 'about:blank') throw new Error('Invalid redirect to about:blank');
-      return getRedirect(proxyServerUrlHttps + redirectUrl);
+      return getRedirect(thisProxyServerUrlHttps + redirectUrl);
     } catch {
-      return getHTMLResponse(REDIRECT_ERROR + "<br>the redirect url:" + response.headers.get("Location") + ";the url you are now at:" + actualUrlStr);
+      return getHTMLResponse(redirectError + "<br>the redirect url:" + response.headers.get("Location") + ";the url you are now at:" + actualUrlStr);
     }
   }
 
@@ -1035,28 +1361,27 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
   let modifiedResponse;
   let bd;
   const responseContentType = response.headers.get("Content-Type") || '';
-  const hasProxyHintCook = getCook(siteCookie, PROXY_HINT_COOKIE_NAME) === "agreed";
+  const hasProxyHintCook = getCook(siteCookie, proxyHintCookieName) === "agreed";
   if (response.body) {
     if (responseContentType.startsWith("text/")) {
       bd = await response.text();
       const regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\\s'"]+)`, 'g');
-      bd = bd.replace(regex, match => match.includes("http") ? proxyServerUrlHttps + match : proxyServerUrlHostOnly + "/" + match);
+      bd = bd.replace(regex, match => match.includes("http") ? thisProxyServerUrlHttps + match : thisProxyServerUrl_hostOnly + "/" + match);
       if (responseContentType.includes("html") || responseContentType.includes("javascript")) {
-        bd = bd.replace(/window\.location/g, `window.${REPLACE_URL_OBJ}`);
-        bd = bd.replace(/document\.location/g, `document.${REPLACE_URL_OBJ}`);
+        bd = bd.replace(/window\.location/g, "window." + replaceUrlObj);
+        bd = bd.replace(/document\.location/g, "document." + replaceUrlObj);
       }
       if (responseContentType.includes("text/html") && bd.includes("<html")) {
         bd = covToAbs(bd, actualUrlStr);
         bd = removeIntegrityAttributes(bd);
         const hasBom = bd.charCodeAt(0) === 0xFEFF;
         if (hasBom) bd = bd.substring(1);
-        let inject = `
+        const inject = `
         <!DOCTYPE html>
-        <script id="${INJECTED_JS_ID}">
-        ${hasProxyHintCook ? "" : PROXY_HINT_INJECTION}
-        ${HTTP_REQUEST_INJECTION}
-        ${tripleProxy ? TRIPLE_PROXY_IP_POPUP : ""}
-        setTimeout(() => { document.getElementById("${INJECTED_JS_ID}").remove(); }, 1);
+        <script id="${injectedJsId}">
+        ${hasProxyHintCook ? "" : proxyHintInjection}
+        ${httpRequestInjection}
+        setTimeout(() => { document.getElementById("${injectedJsId}").remove(); }, 1);
         </script>
         `;
         bd = (hasBom ? "\uFEFF" : "") + inject + bd;
@@ -1097,12 +1422,12 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
         const pathIndex = parts.findIndex(part => part.toLowerCase().startsWith('path='));
         let originalPath;
         if (pathIndex !== -1) originalPath = parts[pathIndex].substring("path=".length);
-        const absolutePath = "/" + new URL(originalPath, actualUrlStr).href;
+        const absolutePath = "/" + new URL(originalPath || '/', actualUrlStr).href;
         if (pathIndex !== -1) parts[pathIndex] = `Path=${absolutePath}`;
         else parts.push(`Path=${absolutePath}`);
         const domainIndex = parts.findIndex(part => part.toLowerCase().startsWith('domain='));
-        if (domainIndex !== -1) parts[domainIndex] = `domain=${proxyServerUrlHostOnly}`;
-        else parts.push(`domain=${proxyServerUrlHostOnly}`);
+        if (domainIndex !== -1) parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
+        else parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
         cookies[i] = parts.join('; ');
       }
       headers.set(cookieHeader.headerName, cookies.join(', '));
@@ -1111,19 +1436,19 @@ async function handleRequest(request, proxyServerUrlHttps, proxyServerUrlHostOnl
 
   // 设置 Cookie 和响应头
   if (responseContentType.includes("text/html") && response.status === 200 && bd.includes("<html")) {
-    headers.append("Set-Cookie", `${LAST_VISIT_PROXY_COOKIE}=${actualUrl.origin}; Path=/; Domain=${proxyServerUrlHostOnly}`);
-    headers.append("Set-Cookie", `${LANGUAGE_COOKIE_NAME}=${selectedLanguage}; Path=/; Domain=${proxyServerUrlHostOnly}`);
+    headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
+    headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
     if (!hasProxyHintCook) {
       const expiryDate = new Date();
       expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000);
-      headers.append("Set-Cookie", `${PROXY_HINT_COOKIE_NAME}=agreed; expires=${expiryDate.toUTCString()}; path=/; domain=${proxyServerUrlHostOnly}`);
+      headers.append("Set-Cookie", `${proxyHintCookieName}=agreed; expires=${expiryDate.toUTCString()}; path=/; domain=${thisProxyServerUrl_hostOnly}`);
     }
   }
 
   for (const [key, value] of headers.entries()) {
     if (key.toLowerCase() === 'access-control-allow-origin') headers.set(key, actualUrl.origin);
     else if (key.toLowerCase() === 'content-security-policy' || key.toLowerCase() === 'content-security-policy-report-only') {
-      headers.set(key, value.replace(proxyServerUrlHostOnly, actualUrl.host));
+      headers.set(key, value.replace(thisProxyServerUrl_hostOnly, actualUrl.host));
     }
   }
 
@@ -1150,28 +1475,28 @@ function escapeRegExp(string) {
 // 获取指定 Cookie 值
 function getCook(cookies, cookiename) {
   const cookiestring = RegExp(escapeRegExp(cookiename) + "=[^;]+").exec(cookies);
-  return decodeURIComponent(!!cookiestring ? cookiestring.toString().replace(/^[^=]+./, "") : "");
+  return decodeURIComponent(cookiestring ? cookiestring.toString().replace(/^[^=]+./, "") : "");
 }
 
 // 将相对路径转换为绝对路径
-const MATCH_LIST = [[/href=("|')([^"']*)("|')/g, `href="`], [/src=("|')([^"']*)("|')/g, `src="`]];
+const matchList = [[/href=("|')([^"']*)("|')/g, `href="`], [/src=("|')([^"']*)("|')/g, `src="`]];
 function covToAbs(body, requestPathNow) {
   const original = [];
   const target = [];
-  for (const match of MATCH_LIST) {
+  for (const match of matchList) {
     const setAttr = body.matchAll(match[0]);
     if (setAttr) {
       for (const replace of setAttr) {
-        if (replace.length === 0) continue;
+        if (!replace.length) continue;
         const strReplace = replace[0];
-        if (!strReplace.includes(thisProxyServerUrlHostOnly)) {
+        if (!strReplace.includes(thisProxyServerUrl_hostOnly)) {
           if (!isPosEmbed(body, replace.index)) {
-            const relativePath = strReplace.substring(match[1].length, strReplace.length - 1);
+            const relativePath = strReplace.substring(match[1].toString().length, strReplace.length - 1);
             if (!relativePath.startsWith("data:") && !relativePath.startsWith("mailto:") && !relativePath.startsWith("javascript:") && !relativePath.startsWith("chrome") && !relativePath.startsWith("edge")) {
               try {
                 const absolutePath = thisProxyServerUrlHttps + new URL(relativePath, requestPathNow).href;
                 original.push(strReplace);
-                target.push(match[1] + absolutePath + `"`);
+                target.push(match[1].toString() + absolutePath + `"`);
               } catch {}
             }
           }
@@ -1201,7 +1526,7 @@ function isPosEmbed(html, pos) {
 
 // 处理密码错误
 function handleWrongPwd() {
-  return SHOW_PASSWORD_PAGE ? getHTMLResponse(PWD_PAGE) : getHTMLResponse("<h1>403 Forbidden</h1><br>您无权访问此网页。");
+  return showPasswordPage ? getHTMLResponse(pwdPage) : getHTMLResponse("<h1>403 Forbidden</h1><br>您无权访问此网页。");
 }
 
 // 返回 HTML 响应
