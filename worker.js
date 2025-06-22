@@ -189,47 +189,58 @@ const proxyHintPage = `
 </html>
 `;
 
-// 三级代理 IP 显示弹窗（仅在三级代理启用时显示）
+// 三级代理 IP 显示弹窗（置顶，仿照 index.html 模态框样式）
 const ipDisplayInjection = `
 (function() {
   if (!document.cookie.includes("${tripleProxyCookieName}=true")) return;
   setTimeout(() => {
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => {
-          const ip1 = data.ip;
-          fetch('https://ipapi.co/' + ip1 + '/json/')
-            .then(res => res.json())
-            .then(location1 => {
-              const region1 = location1.region || '未知地区';
-              fetch('${thisProxyServerUrlHttps}https://api.ipify.org?format=json', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
-                .then(res => res.json())
-                .then(data2 => {
-                  const ip2 = data2.ip;
-                  fetch('${thisProxyServerUrlHttps}https://ipapi.co/' + ip2 + '/json/', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
-                    .then(res => res.json())
-                    .then(location2 => {
-                      const region2 = location2.region || '未知地区';
-                      fetch('${thisProxyServerUrlHttps}${thisProxyServerUrlHttps}https://api.ipify.org?format=json', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
-                        .then(res => res.json())
-                        .then(data3 => {
-                          const ip3 = data3.ip;
-                          fetch('${thisProxyServerUrlHttps}${thisProxyServerUrlHttps}https://ipapi.co/' + ip3 + '/json/', { headers: { 'Cookie': '${tripleProxyCookieName}=true' } })
-                            .then(res => res.json())
-                            .then(location3 => {
-                              const region3 = location3.region || '未知地区';
-                              const ipInfo = \`一级代理 IP: \${ip1} (\${region1})<br>二级代理 IP: \${ip2} (\${region2})<br>三级代理 IP: \${ip3} (\${region3})\`;
-                              const div = document.createElement('div');
-                              div.style = 'position: fixed; bottom: 20px; right: 20px; background: rgba(0, 0, 0, 0.8); color: white; padding: 15px; border-radius: 8px; z-index: 999999; font-size: 14px;';
-                              div.innerHTML = \`\${ipInfo}<br><button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #2a5298; color: white; border: none; border-radius: 5px; cursor: pointer;">关闭</button>\`;
-                              document.body.appendChild(div);
-                            });
-                        });
-                    });
-                });
-            });
-        });
+      const fetchIpInfo = async (url, level) => {
+        try {
+          const ipRes = await fetch(url);
+          const ipData = await ipRes.json();
+          if (ipData.status !== 'success') throw new Error('IP fetch failed');
+          const locationRes = await fetch('http://ip-api.com/json/' + ipData.ip + '?lang=zh-CN');
+          const locationData = await locationRes.json();
+          if (locationData.status !== 'success') throw new Error('Location fetch failed');
+          return {
+            ip: ipData.ip,
+            location: \`\${locationData.city}, \${locationData.regionName}, \${locationData.country}\`,
+            company: locationData.org || '未知公司',
+            port: 443 // 默认 HTTPS 端口，Cloudflare Workers 不直接暴露其他端口
+          };
+        } catch (e) {
+          console.error(\`Level \${level} IP fetch failed: \${e.message}\`);
+          return null;
+        }
+      };
+
+      Promise.all([
+        fetchIpInfo('https://api.ipify.org?format=json', 1),
+        fetchIpInfo('${thisProxyServerUrlHttps}https://api.ipify.org?format=json', 2),
+        fetchIpInfo('${thisProxyServerUrlHttps}${thisProxyServerUrlHttps}https://api.ipify.org?format=json', 3)
+      ]).then(([level1, level2, level3]) => {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '999999'; // 确保置顶
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        let content = '<h3>代理 IP 信息</h3>';
+        if (!level1 || !level2 || !level3) {
+          content += '<p style="color: #e53935;">获取 IP 地址失败，请检查网络或稍后重试。</p>';
+        } else {
+          content += \`
+            <p>一级代理: \${level1.ip} (\${level1.location}) \${level1.company} 端口: \${level1.port}</p>
+            <p>二级代理: \${level2.ip} (\${level2.location}) \${level2.company} 端口: \${level2.port}</p>
+            <p>三级代理: \${level3.ip} (\${level3.location}) \${level3.company} 端口: \${level3.port}</p>
+          \`;
+        }
+        content += '<button onclick="this.parentElement.parentElement.remove()">关闭</button>';
+        modalContent.innerHTML = content;
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+      });
     }
   }, 2000);
 })();
@@ -354,7 +365,7 @@ const blockElementsInjection = `
 })();
 `;
 
-// HTTP 请求注入代码（融合二改代码，确保全局代理）
+// HTTP 请求注入代码
 const httpRequestInjection = `
 (function() {
   const nowURL = new URL(window.location.href);
@@ -683,7 +694,7 @@ const httpRequestInjection = `
 })();
 `;
 
-// 主页 HTML（保留原有样式）
+// 主页 HTML
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -1089,7 +1100,12 @@ const mainPage = `
         setCookie('${tripleProxyCookieName}', this.checked);
       });
     });
-    function toggleAdvancedOptions() { document.getElementById('advancedOptions').classList.toggle('active'); }
+    function toggleAdvancedOptions() {
+      const advancedOptions = document.getElementById('advancedOptions');
+      const button = document.querySelector('button[onclick="toggleAdvancedOptions()"]');
+      advancedOptions.classList.toggle('active');
+      button.textContent = advancedOptions.classList.contains('active') ? '隐藏高级功能' : '高级选项';
+    }
     function showUrlModal() { document.getElementById('urlModal').style.display = 'flex'; }
     function closeUrlModal() { document.getElementById('urlModal').style.display = 'none'; }
     function showBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'flex'; }
