@@ -6,11 +6,11 @@ addEventListener('fetch', event => {
     thisProxyServerUrl_hostOnly = url.host;
     event.respondWith(handleRequest(event.request));
   } catch (e) {
-    event.respondWith(getHTMLResponse(`Error: ${e.message}`));
+    event.respondWith(getHTMLResponse(`错误: ${e.message}`));
   }
 });
 
-// Global Variables
+// 全局变量
 const str = "/";
 const lastVisitProxyCookie = "__PROXY_VISITEDSITE__";
 const passwordCookieName = "__PROXY_PWD__";
@@ -22,19 +22,14 @@ const blockAdsCookieName = "__PROXY_BLOCK_ADS__";
 const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__";
 const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__";
 const customHeadersCookieName = "__PROXY_CUSTOM_HEADERS__";
-const password = "";
+const password = ""; // 设置密码，若为空则不启用
 const showPasswordPage = true;
 const replaceUrlObj = "__location_yproxy__";
 const injectedJsId = "__yproxy_injected_js_id__";
 let thisProxyServerUrlHttps;
 let thisProxyServerUrl_hostOnly;
 
-// Rate Limiting Configuration
-const RATE_LIMIT = 100; // Requests per minute
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
-const requestCounts = new Map();
-
-// Supported Languages
+// 支持的语言
 const supportedLanguages = [
   { code: "zh-CN", name: "中文 (简体)" },
   { code: "en-US", name: "English (US)" },
@@ -48,7 +43,7 @@ const supportedLanguages = [
   { code: "ja-JP", name: "日本語" }
 ];
 
-// Device Simulation
+// 设备模拟
 const deviceUserAgents = {
   desktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
@@ -59,13 +54,13 @@ const deviceLayouts = {
   mobile: { width: 375, height: 667 }
 };
 
-// Ad Blocking Keywords
+// 广告拦截关键词
 const adBlockKeywords = [
   "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", "adserver", "popunder", "interstitial",
   "googlesyndication.com", "adsense.google.com", "admob.com", "adclick.g.doubleclick.net"
 ];
 
-// Proxy Hint Injection
+// 代理提示注入
 const proxyHintInjection = `
 setTimeout(() => {
   if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
@@ -84,7 +79,7 @@ setTimeout(() => {
 }, 5000);
 `;
 
-// Disguise Injection
+// 伪装注入（绕过检测）
 const disguiseInjection = `
 (function() {
   const now = new URL(window.location.href);
@@ -95,23 +90,83 @@ const disguiseInjection = `
   const oriUrl = new URL(oriUrlStr);
   const originalHost = oriUrl.host;
   const originalOrigin = oriUrl.origin;
-  Object.defineProperty(document, 'domain', { get: () => originalHost, set: value => value });
-  Object.defineProperty(window, 'origin', { get: () => originalOrigin });
+  const originalPathname = oriUrl.pathname;
+  const originalSearch = oriUrl.search;
+  const originalHash = oriUrl.hash;
+  const originalHref = oriUrl.href;
+
+  // 修改 document.location 和 window.location
+  Object.defineProperty(document, 'location', {
+    value: {
+      href: originalHref,
+      protocol: oriUrl.protocol,
+      host: originalHost,
+      hostname: oriUrl.hostname,
+      port: oriUrl.port,
+      pathname: originalPathname,
+      search: originalSearch,
+      hash: originalHash,
+      origin: originalOrigin,
+      assign: function(url) { window.location.assign(proxyPrefix + url); },
+      reload: function() { window.location.reload(); },
+      replace: function(url) { window.location.replace(proxyPrefix + url); },
+      toString: function() { return originalHref; }
+    },
+    writable: false
+  });
+
+  Object.defineProperty(window, 'location', {
+    value: {
+      href: originalHref,
+      protocol: oriUrl.protocol,
+      host: originalHost,
+      hostname: oriUrl.hostname,
+      port: oriUrl.port,
+      pathname: originalPathname,
+      search: originalSearch,
+      hash: originalHash,
+      origin: originalOrigin,
+      assign: function(url) { window.location.assign(proxyPrefix + url); },
+      reload: function() { window.location.reload(); },
+      replace: function(url) { window.location.replace(proxyPrefix + url); },
+      toString: function() { return originalHref; }
+    },
+    writable: false
+  });
+
+  // 修改 document.domain
+  Object.defineProperty(document, 'domain', {
+    get: () => originalHost,
+    set: value => value
+  });
+
+  // 修改 window.origin
+  Object.defineProperty(window, 'origin', {
+    get: () => originalOrigin
+  });
+
+  // 修改 document.referrer
   Object.defineProperty(document, 'referrer', {
     get: () => {
       const actualReferrer = document.referrer || '';
       return actualReferrer.startsWith(proxyPrefix) ? actualReferrer.replace(proxyPrefix, '') : actualReferrer;
     }
   });
+
+  // 修改 navigator.userAgentData
   if (navigator.userAgentData) {
     Object.defineProperty(navigator, 'userAgentData', {
       get: () => ({ brands: [{ brand: "Chromium", version: "90" }], mobile: false, platform: "Windows" })
     });
   }
+
+  // 设置语言
   const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
   const selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
   Object.defineProperty(navigator, 'language', { get: () => selectedLanguage });
   Object.defineProperty(navigator, 'languages', { get: () => [selectedLanguage] });
+
+  // 设备模拟
   const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
   const deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
   if (deviceType !== 'none') {
@@ -127,7 +182,7 @@ const disguiseInjection = `
 })();
 `;
 
-// Block Elements Injection
+// 屏蔽元素注入
 const blockElementsInjection = `
 (function() {
   const blockElements = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
@@ -161,7 +216,7 @@ const blockElementsInjection = `
 })();
 `;
 
-// HTTP Request Injection (from Secondary Code)
+// HTTP 请求注入
 const httpRequestInjection = `
 (function() {
   var nowURL = new URL(window.location.href);
@@ -445,14 +500,14 @@ const httpRequestInjection = `
 })();
 `;
 
-// Main Page HTML (Updated with Scrollable Modal)
+// 主页面 HTML
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Online Proxy</title>
+  <title>网站在线代理</title>
   <style>
     html, body {
       height: 100%;
@@ -747,7 +802,7 @@ const mainPage = `
 </head>
 <body>
   <div class="content">
-    <h1>Website Online Proxy</h1>
+    <h1>网站在线代理</h1>
     <p>请输入学术网站地址进行访问（如：baike.baidu.com）</p>
     <button onclick="showUrlModal()">访问网站</button>
     <button onclick="toggleAdvancedOptions()">高级选项</button>
@@ -977,7 +1032,7 @@ const mainPage = `
 </html>
 `;
 
-// Password Page
+// 密码页面
 const pwdPage = `
 <!DOCTYPE html>
 <html>
@@ -1050,70 +1105,45 @@ const pwdPage = `
 </html>
 `;
 
-// Redirect Error Page
+// 重定向错误页面
 const redirectError = `
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head><body><h2>重定向错误：目标网站可能包含错误的跳转信息，无法解析</h2></body></html>
 `;
 
-// Main Request Handler
+// 主要请求处理函数
 async function handleRequest(request) {
   try {
-    // Rate Limiting
-    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const now = Date.now();
-    const clientData = requestCounts.get(clientIp) || { count: 0, timestamp: now };
-    if (now - clientData.timestamp > RATE_LIMIT_WINDOW) {
-      clientData.count = 0;
-      clientData.timestamp = now;
-    }
-    clientData.count++;
-    if (clientData.count > RATE_LIMIT) {
-      return new Response('Too Many Requests', { status: 429 });
-    }
-    requestCounts.set(clientIp, clientData);
-
-    const url = new URL(request.url);
-    const cache = caches.default;
-    const contentType = request.headers.get('Content-Type') || '';
-    const isStatic = contentType.includes('image/') || contentType.includes('text/css') || contentType.includes('application/javascript');
-
-    // Check Cache
-    if (isStatic) {
-      const cacheKey = new Request(url.toString(), { method: 'GET' });
-      const cachedResponse = await cache.match(cacheKey);
-      if (cachedResponse) return cachedResponse;
-    }
-
-    // Prevent Crawlers
+    // 防止爬虫
     const userAgent = request.headers.get('User-Agent') || '';
     if (userAgent.includes("Bytespider")) {
       return getHTMLResponse("爬虫被禁止使用代理。");
     }
 
-    // Check Proxy Hint Cookie
+    // 检查代理提示 cookie
     const siteCookie = request.headers.get('Cookie') || '';
     if (!siteCookie.includes(`${proxyHintCookieName}=agreed`)) {
       return getHTMLResponse(mainPage.replace('<div id="proxyHintModal" class="modal">', '<div id="proxyHintModal" class="modal" style="display: flex;">'));
     }
 
-    // Check Password
+    // 检查密码
     if (password) {
       const pwd = getCook(siteCookie, passwordCookieName);
       if (!pwd || pwd !== password) return handleWrongPwd();
     }
 
-    // Handle Favicon and Robots.txt
+    // 处理 favicon 和 robots.txt
+    const url = new URL(request.url);
     if (url.pathname.endsWith("favicon.ico")) return getRedirect("https://www.baidu.com/favicon.ico");
     if (url.pathname.endsWith("robots.txt")) {
       return new Response(`User-Agent: *\nDisallow: /`, { headers: { "Content-Type": "text/plain" } });
     }
 
-    // Show Main Page
+    // 显示主页面
     const actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
     if (!actualUrlStr) return getHTMLResponse(mainPage);
 
-    // Check File Extension Blocking
+    // 检查文件扩展名拦截
     const blockExtensions = getCook(siteCookie, blockExtensionsCookieName) || "";
     const blockAds = getCook(siteCookie, blockAdsCookieName) === "true";
     const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase()).filter(ext => ext);
@@ -1122,13 +1152,13 @@ async function handleRequest(request) {
       if (extensions.includes(fileExt)) return new Response(null, { status: 204 });
     }
 
-    // Check Ad Blocking
+    // 检查广告拦截
     if (blockAds) {
       const urlLower = actualUrlStr.toLowerCase();
       if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) return new Response(null, { status: 204 });
     }
 
-    // Validate Target URL
+    // 验证目标 URL
     let test = actualUrlStr;
     if (!test.startsWith("http")) test = "https://" + test;
     try {
@@ -1140,22 +1170,22 @@ async function handleRequest(request) {
       return getHTMLResponse("无效的 URL 或无法获取上次访问的站点。");
     }
 
-    // Handle URLs without Protocol
+    // 处理没有协议的 URL
     if (!actualUrlStr.startsWith("http") && !actualUrlStr.includes("://")) {
       return getRedirect(thisProxyServerUrlHttps + "https://" + actualUrlStr);
     }
 
     const actualUrl = new URL(actualUrlStr);
 
-    // Check Host Case
+    // 检查主机大小写
     if (actualUrlStr !== actualUrl.href) return getRedirect(thisProxyServerUrlHttps + actualUrl.href);
 
-    // Get Language and Device Settings
+    // 获取语言和设备设置
     let selectedLanguage = getCook(siteCookie, languageCookieName) || url.searchParams.get('lang') || 'zh-CN';
     if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) selectedLanguage = 'zh-CN';
     const deviceType = getCook(siteCookie, deviceCookieName) || 'none';
 
-    // Handle WebSocket
+    // 处理 WebSocket
     if (request.headers.get('Upgrade') === 'websocket') {
       const wsRequest = new Request(actualUrl, {
         headers: request.headers,
@@ -1164,7 +1194,7 @@ async function handleRequest(request) {
       return fetch(wsRequest);
     }
 
-    // Modify Request Headers
+    // 修改请求头
     const clientHeaderWithChange = new Headers();
     for (const [key, value] of request.headers.entries()) {
       let newValue = value.replace(thisProxyServerUrlHttps, actualUrlStr).replace(thisProxyServerUrl_hostOnly, actualUrl.host);
@@ -1177,7 +1207,7 @@ async function handleRequest(request) {
     if (!clientHeaderWithChange.has('Origin')) clientHeaderWithChange.set('Origin', actualUrl.origin);
     if (!clientHeaderWithChange.has('Accept-Language')) clientHeaderWithChange.set('Accept-Language', selectedLanguage);
 
-    // Add Custom Headers
+    // 添加自定义头
     const customHeaders = getCook(siteCookie, customHeadersCookieName) || '';
     if (customHeaders) {
       customHeaders.split('\n').forEach(header => {
@@ -1186,7 +1216,7 @@ async function handleRequest(request) {
       });
     }
 
-    // Modify Request Body
+    // 修改请求体
     let clientRequestBodyWithChange;
     if (request.body) {
       clientRequestBodyWithChange = await request.text();
@@ -1195,7 +1225,7 @@ async function handleRequest(request) {
         .replace(thisProxyServerUrl_hostOnly, actualUrl.host);
     }
 
-    // Create Modified Request
+    // 创建修改后的请求
     const modifiedRequest = new Request(actualUrl, {
       headers: clientHeaderWithChange,
       method: request.method,
@@ -1203,11 +1233,11 @@ async function handleRequest(request) {
       redirect: "manual"
     });
 
-    // Send Request
+    // 发送请求
     const response = await fetch(modifiedRequest);
     if (response.status.toString().startsWith("3") && response.headers.get("Location")) {
       try {
-        const redirectUrl = new URL(response.headers.get("Location"), actualUrlStr).href;
+        const redirectUrl = new URL(response.headers.get("Location"), actualUrl).href;
         if (redirectUrl === 'about:blank') throw new Error('Invalid redirect to about:blank');
         return getRedirect(thisProxyServerUrlHttps + redirectUrl);
       } catch {
@@ -1215,7 +1245,7 @@ async function handleRequest(request) {
       }
     }
 
-    // Process Response
+    // 处理响应
     let modifiedResponse;
     let bd;
     const responseContentType = response.headers.get("Content-Type") || '';
@@ -1252,8 +1282,11 @@ async function handleRequest(request) {
       modifiedResponse = new Response(response.body, response);
     }
 
-    // Cache Static Content
+    // 缓存静态内容
+    const contentType = response.headers.get('Content-Type') || '';
+    const isStatic = contentType.includes('image/') || contentType.includes('text/css') || contentType.includes('application/javascript');
     if (isStatic && response.status === 200) {
+      const cache = caches.default;
       const cacheKey = new Request(url.toString(), { method: 'GET' });
       const cacheResponse = new Response(modifiedResponse.body, {
         status: modifiedResponse.status,
@@ -1265,7 +1298,7 @@ async function handleRequest(request) {
       await cache.put(cacheKey, cacheResponse.clone());
     }
 
-    // Process Response Headers
+    // 处理响应头
     const headers = modifiedResponse.headers;
     const cookieHeaders = [];
     for (const [key, value] of headers.entries()) {
@@ -1291,7 +1324,7 @@ async function handleRequest(request) {
       });
     }
 
-    // Set Cookies and Headers
+    // 设置 cookie 和头
     if (responseContentType.includes("text/html") && response.status === 200 && bd.includes("<html")) {
       headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
       headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
@@ -1327,7 +1360,7 @@ async function handleRequest(request) {
   }
 }
 
-// Utility Functions
+// 工具函数
 function escapeRegExp(string) {
   return string.replace(/[.*+\-?^${}()|[\]\\]/g, '\\$&');
 }
