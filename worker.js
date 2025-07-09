@@ -79,7 +79,7 @@ setTimeout(() => {
 }, 5000);
 `;
 
-// 伪装注入
+// 增强网页伪装注入
 const disguiseInjection = `
 (function() {
   const now = new URL(window.location.href);
@@ -90,23 +90,49 @@ const disguiseInjection = `
   const oriUrl = new URL(oriUrlStr);
   const originalHost = oriUrl.host;
   const originalOrigin = oriUrl.origin;
+
+  // 伪装 document.domain 和 window.origin
   Object.defineProperty(document, 'domain', { get: () => originalHost, set: value => value });
   Object.defineProperty(window, 'origin', { get: () => originalOrigin });
+
+  // 伪装 document.referrer
   Object.defineProperty(document, 'referrer', {
     get: () => {
       const actualReferrer = document.referrer || '';
       return actualReferrer.startsWith(proxyPrefix) ? actualReferrer.replace(proxyPrefix, '') : actualReferrer;
     }
   });
+
+  // 伪装 navigator 属性
+  Object.defineProperty(navigator, 'userAgent', {
+    get: () => {
+      const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
+      const deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
+      return deviceType !== 'none' ? ${JSON.stringify(deviceUserAgents)}[deviceType] : navigator.userAgent;
+    }
+  });
+  Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+  Object.defineProperty(navigator, 'vendor', { get: () => 'Google Inc.' });
+  Object.defineProperty(navigator, 'appVersion', {
+    get: () => navigator.userAgent
+  });
   if (navigator.userAgentData) {
     Object.defineProperty(navigator, 'userAgentData', {
-      get: () => ({ brands: [{ brand: "Chromium", version: "90" }], mobile: false, platform: "Windows" })
+      get: () => ({
+        brands: [{ brand: "Chromium", version: "120" }, { brand: "Google Chrome", version: "120" }],
+        mobile: ${JSON.stringify(deviceUserAgents)}.mobile === navigator.userAgent,
+        platform: "Windows"
+      })
     });
   }
+
+  // 伪装语言设置
   const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
   const selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
   Object.defineProperty(navigator, 'language', { get: () => selectedLanguage });
-  Object.defineProperty(navigator, 'languages', { get: () => [selectedLanguage] });
+  Object.defineProperty(navigator, 'languages', { get: () => [selectedLanguage, selectedLanguage.split('-')[0]] });
+
+  // 伪装屏幕尺寸
   const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
   const deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
   if (deviceType !== 'none') {
@@ -114,11 +140,38 @@ const disguiseInjection = `
     const layout = layouts[deviceType] || layouts.desktop;
     Object.defineProperty(window, 'innerWidth', { get: () => layout.width });
     Object.defineProperty(window, 'innerHeight', { get: () => layout.height });
+    Object.defineProperty(window, 'screen', {
+      get: () => ({
+        width: layout.width,
+        height: layout.height,
+        availWidth: layout.width,
+        availHeight: layout.height,
+        colorDepth: 24,
+        pixelDepth: 24
+      })
+    });
     const meta = document.createElement('meta');
     meta.name = 'viewport';
     meta.content = 'width=' + layout.width + ', initial-scale=1.0';
     document.head.appendChild(meta);
   }
+
+  // 伪装 WebRTC 和其他指纹属性
+  Object.defineProperty(navigator, 'webdriver', { get: () => false });
+  Object.defineProperty(navigator, 'plugins', { get: () => ({ length: 0 }) });
+  Object.defineProperty(navigator, 'mimeTypes', { get: () => ({ length: 0 }) });
+  if (navigator.getBattery) {
+    Object.defineProperty(navigator, 'getBattery', {
+      get: () => () => Promise.resolve({ charging: true, level: 1.0, chargingTime: 0, dischargingTime: Infinity })
+    });
+  }
+
+  // 防止 DOM 检测
+  const originalToString = Object.prototype.toString;
+  Object.prototype.toString = function() {
+    if (this === window || this === document) return '[object Window]';
+    return originalToString.call(this);
+  };
 })();
 `;
 
@@ -197,16 +250,29 @@ const httpRequestInjection = `
   function networkInject() {
     const originalOpen = XMLHttpRequest.prototype.open;
     const originalFetch = window.fetch;
+    const originalSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       url = changeURL(url);
       if (!url) return;
-      return originalOpen.apply(this, arguments);
+      this._url = url; // 存储修改后的 URL
+      return originalOpen.apply(this, [method, url, async, user, password]);
     };
-    window.fetch = function(input, init) {
+    XMLHttpRequest.prototype.send = function(body) {
+      // 确保请求头与目标网站一致
+      if (this._url) {
+        const targetUrl = new URL(this._url);
+        this.setRequestHeader('Origin', targetUrl.origin);
+        this.setRequestHeader('Referer', targetUrl.origin + '/');
+      }
+      return originalSend.apply(this, [body]);
+    };
+    window.fetch = async function(input, init) {
       let url = typeof input === 'string' ? input : input instanceof Request ? input.url : input;
       url = changeURL(url);
       if (!url) return Promise.reject(new Error('无效的 URL'));
-      return originalFetch(typeof input === 'string' ? url : new Request(url, input), init);
+      const targetUrl = new URL(url);
+      const modifiedInit = { ...init, headers: { ...init?.headers, 'Origin': targetUrl.origin, 'Referer': targetUrl.origin + '/' } };
+      return originalFetch(typeof input === 'string' ? url : new Request(url, input), modifiedInit);
     };
   }
 
@@ -404,25 +470,45 @@ const httpRequestInjection = `
   }
 
   function manageCookies() {
-    const storedCookies = localStorage.getItem('${cookieStorageKey}');
-    if (storedCookies) {
-      const cookies = JSON.parse(storedCookies);
-      Object.keys(cookies).forEach(domain => {
-        cookies[domain].forEach(cookie => {
-          document.cookie = \`\${cookie.name}=\${cookie.value}; path=\${cookie.path}; domain=${thisProxyServerUrl_hostOnly};\`;
+    try {
+      // 恢复 cookie
+      const storedCookies = localStorage.getItem('${cookieStorageKey}');
+      if (storedCookies) {
+        const cookies = JSON.parse(storedCookies);
+        Object.keys(cookies).forEach(domain => {
+          cookies[domain].forEach(cookie => {
+            try {
+              document.cookie = \`\${cookie.name}=\${cookie.value}; path=\${cookie.path}; domain=${thisProxyServerUrl_hostOnly}; SameSite=None; Secure\`;
+            } catch (e) {
+              console.error('设置 cookie 失败:', e.message);
+            }
+          });
         });
-      });
+      }
+      // 保存 cookie
+      const saveCookies = () => {
+        const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
+          const [name, value] = cookie.split('=');
+          if (name && value) { // 确保 name 和 value 有效
+            const domain = original_website_host;
+            if (!acc[domain]) acc[domain] = [];
+            acc[domain].push({ name, value, path: '/' });
+          }
+          return acc;
+        }, {});
+        try {
+          localStorage.setItem('${cookieStorageKey}', JSON.stringify(cookies));
+        } catch (e) {
+          console.error('保存 cookie 到 localStorage 失败:', e.message);
+        }
+      };
+      // 在页面加载、点击和表单提交时保存 cookie
+      document.addEventListener('click', saveCookies);
+      document.addEventListener('submit', saveCookies);
+      window.addEventListener('load', saveCookies);
+    } catch (e) {
+      console.error('管理 cookie 失败:', e.message);
     }
-    document.addEventListener('click', () => {
-      const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
-        const [name, value] = cookie.split('=');
-        const domain = original_website_host;
-        if (!acc[domain]) acc[domain] = [];
-        acc[domain].push({ name, value, path: '/' });
-        return acc;
-      }, {});
-      localStorage.setItem('${cookieStorageKey}', JSON.stringify(cookies));
-    });
   }
 
   networkInject();
@@ -457,7 +543,7 @@ const httpRequestInjection = `
 })();
 `;
 
-// 主页面 HTML
+// 主页面 HTML（已移除暗黑模式）
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -690,23 +776,6 @@ const mainPage = `
     .modal-content .config-button:hover {
       background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
     }
-    .dark-mode {
-      background-color: #1a1a1a;
-      color: #ffffff;
-    }
-    .dark-mode .content, .dark-mode .modal-content {
-      background-color: rgba(40, 40, 40, 0.9);
-      color: #ffffff;
-    }
-    .dark-mode button {
-      background: linear-gradient(45deg, #0288d1, #4fc3f7);
-      color: #ffffff;
-    }
-    .dark-mode select, .dark-mode input, .dark-mode textarea {
-      background-color: rgba(60, 60, 60, 0.5);
-      color: #ffffff;
-      border-color: #0288d1;
-    }
     @media (max-width: 768px) {
       .content {
         max-width: 90%;
@@ -749,13 +818,6 @@ const mainPage = `
           <span class="checkbox-custom"></span>
         </div>
         <label for="blockAds">拦截广告</label>
-      </div>
-      <div class="checkbox-container">
-        <div class="checkbox-wrapper">
-          <input type="checkbox" id="darkMode">
-          <span class="checkbox-custom"></span>
-        </div>
-        <label for="darkMode">启用暗黑模式</label>
       </div>
       <button class="config-button" onclick="showBlockExtensionsModal()">配置拦截器</button>
       <button class="config-button" onclick="showBlockElementsModal()">屏蔽元素</button>
@@ -831,8 +893,6 @@ const mainPage = `
         if (cookies['${languageCookieName}']) document.getElementById('languageSelect').value = cookies['${languageCookieName}'];
         if (cookies['${deviceCookieName}']) document.getElementById('deviceSelect').value = cookies['${deviceCookieName}'];
         document.getElementById('blockAds').checked = cookies['${blockAdsCookieName}'] === 'true';
-        document.getElementById('darkMode').checked = cookies['darkMode'] === 'true';
-        if (cookies['darkMode'] === 'true') document.body.classList.add('dark-mode');
         if (cookies['${blockExtensionsCookieName}']) document.getElementById('blockExtensionsInput').value = cookies['${blockExtensionsCookieName}'];
         if (cookies['${blockElementsCookieName}']) document.getElementById('blockElementsInput').value = cookies['${blockElementsCookieName}'];
         if (cookies['${blockElementsScopeCookieName}']) {
@@ -848,15 +908,11 @@ const mainPage = `
       document.getElementById('blockElementsScope').addEventListener('change', function() {
         document.getElementById('blockElementsScopeUrl').style.display = this.value === 'specific' ? 'block' : 'none';
       });
-      document.getElementById('darkMode').addEventListener('change', function() {
-        document.body.classList.toggle('dark-mode', this.checked);
-        setCookie('darkMode', this.checked);
-      });
       const setCookie = (name, value) => {
         const cookieDomain = window.location.hostname;
         const oneWeekLater = new Date();
         oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-        document.cookie = \`\${name}=\${value}; expires=\${oneWeekLater.toUTCString()}; path=/; domain=\${cookieDomain}\`;
+        document.cookie = \`\${name}=\${value}; expires=\${oneWeekLater.toUTCString()}; path=/; domain=\${cookieDomain}; SameSite=None; Secure\`;
       };
       document.getElementById('languageSelect').addEventListener('change', function() { setCookie('${languageCookieName}', this.value); });
       document.getElementById('deviceSelect').addEventListener('change', function() { setCookie('${deviceCookieName}', this.value); });
@@ -870,7 +926,7 @@ const mainPage = `
         button.addEventListener('click', () => {
           if (!button.disabled) {
             const cookieDomain = window.location.hostname;
-            document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+            document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
             window.location.reload();
           }
         });
@@ -905,8 +961,8 @@ const mainPage = `
       const cookieDomain = window.location.hostname;
       const oneWeekLater = new Date();
       oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-      document.cookie = "${blockExtensionsCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-      document.cookie = "${blockExtensionsCookieName}=" + extensions + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockExtensionsCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+      document.cookie = "${blockExtensionsCookieName}=" + extensions + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
       closeBlockExtensionsModal();
     }
     function saveBlockElements() {
@@ -916,13 +972,13 @@ const mainPage = `
       const cookieDomain = window.location.hostname;
       const oneWeekLater = new Date();
       oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-      document.cookie = "${blockElementsCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-      document.cookie = "${blockElementsCookieName}=" + elements + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
-      document.cookie = "${blockElementsScopeCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-      document.cookie = "${blockElementsScopeCookieName}=" + scope + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
-      document.cookie = "${blockElementsScopeCookieName}_URL=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockElementsCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+      document.cookie = "${blockElementsCookieName}=" + elements + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+      document.cookie = "${blockElementsScopeCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+      document.cookie = "${blockElementsScopeCookieName}=" + scope + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+      document.cookie = "${blockElementsScopeCookieName}_URL=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
       if (scope === 'specific' && scopeUrl) {
-        document.cookie = "${blockElementsScopeCookieName}_URL=" + scopeUrl + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+        document.cookie = "${blockElementsScopeCookieName}_URL=" + scopeUrl + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
       }
       closeBlockElementsModal();
     }
@@ -931,8 +987,8 @@ const mainPage = `
       const cookieDomain = window.location.hostname;
       const oneWeekLater = new Date();
       oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-      document.cookie = "${customHeadersCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-      document.cookie = "${customHeadersCookieName}=" + encodeURIComponent(headers) + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      document.cookie = "${customHeadersCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+      document.cookie = "${customHeadersCookieName}=" + encodeURIComponent(headers) + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
       closeCustomHeadersModal();
     }
   </script>
@@ -995,8 +1051,8 @@ const pwdPage = `
         const password = document.getElementById('password').value;
         const oneWeekLater = new Date();
         oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
-        document.cookie = "${passwordCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
-        document.cookie = "${passwordCookieName}=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+        document.cookie = "${passwordCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
+        document.cookie = "${passwordCookieName}=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain + "; SameSite=None; Secure";
         location.reload();
       } catch (e) {
         alert('设置密码失败: ' + e.message);
@@ -1234,6 +1290,7 @@ async function handleRequest(request) {
           const domainIndex = parts.findIndex(part => part.toLowerCase().startsWith('domain='));
           if (domainIndex !== -1) parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
           else parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
+          parts.push('SameSite=None', 'Secure');
           cookies[i] = parts.join('; ');
         }
         headers.set(cookieHeader.headerName, cookies.join(', '));
@@ -1242,12 +1299,12 @@ async function handleRequest(request) {
 
     // 设置 cookie 和头
     if (responseContentType.includes("text/html") && response.status === 200 && bd.includes("<html")) {
-      headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
-      headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
+      headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}; SameSite=None; Secure`);
+      headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}; SameSite=None; Secure`);
       if (!hasProxyHintCook) {
         const expiryDate = new Date();
         expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000);
-        headers.append("Set-Cookie", `${proxyHintCookieName}=agreed; expires=${expiryDate.toUTCString()}; path=/; domain=${thisProxyServerUrl_hostOnly}`);
+        headers.append("Set-Cookie", `${proxyHintCookieName}=agreed; expires=${expiryDate.toUTCString()}; path=/; domain=${thisProxyServerUrl_hostOnly}; SameSite=None; Secure`);
       }
     }
 
