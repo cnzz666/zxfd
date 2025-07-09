@@ -1,4 +1,3 @@
-// worker.js
 addEventListener('fetch', event => {
   try {
     const url = new URL(event.request.url);
@@ -22,7 +21,7 @@ const blockAdsCookieName = "__PROXY_BLOCK_ADS__";
 const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__";
 const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__";
 const customHeadersCookieName = "__PROXY_CUSTOM_HEADERS__";
-const cookieStorageKey = "__PROXY_COOKIES__"; // 新增：用于存储目标网站 cookie
+const cookieStorageKey = "__PROXY_COOKIES__";
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location_yproxy__";
@@ -339,7 +338,6 @@ const httpRequestInjection = `
     History.prototype.replaceState = function(state, title, url) {
       if (!url) return;
       if (url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
-      if Prensa
       if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
       if (url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
       if (url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
@@ -405,14 +403,13 @@ const httpRequestInjection = `
     setTimeout(covScript, 3000);
   }
 
-  // 新增：保存和恢复目标网站 cookie
   function manageCookies() {
-    const storedCookies = localStorage.getItem(cookieStorageKey);
+    const storedCookies = localStorage.getItem('${cookieStorageKey}');
     if (storedCookies) {
       const cookies = JSON.parse(storedCookies);
       Object.keys(cookies).forEach(domain => {
         cookies[domain].forEach(cookie => {
-          document.cookie = `${cookie.name}=${cookie.value}; path=${cookie.path}; domain=${proxy_host}`;
+          document.cookie = \`\${cookie.name}=\${cookie.value}; path=\${cookie.path}; domain=${thisProxyServerUrl_hostOnly};\`;
         });
       });
     }
@@ -424,7 +421,7 @@ const httpRequestInjection = `
         acc[domain].push({ name, value, path: '/' });
         return acc;
       }, {});
-      localStorage.setItem(cookieStorageKey, JSON.stringify(cookies));
+      localStorage.setItem('${cookieStorageKey}', JSON.stringify(cookies));
     });
   }
 
