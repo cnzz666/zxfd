@@ -87,13 +87,7 @@ const disguiseInjection = `
   const proxyProtocol = now.protocol;
   const proxyPrefix = proxyProtocol + "//" + proxyBase + "/";
   const oriUrlStr = window.location.href.substring(proxyPrefix.length);
-  let oriUrl;
-  try {
-    oriUrl = new URL(oriUrlStr);
-  } catch (e) {
-    console.error("Error parsing original URL: ", e);
-    return;
-  }
+  const oriUrl = new URL(oriUrlStr);
   const originalHost = oriUrl.host;
   const originalOrigin = oriUrl.origin;
 
@@ -215,48 +209,34 @@ const blockElementsInjection = `
 })();
 `;
 
-// HTTP 请求注入（从 _worker.js 引入并优化）
+// HTTP 请求注入
 const httpRequestInjection = `
 (function() {
-  var nowURL = new URL(window.location.href);
-  var proxy_host = nowURL.host;
-  var proxy_protocol = nowURL.protocol;
-  var proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
-  var original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
-  var original_website_url;
-  try {
-    original_website_url = new URL(original_website_url_str);
-  } catch (e) {
-    console.error("Error parsing original website URL: ", e);
-    return;
-  }
-  var original_website_href = nowURL.pathname.substring(1);
-  if (!original_website_href.startsWith("http")) original_website_href = "https://" + original_website_href;
-  var original_website_host = original_website_url_str.substring(original_website_url_str.indexOf("://") + "://".length).split('/')[0];
-  var original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
+  const nowURL = new URL(window.location.href);
+  const proxy_host = nowURL.host;
+  const proxy_protocol = nowURL.protocol;
+  const proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
+  const original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
+  const original_website_url = new URL(original_website_url_str);
+  const original_website_host = original_website_url.host;
+  const original_website_host_with_schema = original_website_url.protocol + "//" + original_website_host + "/";
 
   function changeURL(relativePath) {
     if (!relativePath) return null;
-    try {
-      if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
-    } catch {
-      // Ignore potential errors
-    }
+    if (relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
     try {
       if (relativePath.startsWith(proxy_host_with_schema)) relativePath = relativePath.substring(proxy_host_with_schema.length);
       if (relativePath.startsWith(proxy_host + "/")) relativePath = relativePath.substring(proxy_host.length + 1);
       if (relativePath.startsWith(proxy_host)) relativePath = relativePath.substring(proxy_host.length);
-      var absolutePath = new URL(relativePath, original_website_url_str).href;
-      absolutePath = absolutePath
-        .replace(window.location.href, original_website_href)
-        .replace(encodeURI(window.location.href), encodeURI(original_website_href))
-        .replace(encodeURIComponent(window.location.href), encodeURIComponent(original_website_href))
+      const absolutePath = new URL(relativePath, original_website_url_str).href
+        .replace(window.location.href, original_website_url.href)
+        .replace(encodeURI(window.location.href), encodeURI(original_website_url.href))
+        .replace(encodeURIComponent(window.location.href), encodeURIComponent(original_website_url.href))
         .replace(proxy_host, original_website_host)
         .replace(encodeURI(proxy_host), encodeURI(original_website_host))
         .replace(encodeURIComponent(proxy_host), encodeURIComponent(original_website_host));
       return proxy_host_with_schema + absolutePath;
-    } catch (e) {
-      console.error("Exception in changeURL: ", e.message, original_website_url_str, relativePath);
+    } catch {
       return null;
     }
   }
@@ -270,13 +250,15 @@ const httpRequestInjection = `
   function networkInject() {
     const originalOpen = XMLHttpRequest.prototype.open;
     const originalFetch = window.fetch;
+    const originalSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       url = changeURL(url);
       if (!url) return;
-      this._url = url;
+      this._url = url; // 存储修改后的 URL
       return originalOpen.apply(this, [method, url, async, user, password]);
     };
     XMLHttpRequest.prototype.send = function(body) {
+      // 确保请求头与目标网站一致
       if (this._url) {
         const targetUrl = new URL(this._url);
         this.setRequestHeader('Origin', targetUrl.origin);
@@ -292,7 +274,6 @@ const httpRequestInjection = `
       const modifiedInit = { ...init, headers: { ...init?.headers, 'Origin': targetUrl.origin, 'Referer': targetUrl.origin + '/' } };
       return originalFetch(typeof input === 'string' ? url : new Request(url, input), modifiedInit);
     };
-    console.log("NETWORK REQUEST METHOD INJECTED");
   }
 
   function windowOpenInject() {
@@ -302,7 +283,6 @@ const httpRequestInjection = `
       if (!modifiedUrl) return null;
       return originalOpen.call(window, modifiedUrl, name, specs);
     };
-    console.log("WINDOW OPEN INJECTED");
   }
 
   function appendChildInject() {
@@ -312,7 +292,6 @@ const httpRequestInjection = `
       if (child.href) child.href = changeURL(child.href) || child.href;
       return originalAppendChild.call(this, child);
     };
-    console.log("APPEND CHILD INJECTED");
   }
 
   function elementPropertyInject() {
@@ -338,7 +317,6 @@ const httpRequestInjection = `
       },
       configurable: true
     });
-    console.log("ELEMENT PROPERTY INJECTED");
   }
 
   class ProxyLocation {
@@ -401,7 +379,6 @@ const httpRequestInjection = `
       get: () => new ProxyLocation(window.location),
       set: url => window.location.href = changeURL(url) || url
     });
-    console.log("DOCUMENT LOCATION INJECTED");
   }
 
   function windowLocationInject() {
@@ -409,7 +386,6 @@ const httpRequestInjection = `
       get: () => new ProxyLocation(window.location),
       set: url => window.location.href = changeURL(url) || url
     });
-    console.log("WINDOW LOCATION INJECTED");
   }
 
   function historyInject() {
@@ -435,7 +411,6 @@ const httpRequestInjection = `
       if (!u) return;
       return originalReplaceState.apply(this, [state, title, u]);
     };
-    console.log("HISTORY INJECTED");
   }
 
   function obsPage() {
@@ -443,7 +418,6 @@ const httpRequestInjection = `
       mutations.forEach(mutation => traverseAndConvert(mutation));
     });
     yProxyObserver.observe(document.body, { attributes: true, childList: true, subtree: true });
-    console.log("OBSERVING THE WEBPAGE...");
   }
 
   function traverseAndConvert(node) {
@@ -487,7 +461,6 @@ const httpRequestInjection = `
       removeIntegrityAttributesFromElement(ele);
       covToAbs(ele);
     }
-    console.log("LOOPED EVERY ELEMENT");
   }
 
   function covScript() {
@@ -498,6 +471,7 @@ const httpRequestInjection = `
 
   function manageCookies() {
     try {
+      // 恢复 cookie
       const storedCookies = localStorage.getItem('${cookieStorageKey}');
       if (storedCookies) {
         const cookies = JSON.parse(storedCookies);
@@ -511,10 +485,11 @@ const httpRequestInjection = `
           });
         });
       }
+      // 保存 cookie
       const saveCookies = () => {
         const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
           const [name, value] = cookie.split('=');
-          if (name && value) {
+          if (name && value) { // 确保 name 和 value 有效
             const domain = original_website_host;
             if (!acc[domain]) acc[domain] = [];
             acc[domain].push({ name, value, path: '/' });
@@ -527,6 +502,7 @@ const httpRequestInjection = `
           console.error('保存 cookie 到 localStorage 失败:', e.message);
         }
       };
+      // 在页面加载、点击和表单提交时保存 cookie
       document.addEventListener('click', saveCookies);
       document.addEventListener('submit', saveCookies);
       window.addEventListener('load', saveCookies);
@@ -560,7 +536,6 @@ const httpRequestInjection = `
       newScript.defer = element.defer;
       newScript.alreadyChanged = true;
       document.head.appendChild(newScript);
-      console.log("New script added:", newScript);
     }
   }, true);
   ${disguiseInjection}
@@ -568,7 +543,7 @@ const httpRequestInjection = `
 })();
 `;
 
-// 主页面 HTML
+// 主页面 HTML（已移除暗黑模式）
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -823,7 +798,7 @@ const mainPage = `
 <body>
   <div class="content">
     <h1>Website Online Proxy</h1>
-    <p>请输入学术网站地址进行访问（如：baike.baidu.com 或 youtube.com）</p>
+    <p>请输入学术网站地址进行访问（如：baike.baidu.com）</p>
     <button onclick="showUrlModal()">访问网站</button>
     <button onclick="toggleAdvancedOptions()">高级选项</button>
     <div class="config-section" id="advancedOptions">
@@ -855,7 +830,7 @@ const mainPage = `
   <div id="urlModal" class="modal">
     <div class="modal-content">
       <h3>输入目标网址</h3>
-      <input type="text" id="targetUrl" placeholder="请输入目标地址（例如：baike.baidu.com 或 youtube.com）">
+      <input type="text" id="targetUrl" placeholder="请输入目标地址（例如：baike.baidu.com）">
       <button onclick="redirectTo()">跳转</button>
       <button class="config-button" onclick="closeUrlModal()">取消</button>
     </div>
@@ -1134,7 +1109,7 @@ async function handleRequest(request) {
     }
 
     // 处理 favicon 和 robots.txt
-    if (url.pathname.endsWith("favicon.ico")) return getRedirect("https://www.youtube.com/favicon.ico");
+    if (url.pathname.endsWith("favicon.ico")) return getRedirect("https://www.baidu.com/favicon.ico");
     if (url.pathname.endsWith("robots.txt")) {
       return new Response(`User-Agent: *\nDisallow: /`, { headers: { "Content-Type": "text/plain" } });
     }
@@ -1253,7 +1228,7 @@ async function handleRequest(request) {
     if (response.body) {
       if (responseContentType.startsWith("text/")) {
         bd = await response.text();
-        let regex = new RegExp(`(?<!src="|href="|url\\(|url\\s*\\(|@import\\s+["'])(https?:\\/\\/[^\\s'"]+)`, 'g');
+        let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\\s'"]+)`, 'g');
         bd = bd.replace(regex, match => match.includes("http") ? thisProxyServerUrlHttps + match : thisProxyServerUrl_hostOnly + "/" + match);
         if (responseContentType.includes("html") || responseContentType.includes("javascript")) {
           bd = bd.replace(/window\.location/g, "window." + replaceUrlObj);
