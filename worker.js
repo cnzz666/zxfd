@@ -2,6 +2,7 @@
  * Cloudflare Worker script for a global web proxy with enhanced functionality.
  * Features: URL rewriting, video/audio streaming, ad/element blocking, custom cookie injection.
  * Strictly adheres to Cloudflare Worker ES Module syntax and runtime constraints.
+ * CSS fixed to ensure clear visibility without blur.
  */
 
 const CONFIG = {
@@ -47,8 +48,8 @@ const DEVICE_LAYOUTS = {
 };
 
 const AD_BLOCK_KEYWORDS = [
-  "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", 
-  "adserver", "popunder", "interstitial", "googlesyndication.com", 
+  "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead",
+  "adserver", "popunder", "interstitial", "googlesyndication.com",
   "adsense.google.com", "admob.com", "adclick.g.doubleclick.net",
 ];
 
@@ -534,28 +535,19 @@ const MAIN_PAGE = `
       color: #333333;
       background: linear-gradient(135deg, #4fc3f7, #29b6f6);
       position: relative;
-      overflow: hidden;
     }
     .content {
       text-align: center;
       max-width: 80%;
       padding: 30px;
-      background-color: rgba(255, 255, 255, 0.3);
+      background-color: rgba(255, 255, 255, 0.9);
       border-radius: 15px;
       box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3), 0 0 10px rgba(176, 196, 222, 0.2);
-      backdrop-filter: blur(5px);
       border: 1px solid rgba(79, 195, 247, 0.3);
-      transform: scale(0.5);
-      opacity: 0.5;
-      filter: blur(10px);
-      transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
+      opacity: 1;
+      transition: transform 0.5s ease-out, box-shadow 0.5s ease-out;
       position: relative;
       z-index: 1;
-    }
-    .content.loaded {
-      transform: scale(1);
-      opacity: 1;
-      filter: blur(0);
     }
     .content:hover {
       transform: scale(1.03);
