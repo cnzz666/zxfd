@@ -1389,10 +1389,10 @@ async function handleRequest(request) {
   }
 }
 
-// --- 工具函数 ---
 
+// 工具函数 - 修复后的正则表达式
 function escapeRegExp(string) {
-  return string.replace(/[.*+\\-?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[-.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // 从cookie字符串中获取指定名称的cookie值
