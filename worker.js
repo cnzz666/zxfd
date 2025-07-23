@@ -2,7 +2,7 @@
  * Cloudflare Worker script for a global web proxy with enhanced functionality.
  * Features: URL rewriting, video/audio streaming, ad/element blocking, custom cookie injection.
  * Strictly adheres to Cloudflare Worker ES Module syntax and runtime constraints.
- * CSS fixed to ensure clear visibility without blur.
+ * Fixed button interaction issues by ensuring proper event binding.
  */
 
 const CONFIG = {
@@ -548,6 +548,7 @@ const MAIN_PAGE = `
       transition: transform 0.5s ease-out, box-shadow 0.5s ease-out;
       position: relative;
       z-index: 1;
+      pointer-events: auto;
     }
     .content:hover {
       transform: scale(1.03);
@@ -569,6 +570,8 @@ const MAIN_PAGE = `
       width: 60%;
       max-width: 200px;
       transition: all 0.3s ease;
+      cursor: pointer;
+      pointer-events: auto;
     }
     select {
       background-color: rgba(255, 255, 255, 0.5);
@@ -585,7 +588,6 @@ const MAIN_PAGE = `
       background: linear-gradient(45deg, #4fc3f7, #81d4fa);
       border: none;
       color: #333333;
-      cursor: pointer;
       font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -611,6 +613,7 @@ const MAIN_PAGE = `
       transition: color 0.3s ease, transform 0.3s ease;
       display: block;
       margin: 15px 0;
+      pointer-events: auto;
     }
     a:hover {
       color: #01579b;
@@ -700,6 +703,7 @@ const MAIN_PAGE = `
       justify-content: center;
       align-items: center;
       overflow-y: auto;
+      pointer-events: auto;
     }
     .modal-content {
       background-color: rgba(255, 255, 255, 0.9);
@@ -710,6 +714,7 @@ const MAIN_PAGE = `
       overflow-y: auto;
       text-align: center;
       box-shadow: 0 8px 32px rgba(79, 195, 247, 0.3);
+      pointer-events: auto;
     }
     .modal-content input, .modal-content select, .modal-content textarea {
       width: 90%;
@@ -759,8 +764,8 @@ const MAIN_PAGE = `
   <div class="content">
     <h1>Website Online Proxy</h1>
     <p>请输入学术网站地址进行访问（如：baike.baidu.com）</p>
-    <button onclick="showUrlModal()">访问网站</button>
-    <button onclick="toggleAdvancedOptions()">高级选项</button>
+    <button id="visitWebsiteBtn">访问网站</button>
+    <button id="advancedOptionsBtn">高级选项</button>
     <div class="config-section" id="advancedOptions">
       <label>选择语言</label>
       <select id="languageSelect">
@@ -773,7 +778,7 @@ const MAIN_PAGE = `
         <option value="mobile">移动设备</option>
       </select>
       <label>自定义Cookie</label>
-      <button class="config-button" onclick="showCustomCookieModal()">配置自定义Cookie</button>
+      <button class="config-button" id="customCookieBtn">配置自定义Cookie</button>
       <div class="checkbox-container">
         <div class="checkbox-wrapper">
           <input type="checkbox" id="blockAds">
@@ -803,8 +808,8 @@ const MAIN_PAGE = `
       <h2>输入网站地址</h2>
       <input type="text" id="urlInput" placeholder="如：baike.baidu.com">
       <p>请输入有效的网站地址</p>
-      <button onclick="submitUrl()">访问</button>
-      <button class="config-button" onclick="closeModal('urlModal')">取消</button>
+      <button id="submitUrlBtn">访问</button>
+      <button class="config-button" id="cancelUrlModalBtn">取消</button>
     </div>
   </div>
   <div class="modal" id="passwordModal">
@@ -812,8 +817,8 @@ const MAIN_PAGE = `
       <h2>输入密码</h2>
       <input type="password" id="passwordInput" placeholder="请输入密码">
       <p>请输入正确的密码以继续</p>
-      <button onclick="submitPassword()">提交</button>
-      <button class="config-button" onclick="closeModal('passwordModal')">取消</button>
+      <button id="submitPasswordBtn">提交</button>
+      <button class="config-button" id="cancelPasswordModalBtn">取消</button>
     </div>
   </div>
   <div class="modal" id="customCookieModal">
@@ -821,97 +826,280 @@ const MAIN_PAGE = `
       <h2>配置自定义Cookie</h2>
       <p>输入JSON格式的Cookie配置，示例：<br>{"cookies":[{"name":"key","value":"value","host":"example.com","maxAge":86400}]}</p>
       <textarea id="customCookieInput" placeholder='{"cookies":[{"name":"key","value":"value","host":"example.com","maxAge":86400}]}'></textarea>
-      <button onclick="saveCustomCookies()">保存</button>
-      <button class="config-button" onclick="closeModal('customCookieModal')">取消</button>
+      <button id="saveCustomCookiesBtn">保存</button>
+      <button class="config-button" id="cancelCustomCookieModalBtn">取消</button>
     </div>
   </div>
   <script>
-    window.addEventListener('load', () => {
-      document.querySelector('.content').classList.add('loaded');
-      checkPassword();
-    });
-    
-    function checkPassword() {
-      if (${CONFIG.SHOW_PASSWORD_PAGE} && !document.cookie.includes('${CONFIG.PASSWORD_COOKIE}=${CONFIG.PASSWORD}')) {
-        document.getElementById('passwordModal').style.display = 'flex';
-      }
-    }
-    
-    function submitPassword() {
-      const passwordInput = document.getElementById('passwordInput').value;
-      if (passwordInput === '${CONFIG.PASSWORD}' || '${CONFIG.PASSWORD}' === '') {
-        document.cookie = '${CONFIG.PASSWORD_COOKIE}=${CONFIG.PASSWORD}; path=/; max-age=86400';
-        closeModal('passwordModal');
-      } else {
-        alert('密码错误');
-      }
-    }
-    
-    function showUrlModal() {
-      if (${CONFIG.SHOW_PASSWORD_PAGE} && !document.cookie.includes('${CONFIG.PASSWORD_COOKIE}=${CONFIG.PASSWORD}')) {
-        checkPassword();
-      } else {
-        document.getElementById('urlModal').style.display = 'flex';
-      }
-    }
-    
-    function showCustomCookieModal() {
-      document.getElementById('customCookieModal').style.display = 'flex';
-    }
-    
-    function closeModal(modalId) {
-      document.getElementById(modalId).style.display = 'none';
-    }
-    
-    function toggleAdvancedOptions() {
-      const advancedOptions = document.getElementById('advancedOptions');
-      advancedOptions.classList.toggle('active');
-    }
-    
-    function submitUrl() {
-      let url = document.getElementById('urlInput').value.trim();
-      if (!url) {
-        alert('请输入有效的网站地址');
-        return;
-      }
-      if (!url.match(/^https?:\/\//)) {
-        url = 'https://' + url;
-      }
+    document.addEventListener('DOMContentLoaded', () => {
       try {
+        console.log('DOM fully loaded, initializing event listeners');
+        
+        // Button event listeners
+        const visitWebsiteBtn = document.getElementById('visitWebsiteBtn');
+        const advancedOptionsBtn = document.getElementById('advancedOptionsBtn');
+        const customCookieBtn = document.getElementById('customCookieBtn');
+        const submitUrlBtn = document.getElementById('submitUrlBtn');
+        const cancelUrlModalBtn = document.getElementById('cancelUrlModalBtn');
+        const submitPasswordBtn = document.getElementById('submitPasswordBtn');
+        const cancelPasswordModalBtn = document.getElementById('cancelPasswordModalBtn');
+        const saveCustomCookiesBtn = document.getElementById('saveCustomCookiesBtn');
+        const cancelCustomCookieModalBtn = document.getElementById('cancelCustomCookieModalBtn');
+
+        if (visitWebsiteBtn) {
+          visitWebsiteBtn.addEventListener('click', () => {
+            console.log('Visit Website button clicked');
+            showUrlModal();
+          });
+        } else {
+          console.error('Visit Website button not found');
+        }
+
+        if (advancedOptionsBtn) {
+          advancedOptionsBtn.addEventListener('click', () => {
+            console.log('Advanced Options button clicked');
+            toggleAdvancedOptions();
+          });
+        } else {
+          console.error('Advanced Options button not found');
+        }
+
+        if (customCookieBtn) {
+          customCookieBtn.addEventListener('click', () => {
+            console.log('Custom Cookie button clicked');
+            showCustomCookieModal();
+          });
+        } else {
+          console.error('Custom Cookie button not found');
+        }
+
+        if (submitUrlBtn) {
+          submitUrlBtn.addEventListener('click', () => {
+            console.log('Submit URL button clicked');
+            submitUrl();
+          });
+        } else {
+          console.error('Submit URL button not found');
+        }
+
+        if (cancelUrlModalBtn) {
+          cancelUrlModalBtn.addEventListener('click', () => {
+            console.log('Cancel URL Modal button clicked');
+            closeModal('urlModal');
+          });
+        } else {
+          console.error('Cancel URL Modal button not found');
+        }
+
+        if (submitPasswordBtn) {
+          submitPasswordBtn.addEventListener('click', () => {
+            console.log('Submit Password button clicked');
+            submitPassword();
+          });
+        } else {
+          console.error('Submit Password button not found');
+        }
+
+        if (cancelPasswordModalBtn) {
+          cancelPasswordModalBtn.addEventListener('click', () => {
+            console.log('Cancel Password Modal button clicked');
+            closeModal('passwordModal');
+          });
+        } else {
+          console.error('Cancel Password Modal button not found');
+        }
+
+        if (saveCustomCookiesBtn) {
+          saveCustomCookiesBtn.addEventListener('click', () => {
+            console.log('Save Custom Cookies button clicked');
+            saveCustomCookies();
+          });
+        } else {
+          console.error('Save Custom Cookies button not found');
+        }
+
+        if (cancelCustomCookieModalBtn) {
+          cancelCustomCookieModalBtn.addEventListener('click', () => {
+            console.log('Cancel Custom Cookie Modal button clicked');
+            closeModal('customCookieModal');
+          });
+        } else {
+          console.error('Cancel Custom Cookie Modal button not found');
+        }
+
+        // Check password on load
+        checkPassword();
+      } catch (e) {
+        console.error('Error initializing event listeners:', e);
+      }
+    });
+
+    function checkPassword() {
+      try {
+        console.log('Checking password');
+        if (${CONFIG.SHOW_PASSWORD_PAGE} && !document.cookie.includes('${CONFIG.PASSWORD_COOKIE}=${CONFIG.PASSWORD}')) {
+          const passwordModal = document.getElementById('passwordModal');
+          if (passwordModal) {
+            passwordModal.style.display = 'flex';
+            console.log('Password modal displayed');
+          } else {
+            console.error('Password modal not found');
+          }
+        }
+      } catch (e) {
+        console.error('Error in checkPassword:', e);
+      }
+    }
+
+    function submitPassword() {
+      try {
+        const passwordInput = document.getElementById('passwordInput');
+        if (!passwordInput) {
+          console.error('Password input not found');
+          return;
+        }
+        const password = passwordInput.value;
+        console.log('Password submitted');
+        if (password === '${CONFIG.PASSWORD}' || '${CONFIG.PASSWORD}' === '') {
+          document.cookie = '${CONFIG.PASSWORD_COOKIE}=${CONFIG.PASSWORD}; path=/; max-age=86400';
+          closeModal('passwordModal');
+        } else {
+          alert('密码错误');
+        }
+      } catch (e) {
+        console.error('Error in submitPassword:', e);
+      }
+    }
+
+    function showUrlModal() {
+      try {
+        console.log('Showing URL modal');
+        if (${CONFIG.SHOW_PASSWORD_PAGE} && !document.cookie.includes('${CONFIG.PASSWORD_COOKIE}=${CONFIG.PASSWORD}')) {
+          checkPassword();
+        } else {
+          const urlModal = document.getElementById('urlModal');
+          if (urlModal) {
+            urlModal.style.display = 'flex';
+            console.log('URL modal displayed');
+          } else {
+            console.error('URL modal not found');
+          }
+        }
+      } catch (e) {
+        console.error('Error in showUrlModal:', e);
+      }
+    }
+
+    function showCustomCookieModal() {
+      try {
+        console.log('Showing Custom Cookie modal');
+        const customCookieModal = document.getElementById('customCookieModal');
+        if (customCookieModal) {
+          customCookieModal.style.display = 'flex';
+          console.log('Custom Cookie modal displayed');
+        } else {
+          console.error('Custom Cookie modal not found');
+        }
+      } catch (e) {
+        console.error('Error in showCustomCookieModal:', e);
+      }
+    }
+
+    function closeModal(modalId) {
+      try {
+        console.log('Closing modal:', modalId);
+        const modal = document.getElementById(modalId);
+        if (modal) {
+          modal.style.display = 'none';
+          console.log('Modal closed:', modalId);
+        } else {
+          console.error('Modal not found:', modalId);
+        }
+      } catch (e) {
+        console.error('Error in closeModal:', e);
+      }
+    }
+
+    function toggleAdvancedOptions() {
+      try {
+        console.log('Toggling advanced options');
+        const advancedOptions = document.getElementById('advancedOptions');
+        if (advancedOptions) {
+          advancedOptions.classList.toggle('active');
+          console.log('Advanced options toggled');
+        } else {
+          console.error('Advanced options section not found');
+        }
+      } catch (e) {
+        console.error('Error in toggleAdvancedOptions:', e);
+      }
+    }
+
+    function submitUrl() {
+      try {
+        console.log('Submitting URL');
+        const urlInput = document.getElementById('urlInput');
+        if (!urlInput) {
+          console.error('URL input not found');
+          return;
+        }
+        let url = urlInput.value.trim();
+        if (!url) {
+          alert('请输入有效的网站地址');
+          return;
+        }
+        if (!url.match(/^https?:\/\//)) {
+          url = 'https://' + url;
+        }
         const validUrl = new URL(url);
         document.cookie = '${CONFIG.LAST_VISIT_COOKIE}=' + encodeURIComponent(validUrl.href) + '; path=/; max-age=86400';
         saveConfig();
+        console.log('Navigating to:', window.location.origin + '/' + validUrl.href);
         window.location.href = window.location.origin + '/' + validUrl.href;
       } catch (e) {
+        console.error('Error in submitUrl:', e);
         alert('请输入有效的URL地址');
       }
     }
-    
+
     function saveCustomCookies() {
-      const cookieInput = document.getElementById('customCookieInput').value.trim();
       try {
-        JSON.parse(cookieInput);
-        document.cookie = '${CONFIG.CUSTOM_COOKIES_COOKIE}=' + encodeURIComponent(cookieInput) + '; path=/; max-age=86400';
+        console.log('Saving custom cookies');
+        const cookieInput = document.getElementById('customCookieInput');
+        if (!cookieInput) {
+          console.error('Custom cookie input not found');
+          return;
+        }
+        const cookieData = cookieInput.value.trim();
+        JSON.parse(cookieData);
+        document.cookie = '${CONFIG.CUSTOM_COOKIES_COOKIE}=' + encodeURIComponent(cookieData) + '; path=/; max-age=86400';
         alert('自定义Cookie已保存');
         closeModal('customCookieModal');
       } catch (e) {
+        console.error('Error in saveCustomCookies:', e);
         alert('请输入有效的JSON格式');
       }
     }
-    
+
     function saveConfig() {
-      const language = document.getElementById('languageSelect').value;
-      const device = document.getElementById('deviceSelect').value;
-      const blockAds = document.getElementById('blockAds').checked;
-      const blockElements = document.getElementById('blockElements').checked;
-      const blockElementsInput = document.getElementById('blockElementsInput').value;
-      const blockElementsScope = document.getElementById('blockElementsScope').value;
-      
-      document.cookie = '${CONFIG.LANGUAGE_COOKIE}=' + language + '; path=/; max-age=86400';
-      document.cookie = '${CONFIG.DEVICE_COOKIE}=' + device + '; path=/; max-age=86400';
-      document.cookie = '${CONFIG.BLOCK_ADS_COOKIE}=' + blockAds + '; path=/; max-age=86400';
-      document.cookie = '${CONFIG.BLOCK_ELEMENTS_COOKIE}=' + blockElementsInput + '; path=/; max-age=86400';
-      document.cookie = '${CONFIG.BLOCK_ELEMENTS_SCOPE_COOKIE}=' + blockElementsScope + '; path=/; max-age=86400';
+      try {
+        console.log('Saving configuration');
+        const language = document.getElementById('languageSelect')?.value || 'zh-CN';
+        const device = document.getElementById('deviceSelect')?.value || 'none';
+        const blockAds = document.getElementById('blockAds')?.checked || false;
+        const blockElements = document.getElementById('blockElements')?.checked || false;
+        const blockElementsInput = document.getElementById('blockElementsInput')?.value || '';
+        const blockElementsScope = document.getElementById('blockElementsScope')?.value || 'global';
+
+        document.cookie = '${CONFIG.LANGUAGE_COOKIE}=' + language + '; path=/; max-age=86400';
+        document.cookie = '${CONFIG.DEVICE_COOKIE}=' + device + '; path=/; max-age=86400';
+        document.cookie = '${CONFIG.BLOCK_ADS_COOKIE}=' + blockAds + '; path=/; max-age=86400';
+        document.cookie = '${CONFIG.BLOCK_ELEMENTS_COOKIE}=' + blockElementsInput + '; path=/; max-age=86400';
+        document.cookie = '${CONFIG.BLOCK_ELEMENTS_SCOPE_COOKIE}=' + blockElementsScope + '; path=/; max-age=86400';
+        console.log('Configuration saved');
+      } catch (e) {
+        console.error('Error in saveConfig:', e);
+      }
     }
   </script>
 </body>
