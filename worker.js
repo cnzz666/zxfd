@@ -1,34 +1,35 @@
-// 事件监听器，处理所有传入的 fetch 请求
 addEventListener('fetch', event => {
   try {
     const url = new URL(event.request.url);
-    thisProxyServerUrl = `${url.protocol}//${url.hostname}/`;
-    thisProxyServerHost = url.host;
+    thisProxyServerUrlHttps = `${url.protocol}//${url.hostname}/`;
+    thisProxyServerUrl_hostOnly = url.host;
     event.respondWith(handleRequest(event.request));
   } catch (e) {
-    event.respondWith(getErrorResponse(`请求处理错误: ${e.message}`, 500));
+    event.respondWith(getHTMLResponse(`Error: ${e.message}`));
   }
 });
 
-// 全局变量定义
-const PROXY_PREFIX = "/";
-const LAST_VISIT_COOKIE = "__PROXY_LAST_VISIT__";
-const PASSWORD_COOKIE = "__PROXY_PASSWORD__";
-const HINT_COOKIE = "__PROXY_HINT_ACK__";
-const LANGUAGE_COOKIE = "__PROXY_LANGUAGE__";
-const DEVICE_COOKIE = "__PROXY_DEVICE__";
-const BLOCK_EXT_COOKIE = "__PROXY_BLOCK_EXTENSIONS__";
-const BLOCK_ADS_COOKIE = "__PROXY_BLOCK_ADS__";
-const BLOCK_ELEMENTS_COOKIE = "__PROXY_BLOCK_ELEMENTS__";
-const BLOCK_SCOPE_COOKIE = "__PROXY_BLOCK_SCOPE__";
-const CUSTOM_COOKIE = "__PROXY_CUSTOM_COOKIE__";
-const PROXY_PASSWORD = ""; // 可配置的密码，空字符串表示无密码
-const SHOW_PASSWORD_PAGE = true; // 是否显示密码页面
-const INJECTED_JS_ID = "__proxy_injected_js__";
-let thisProxyServerUrl;
-let thisProxyServerHost;
+// Global Variables
+const str = "/";
+const lastVisitProxyCookie = "__PROXY_VISITEDSITE__";
+const passwordCookieName = "__PROXY_PWD__";
+const proxyHintCookieName = "__PROXY_HINT_ACK__";
+const languageCookieName = "__PROXY_LANGUAGE__";
+const deviceCookieName = "__PROXY_DEVICE__";
+const blockExtensionsCookieName = "__PROXY_BLOCK_EXTENSIONS__";
+const blockAdsCookieName = "__PROXY_BLOCK_ADS__";
+const blockElementsCookieName = "__PROXY_BLOCK_ELEMENTS__";
+const blockElementsScopeCookieName = "__PROXY_BLOCK_ELEMENTS_SCOPE__";
+const customHeadersCookieName = "__PROXY_CUSTOM_HEADERS__";
+const customCookiesCookieName = "__PROXY_CUSTOM_COOKIES__";
+const password = "";
+const showPasswordPage = true;
+const replaceUrlObj = "__location_yproxy__";
+const injectedJsId = "__yproxy_injected_js_id__";
+let thisProxyServerUrlHttps;
+let thisProxyServerUrl_hostOnly;
 
-// 支持的语言列表
+// Supported Languages
 const supportedLanguages = [
   { code: "zh-CN", name: "中文 (简体)" },
   { code: "en-US", name: "English (US)" },
@@ -42,7 +43,7 @@ const supportedLanguages = [
   { code: "ja-JP", name: "日本語" }
 ];
 
-// 设备模拟配置
+// Device Simulation
 const deviceUserAgents = {
   desktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
@@ -52,18 +53,376 @@ const deviceLayouts = {
   mobile: { width: 375, height: 667 }
 };
 
-// 广告屏蔽关键字
+// Ad Blocking Keywords
 const adBlockKeywords = [
   "ads.", "ad.", "advert", "banner", "sponsor", "doubleclick", "googlead", "adserver", "popunder", "interstitial",
   "googlesyndication.com", "adsense.google.com", "admob.com", "adclick.g.doubleclick.net"
 ];
 
-// 默认屏蔽的扩展名
-const defaultBlockedExtensions = [
-  ".exe", ".zip", ".rar", ".7z", ".torrent", ".apk", ".dmg", ".iso"
-];
+// Proxy Hint Injection
+const proxyHintInjection = `
+setTimeout(() => {
+  if (document.cookie.includes("${proxyHintCookieName}=agreed")) return;
+  const hint = "警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href='https://github.com/1234567Yang/cf-proxy-ex/' style='color: #ffd700;'>https://github.com/1234567Yang/cf-proxy-ex/</a>。";
+  const div = document.createElement('div');
+  div.id = "__PROXY_HINT_DIV__";
+  div.style = "position: fixed; left: 0; top: 0; width: 100%; margin: 0; padding: 0; display: block; z-index: 99999999999999999999999; user-select: none; cursor: pointer;";
+  div.innerHTML = \`<span style="position: absolute; width: calc(100% - 20px); min-height: 30px; font-size: 18px; color: yellow; background: rgba(180, 0, 0, 0.9); text-align: center; border-radius: 5px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">\${hint}</span>\`;
+  div.onclick = () => div.remove();
+  const appendHint = () => document.body.insertAdjacentElement('afterbegin', div);
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    appendHint();
+  } else {
+    document.addEventListener('DOMContentLoaded', appendHint);
+  }
+}, 5000);
+`;
 
-// 主页面 HTML（保持与原文档一致）
+// Disguise Injection
+const disguiseInjection = `
+(function() {
+  const now = new URL(window.location.href);
+  const proxyBase = now.host;
+  const proxyProtocol = now.protocol;
+  const proxyPrefix = proxyProtocol + "//" + proxyBase + "/";
+  const oriUrlStr = window.location.href.substring(proxyPrefix.length);
+  const oriUrl = new URL(oriUrlStr);
+  const originalHost = oriUrl.host;
+  const originalOrigin = oriUrl.origin;
+  Object.defineProperty(document, 'domain', { get: () => originalHost, set: value => value });
+  Object.defineProperty(window, 'origin', { get: () => originalOrigin });
+  Object.defineProperty(document, 'referrer', {
+    get: () => {
+      const actualReferrer = document.referrer || '';
+      return actualReferrer.startsWith(proxyPrefix) ? actualReferrer.replace(proxyPrefix, '') : actualReferrer;
+    }
+  });
+  if (navigator.userAgentData) {
+    Object.defineProperty(navigator, 'userAgentData', {
+      get: () => ({ brands: [{ brand: "Chromium", version: "90" }], mobile: false, platform: "Windows" })
+    });
+  }
+  const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${languageCookieName}='));
+  const selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
+  Object.defineProperty(navigator, 'language', { get: () => selectedLanguage });
+  Object.defineProperty(navigator, 'languages', { get: () => [selectedLanguage] });
+  const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${deviceCookieName}='));
+  const deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
+  if (deviceType !== 'none') {
+    const layouts = ${JSON.stringify(deviceLayouts)};
+    const layout = layouts[deviceType] || layouts.desktop;
+    Object.defineProperty(window, 'innerWidth', { get: () => layout.width });
+    Object.defineProperty(window, 'innerHeight', { get: () => layout.height });
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=' + layout.width + ', initial-scale=1.0';
+    document.head.appendChild(meta);
+  }
+})();
+`;
+
+// Block Elements Injection
+const blockElementsInjection = `
+(function() {
+  const blockElements = document.cookie.split('; ').find(row => row.startsWith('${blockElementsCookieName}='));
+  const blockElementsScope = document.cookie.split('; ').find(row => row.startsWith('${blockElementsScopeCookieName}='));
+  const selectors = blockElements ? blockElements.split('=')[1].split(',').map(s => s.trim()).filter(s => s) : [];
+  const scope = blockElementsScope ? blockElementsScope.split('=')[1] : 'global';
+  const currentUrl = window.location.href;
+  if (scope === 'global' || (scope === 'specific' && currentUrl.includes(scope))) {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        selectors.forEach(selector => {
+          try {
+            document.querySelectorAll(selector).forEach(el => el.remove());
+          } catch (e) {}
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    selectors.forEach(selector => {
+      try {
+        document.querySelectorAll(selector).forEach(el => el.remove());
+      } catch (e) {}
+    });
+    const adSelectors = ${JSON.stringify(adBlockKeywords.map(keyword => `[class*="${keyword}"], [id*="${keyword}"]`))};
+    adSelectors.forEach(selector => {
+      try {
+        document.querySelectorAll(selector).forEach(el => el.remove());
+      } catch (e) {}
+    });
+  }
+})();
+`;
+
+// HTTP Request Injection
+const httpRequestInjection = `
+(function() {
+  var nowURL = new URL(window.location.href);
+  var proxy_host = nowURL.host;
+  var proxy_protocol = nowURL.protocol;
+  var proxy_host_with_schema = proxy_protocol + "//" + proxy_host + "/";
+  var original_website_url_str = window.location.href.substring(proxy_host_with_schema.length);
+  var original_website_url = new URL(original_website_url_str);
+  var original_website_href = nowURL.pathname.substring(1);
+  if(!original_website_href.startsWith("http")) original_website_href = "https://" + original_website_href;
+  var original_website_host = original_website_url_str.substring(original_website_url_str.indexOf("://") + "://".length);
+  original_website_host = original_website_host.split('/')[0];
+  var original_website_host_with_schema = original_website_url_str.substring(0, original_website_url_str.indexOf("://")) + "://" + original_website_host + "/";
+  function changeURL(relativePath) {
+    if(relativePath == null) return null;
+    try {
+      if(relativePath.startsWith("data:") || relativePath.startsWith("mailto:") || relativePath.startsWith("javascript:") || relativePath.startsWith("chrome") || relativePath.startsWith("edge")) return relativePath;
+    } catch {}
+    try {
+      if(relativePath && relativePath.startsWith(proxy_host_with_schema)) relativePath = relativePath.substring(proxy_host_with_schema.length);
+      if(relativePath && relativePath.startsWith(proxy_host + "/")) relativePath = relativePath.substring(proxy_host.length + 1);
+      if(relativePath && relativePath.startsWith(proxy_host)) relativePath = relativePath.substring(proxy_host.length);
+    } catch {}
+    try {
+      var absolutePath = new URL(relativePath, original_website_url_str).href;
+      absolutePath = absolutePath.replace(window.location.href, original_website_href);
+      absolutePath = absolutePath.replace(encodeURI(window.location.href), encodeURI(original_website_href));
+      absolutePath = absolutePath.replace(encodeURIComponent(window.location.href), encodeURIComponent(original_website_href));
+      absolutePath = absolutePath.replace(proxy_host, original_website_host);
+      absolutePath = absolutePath.replace(encodeURI(proxy_host), encodeURI(original_website_host));
+      absolutePath = absolutePath.replace(encodeURIComponent(proxy_host), encodeURIComponent(original_website_host));
+      absolutePath = proxy_host_with_schema + absolutePath;
+      return absolutePath;
+    } catch {
+      return null;
+    }
+  }
+  function getOriginalUrl(url) {
+    if(url == null) return null;
+    if(url.startsWith(proxy_host_with_schema)) return url.substring(proxy_host_with_schema.length);
+    return url;
+  }
+  function networkInject() {
+    var originalOpen = XMLHttpRequest.prototype.open;
+    var originalFetch = window.fetch;
+    XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+      url = changeURL(url);
+      if (!url) return;
+      return originalOpen.apply(this, arguments);
+    };
+    window.fetch = function(input, init) {
+      var url;
+      if (typeof input === 'string') {
+        url = input;
+      } else if (input instanceof Request) {
+        url = input.url;
+      } else {
+        url = input;
+      }
+      url = changeURL(url);
+      if (!url) return Promise.reject(new Error('Invalid URL'));
+      if (typeof input === 'string') {
+        return originalFetch(url, init);
+      } else {
+        const newRequest = new Request(url, input);
+        return originalFetch(newRequest, init);
+      }
+    };
+  }
+  function windowOpenInject() {
+    const originalOpen = window.open;
+    window.open = function(url, name, specs) {
+      let modifiedUrl = changeURL(url);
+      if (!modifiedUrl) return null;
+      return originalOpen.call(window, modifiedUrl, name, specs);
+    };
+  }
+  function appendChildInject() {
+    const originalAppendChild = Node.prototype.appendChild;
+    Node.prototype.appendChild = function(child) {
+      try {
+        if(child.src) child.src = changeURL(child.src);
+        if(child.href) child.href = changeURL(child.href);
+      } catch {}
+      return originalAppendChild.call(this, child);
+    };
+  }
+  function elementPropertyInject() {
+    const originalSetAttribute = HTMLElement.prototype.setAttribute;
+    HTMLElement.prototype.setAttribute = function(name, value) {
+      if (name === "src" || name === "href") value = changeURL(value) || value;
+      originalSetAttribute.call(this, name, value);
+    };
+    const originalGetAttribute = HTMLElement.prototype.getAttribute;
+    HTMLElement.prototype.getAttribute = function(name) {
+      const val = originalGetAttribute.call(this, name);
+      if (name === "href" || name === "src") return getOriginalUrl(val);
+      return val;
+    };
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'href');
+    Object.defineProperty(HTMLAnchorElement.prototype, 'href', {
+      get: function() {
+        const real = descriptor.get.call(this);
+        return getOriginalUrl(real);
+      },
+      set: function(val) {
+        descriptor.set.call(this, changeURL(val));
+      },
+      configurable: true
+    });
+  }
+  class ProxyLocation {
+    constructor(originalLocation) { this.originalLocation = originalLocation; }
+    getStrNPosition(string, subString, index) {
+      return string.split(subString, index).join(subString).length;
+    }
+    getOriginalHref() {
+      return window.location.href.substring(this.getStrNPosition(window.location.href, "/", 3) + 1);
+    }
+    reload(forcedReload) { this.originalLocation.reload(forcedReload); }
+    replace(url) { this.originalLocation.replace(changeURL(url) || url); }
+    assign(url) { this.originalLocation.assign(changeURL(url) || url); }
+    get href() { return this.getOriginalHref(); }
+    set href(url) { this.originalLocation.href = changeURL(url) || url; }
+    get protocol() { return original_website_url.protocol; }
+    set protocol(value) { original_website_url.protocol = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+    get host() { return original_website_url.host; }
+    set host(value) { original_website_url.host = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+    get hostname() { return original_website_url.hostname; }
+    set hostname(value) { original_website_url.hostname = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+    get port() { return original_website_url.port; }
+    set port(value) { original_website_url.port = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+    get pathname() { return original_website_url.pathname; }
+    set pathname(value) { original_website_url.pathname = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+    get search() { return original_website_url.search; }
+    set search(value) { original_website_url.search = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+    get hash() { return original_website_url.hash; }
+    set hash(value) { original_website_url.hash = value; window.location.href = proxy_host_with_schema + original_website_url.href; }
+  }
+  function documentLocationInject() {
+    window.document.__defineGetter__("location", function() {
+      return new ProxyLocation(window.location);
+    });
+  }
+  function historyInject() {
+    const originalPushState = History.prototype.pushState;
+    const originalReplaceState = History.prototype.replaceState;
+    History.prototype.pushState = function (state, title, url) {
+      if (!url) return; 
+      if(url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
+      if(url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
+      var u = changeURL(url);
+      return originalPushState.apply(this, [state, title, u]);
+    };
+    History.prototype.replaceState = function (state, title, url) {
+      if(!url) return;
+      if(url.startsWith("/" + original_website_url.href)) url = url.substring(("/" + original_website_url.href).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1))) url = url.substring(("/" + original_website_url.href).length - 1);
+      if(url.startsWith("/" + original_website_url.href.replace("://", ":/"))) url = url.substring(("/" + original_website_url.href.replace("://", ":/")).length);
+      if(url.startsWith("/" + original_website_url.href.substring(0, original_website_url.href.length - 1).replace("://", ":/"))) url = url.substring(("/" + original_website_url.href).replace("://", ":/").length - 1);
+      var u = changeURL(url);
+      return originalReplaceState.apply(this, [state, title, u]);
+    };
+    History.prototype.back = function () {
+      return originalBack.apply(this);
+    };
+    History.prototype.forward = function () {
+      return originalForward.apply(this);
+    };
+    History.prototype.go = function (delta) {
+      return originalGo.apply(this, [delta]);
+    };
+  }
+  function elementObserverInject() {
+    var yProxyObserver = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        traverseAndConvert(mutation);
+      });
+    });
+    var config = { attributes: true, childList: true, subtree: true };
+    yProxyObserver.observe(document.body, config);
+  }
+  function traverseAndConvert(node) {
+    if (node instanceof HTMLElement) {
+      removeIntegrityAttributesFromElement(node);
+      covToAbs(node);
+      node.querySelectorAll('*').forEach(function(child) {
+        removeIntegrityAttributesFromElement(child);
+        covToAbs(child);
+      });
+    }
+  }
+  function covToAbs(element) {
+    var relativePath = "";
+    var setAttr = "";
+    if (element instanceof HTMLElement && element.hasAttribute("href")) {
+      relativePath = element.getAttribute("href");
+      setAttr = "href";
+    }
+    if (element instanceof HTMLElement && element.hasAttribute("src")) {
+      relativePath = element.getAttribute("src");
+      setAttr = "src";
+    }
+    if (setAttr !== "" && relativePath.indexOf(proxy_host_with_schema) != 0) {
+      if (!relativePath.includes("*")) {
+        try {
+          var absolutePath = changeURL(relativePath);
+          element.setAttribute(setAttr, absolutePath);
+        } catch (e) {}
+      }
+    }
+  }
+  function removeIntegrityAttributesFromElement(element){
+    if (element.hasAttribute('integrity')) {
+      element.removeAttribute('integrity');
+    }
+  }
+  networkInject();
+  windowOpenInject();
+  appendChildInject();
+  elementPropertyInject();
+  documentLocationInject();
+  historyInject();
+  elementObserverInject();
+  loopAndConvert = function() {
+    for(var ele of document.querySelectorAll('*')){
+      removeIntegrityAttributesFromElement(ele);
+      covToAbs(ele);
+    }
+  };
+  covScript = function() {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+      removeIntegrityAttributesFromElement(scripts[i]);
+      covToAbs(scripts[i]);
+    }
+    setTimeout(covScript, 3000);
+  };
+  loopAndConvert();
+  covScript();
+  window.addEventListener('load', () => {
+    loopAndConvert();
+    elementObserverInject();
+    covScript();
+  });
+  window.addEventListener('error', event => {
+    var element = event.target || event.srcElement;
+    if (element.tagName === 'SCRIPT') {
+      if(element.alreadyChanged) return;
+      removeIntegrityAttributesFromElement(element);
+      covToAbs(element);
+      var newScript = document.createElement("script");
+      newScript.src = element.src;
+      newScript.async = element.async;
+      newScript.defer = element.defer;
+      newScript.alreadyChanged = true;
+      document.head.appendChild(newScript);
+    }
+  });
+  covToAbs(document.head);
+  covToAbs(document.body);
+})();
+`;
+
+// Main Page HTML
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -296,6 +655,23 @@ const mainPage = `
     .modal-content .config-button:hover {
       background: linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.7));
     }
+    .dark-mode {
+      background-color: #1a1a1a;
+      color: #ffffff;
+    }
+    .dark-mode .content, .dark-mode .modal-content {
+      background-color: rgba(40, 40, 40, 0.9);
+      color: #ffffff;
+    }
+    .dark-mode button {
+      background: linear-gradient(45deg, #0288d1, #4fc3f7);
+      color: #ffffff;
+    }
+    .dark-mode select, .dark-mode input, .dark-mode textarea {
+      background-color: rgba(60, 60, 60, 0.5);
+      color: #ffffff;
+      border-color: #0288d1;
+    }
     @media (max-width: 768px) {
       .content {
         max-width: 90%;
@@ -328,741 +704,560 @@ const mainPage = `
       </select>
       <label>模拟设备</label>
       <select id="deviceSelect">
-        <option value="none">无</option>
-        <option value="desktop">桌面设备</option>
-        <option value="mobile">移动设备</option>
+        <option value="none" selected>不模拟</option>
+        <option value="desktop">电脑</option>
+        <option value="mobile">手机</option>
       </select>
-      <label>屏蔽文件扩展名</label>
-      <input type="text" id="blockExtensions" placeholder="输入扩展名，逗号分隔（如 .exe,.zip）">
       <div class="checkbox-container">
         <div class="checkbox-wrapper">
-          <input type="checkbox" id="blockAds" checked>
-          <div class="checkbox-custom"></div>
+          <input type="checkbox" id="blockAds">
+          <span class="checkbox-custom"></span>
         </div>
-        <label for="blockAds">屏蔽广告</label>
+        <label for="blockAds">拦截广告</label>
       </div>
-      <label>屏蔽元素选择器</label>
-      <input type="text" id="blockElements" placeholder="输入CSS选择器，逗号分隔">
-      <label>屏蔽范围</label>
-      <select id="blockScope">
+      <div class="checkbox-container">
+        <div class="checkbox-wrapper">
+          <input type="checkbox" id="darkMode">
+          <span class="checkbox-custom"></span>
+        </div>
+        <label for="darkMode">启用暗黑模式</label>
+      </div>
+      <button class="config-button" onclick="showBlockExtensionsModal()">配置拦截器</button>
+      <button class="config-button" onclick="showBlockElementsModal()">屏蔽元素</button>
+      <button class="config-button" onclick="showCustomHeadersModal()">自定义头</button>
+      <button class="config-button" onclick="showCustomCookiesModal()">自定义Cookie</button>
+    </div>
+    <p>声明：本工具仅用于学术研究和文献查阅，请严格遵守相关法律法规。</p>
+    <p>By Sak 2025</p>
+    <p>项目开源地址：<a href="https://github.com/1234567Yang/cf-proxy-ex/">https://github.com/1234567Yang/cf-proxy-ex/</a></p>
+  </div>
+  <div id="urlModal" class="modal">
+    <div class="modal-content">
+      <h3>输入目标网址</h3>
+      <input type="text" id="targetUrl" placeholder="请输入目标地址（例如：baike.baidu.com）">
+      <button onclick="redirectTo()">跳转</button>
+      <button class="config-button" onclick="closeUrlModal()">取消</button>
+    </div>
+  </div>
+  <div id="blockExtensionsModal" class="modal">
+    <div class="modal-content">
+      <h3>配置拦截器</h3>
+      <input type="text" id="blockExtensionsInput" placeholder="请输入需要拦截的文件扩展名（例如：jpg, gif）">
+      <button onclick="saveBlockExtensions()">保存</button>
+      <button class="config-button" onclick="closeBlockExtensionsModal()">取消</button>
+    </div>
+  </div>
+  <div id="blockElementsModal" class="modal">
+    <div class="modal-content">
+      <h3>屏蔽元素</h3>
+      <input type="text" id="blockElementsInput" placeholder="请输入需要屏蔽的 CSS 选择器（例如：.ad, #banner）">
+      <label>注入范围</label>
+      <select id="blockElementsScope">
         <option value="global">全局</option>
-        <option value="specific">特定网站</option>
+        <option value="specific">指定链接</option>
       </select>
-      <label>自定义Cookie注入</label>
-      <textarea id="customCookies" placeholder="输入JSON格式的Cookie配置，如：[{&quot;url&quot;:&quot;example.com&quot;,&quot;cookies&quot;:{&quot;key&quot;:&quot;value&quot;}}]"></textarea>
-      <button onclick="saveConfig()">保存配置</button>
-    </div>
-    <a href="https://github.com/1234567Yang/cf-proxy-ex/" target="_blank">查看项目详情</a>
-  </div>
-  <div class="modal" id="urlModal">
-    <div class="modal-content">
-      <h2>输入网站地址</h2>
-      <input type="text" id="urlInput" placeholder="请输入网站地址（如：baike.baidu.com）">
-      <p>请输入有效的网站地址</p>
-      <button onclick="visitWebsite()">访问</button>
-      <button class="config-button" onclick="closeModal()">取消</button>
+      <input type="text" id="blockElementsScopeUrl" placeholder="请输入目标域名（如 http://example.com）" style="display: none;">
+      <button onclick="saveBlockElements()">保存</button>
+      <button class="config-button" onclick="closeBlockElementsModal()">取消</button>
     </div>
   </div>
-  <div class="modal" id="passwordModal">
+  <div id="customHeadersModal" class="modal">
     <div class="modal-content">
-      <h2>输入密码</h2>
-      <input type="password" id="passwordInput" placeholder="请输入密码">
-      <p>请输入正确的密码以继续</p>
-      <button onclick="verifyPassword()">提交</button>
-      <button class="config-button" onclick="closeModal()">取消</button>
+      <h3>自定义 HTTP 头</h3>
+      <textarea id="customHeadersInput" placeholder="X-Custom-Header: Value\nAnother-Header: AnotherValue" rows="4"></textarea>
+      <button onclick="saveCustomHeaders()">保存</button>
+      <button class="config-button" onclick="closeCustomHeadersModal()">取消</button>
+    </div>
+  </div>
+  <div id="customCookiesModal" class="modal">
+    <div class="modal-content">
+      <h3>自定义 Cookie</h3>
+      <textarea id="customCookiesInput" placeholder="example.com: cookie_name=value; path=/\nanother-site.com: name=value" rows="6"></textarea>
+      <p>格式：域名: cookie键值对（每行一个配置）</p>
+      <button onclick="saveCustomCookies()">保存</button>
+      <button class="config-button" onclick="closeCustomCookiesModal()">取消</button>
+    </div>
+  </div>
+  <div id="proxyHintModal" class="modal">
+    <div class="modal-content">
+      <h3>⚠️ 代理使用协议</h3>
+      <p>警告：您即将使用网络代理。为确保安全，请勿通过代理登录任何网站。详情请参阅 <a href="https://github.com/1234567Yang/cf-proxy-ex/">使用条款</a>。</p>
+      <div class="checkbox-container">
+        <div class="checkbox-wrapper">
+          <input type="checkbox" id="agreeCheckbox">
+          <span class="checkbox-custom"></span>
+        </div>
+        <label for="agreeCheckbox">我已阅读并同意遵守代理服务的使用规则，理解使用代理可能存在的风险，并自行承担因此产生的一切后果。</label>
+      </div>
+      <button id="confirmButton" disabled>同意</button>
+      <button class="config-button" onclick="closeProxyHintModal()">取消</button>
     </div>
   </div>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      document.querySelector('.content').classList.add('loaded');
-    });
-    function showUrlModal() {
-      document.getElementById('urlModal').style.display = 'flex';
-    }
-    function toggleAdvancedOptions() {
-      const section = document.getElementById('advancedOptions');
-      section.classList.toggle('active');
-    }
-    function closeModal() {
-      document.getElementById('urlModal').style.display = 'none';
-      document.getElementById('passwordModal').style.display = 'none';
-    }
-    function visitWebsite() {
-      const urlInput = document.getElementById('urlInput').value.trim();
-      if (!urlInput) {
-        alert('请输入有效的网站地址');
-        return;
-      }
-      let formattedUrl = urlInput;
-      if (!formattedUrl.match(/^[a-zA-Z]+:\/\//)) {
-        formattedUrl = 'https://' + formattedUrl;
-      }
-      try {
-        new URL(formattedUrl);
-        window.location.href = window.location.origin + '/' + encodeURIComponent(formattedUrl);
-      } catch (e) {
-        alert('无效的URL格式');
-      }
-    }
-    function verifyPassword() {
-      const password = document.getElementById('passwordInput').value;
-      fetch('/verify-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      }).then(response => response.json()).then(data => {
-        if (data.success) {
-          closeModal();
-          const urlInput = document.getElementById('urlInput').value.trim();
-          if (urlInput) visitWebsite();
-        } else {
-          alert('密码错误');
+      const content = document.querySelector('.content');
+      setTimeout(() => content.classList.add('loaded'), 100);
+      const loadCookies = () => {
+        const cookies = document.cookie.split('; ').reduce((acc, row) => {
+          const [key, value] = row.split('=');
+          acc[key] = value;
+          return acc;
+        }, {});
+        if (cookies['${languageCookieName}']) document.getElementById('languageSelect').value = cookies['${languageCookieName}'];
+        if (cookies['${deviceCookieName}']) document.getElementById('deviceSelect').value = cookies['${deviceCookieName}'];
+        document.getElementById('blockAds').checked = cookies['${blockAdsCookieName}'] === 'true';
+        document.getElementById('darkMode').checked = cookies['darkMode'] === 'true';
+        if (cookies['darkMode'] === 'true') document.body.classList.add('dark-mode');
+        if (cookies['${blockExtensionsCookieName}']) document.getElementById('blockExtensionsInput').value = cookies['${blockExtensionsCookieName}'];
+        if (cookies['${blockElementsCookieName}']) document.getElementById('blockElementsInput').value = cookies['${blockElementsCookieName}'];
+        if (cookies['${blockElementsScopeCookieName}']) {
+          document.getElementById('blockElementsScope').value = cookies['${blockElementsScopeCookieName}'];
+          document.getElementById('blockElementsScopeUrl').style.display = cookies['${blockElementsScopeCookieName}'] === 'specific' ? 'block' : 'none';
+          if (cookies['${blockElementsScopeCookieName}'] === 'specific' && cookies['${blockElementsScopeCookieName}_URL']) {
+            document.getElementById('blockElementsScopeUrl').value = cookies['${blockElementsScopeCookieName}_URL'];
+          }
         }
-      }).catch(() => alert('密码验证失败'));
-    }
-    function saveConfig() {
-      const config = {
-        language: document.getElementById('languageSelect').value,
-        device: document.getElementById('deviceSelect').value,
-        blockExtensions: document.getElementById('blockExtensions').value,
-        blockAds: document.getElementById('blockAds').checked,
-        blockElements: document.getElementById('blockElements').value,
-        blockScope: document.getElementById('blockScope').value,
-        customCookies: document.getElementById('customCookies').value
+        if (cookies['${customHeadersCookieName}']) document.getElementById('customHeadersInput').value = decodeURIComponent(cookies['${customHeadersCookieName}']);
+        if (cookies['${customCookiesCookieName}']) document.getElementById('customCookiesInput').value = decodeURIComponent(cookies['${customCookiesCookieName}']);
       };
-      fetch('/save-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      }).then(() => alert('配置已保存')).catch(() => alert('保存配置失败'));
+      loadCookies();
+      document.getElementById('blockElementsScope').addEventListener('change', function() {
+        document.getElementById('blockElementsScopeUrl').style.display = this.value === 'specific' ? 'block' : 'none';
+      });
+      document.getElementById('darkMode').addEventListener('change', function() {
+        document.body.classList.toggle('dark-mode', this.checked);
+        setCookie('darkMode', this.checked);
+      });
+      const setCookie = (name, value) => {
+        const cookieDomain = window.location.hostname;
+        const oneWeekLater = new Date();
+        oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+        document.cookie = \`\${name}=\${value}; expires=\${oneWeekLater.toUTCString()}; path=/; domain=\${cookieDomain}\`;
+      };
+      document.getElementById('languageSelect').addEventListener('change', function() { setCookie('${languageCookieName}', this.value); });
+      document.getElementById('deviceSelect').addEventListener('change', function() { setCookie('${deviceCookieName}', this.value); });
+      document.getElementById('blockAds').addEventListener('change', function() { setCookie('${blockAdsCookieName}', this.checked); });
+      const checkbox = document.getElementById('agreeCheckbox');
+      const button = document.getElementById('confirmButton');
+      if (checkbox && button) {
+        checkbox.addEventListener('change', () => {
+          button.disabled = !checkbox.checked;
+        });
+        button.addEventListener('click', () => {
+          if (!button.disabled) {
+            const cookieDomain = window.location.hostname;
+            document.cookie = "${proxyHintCookieName}=agreed; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; domain=" + cookieDomain;
+            window.location.reload();
+          }
+        });
+      }
+    });
+    function toggleAdvancedOptions() {
+      const advancedOptions = document.getElementById('advancedOptions');
+      const button = document.querySelector('button[onclick="toggleAdvancedOptions()"]');
+      advancedOptions.classList.toggle('active');
+      button.textContent = advancedOptions.classList.contains('active') ? '隐藏高级功能' : '高级选项';
+    }
+    function showUrlModal() { document.getElementById('urlModal').style.display = 'flex'; }
+    function closeUrlModal() { document.getElementById('urlModal').style.display = 'none'; }
+    function showBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'flex'; }
+    function closeBlockExtensionsModal() { document.getElementById('blockExtensionsModal').style.display = 'none'; }
+    function showBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'flex'; }
+    function closeBlockElementsModal() { document.getElementById('blockElementsModal').style.display = 'none'; }
+    function showCustomHeadersModal() { document.getElementById('customHeadersModal').style.display = 'flex'; }
+    function closeCustomHeadersModal() { document.getElementById('customHeadersModal').style.display = 'none'; }
+    function showCustomCookiesModal() { document.getElementById('customCookiesModal').style.display = 'flex'; }
+    function closeCustomCookiesModal() { document.getElementById('customCookiesModal').style.display = 'none'; }
+    function closeProxyHintModal() { document.getElementById('proxyHintModal').style.display = 'none'; }
+    function redirectTo() {
+      const targetUrl = document.getElementById('targetUrl').value.trim();
+      const currentOrigin = window.location.origin;
+      if (targetUrl) {
+        let finalUrl = currentOrigin + '/' + (targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl);
+        window.location.href = finalUrl;
+      }
+      closeUrlModal();
+    }
+    function saveBlockExtensions() {
+      const extensions = document.getElementById('blockExtensionsInput').value.trim();
+      const cookieDomain = window.location.hostname;
+      const oneWeekLater = new Date();
+      oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+      document.cookie = "${blockExtensionsCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockExtensionsCookieName}=" + extensions + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      closeBlockExtensionsModal();
+    }
+    function saveBlockElements() {
+      const elements = document.getElementById('blockElementsInput').value.trim();
+      const scope = document.getElementById('blockElementsScope').value;
+      const scopeUrl = document.getElementById('blockElementsScopeUrl').value.trim();
+      const cookieDomain = window.location.hostname;
+      const oneWeekLater = new Date();
+      oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+      document.cookie = "${blockElementsCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockElementsCookieName}=" + elements + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockElementsScopeCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockElementsScopeCookieName}=" + scope + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      document.cookie = "${blockElementsScopeCookieName}_URL=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      if (scope === 'specific' && scopeUrl) {
+        document.cookie = "${blockElementsScopeCookieName}_URL=" + scopeUrl + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      }
+      closeBlockElementsModal();
+    }
+    function saveCustomHeaders() {
+      const headers = document.getElementById('customHeadersInput').value.trim();
+      const cookieDomain = window.location.hostname;
+      const oneWeekLater = new Date();
+      oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+      document.cookie = "${customHeadersCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${customHeadersCookieName}=" + encodeURIComponent(headers) + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      closeCustomHeadersModal();
+    }
+    function saveCustomCookies() {
+      const cookies = document.getElementById('customCookiesInput').value.trim();
+      const cookieDomain = window.location.hostname;
+      const oneWeekLater = new Date();
+      oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000));
+      document.cookie = "${customCookiesCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + cookieDomain;
+      document.cookie = "${customCookiesCookieName}=" + encodeURIComponent(cookies) + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+      closeCustomCookiesModal();
     }
   </script>
 </body>
 </html>
 `;
 
-// 代理提示注入
-const proxyHintInjection = `
-setTimeout(() => {
-  if (document.cookie.includes("${HINT_COOKIE}=agreed")) return;
-  const hint = "警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见 <a href='https://github.com/1234567Yang/cf-proxy-ex/' style='color: #ffd700;'>https://github.com/1234567Yang/cf-proxy-ex/</a>。";
-  const div = document.createElement('div');
-  div.id = "__PROXY_HINT_DIV__";
-  div.style = "position: fixed; left: 0; top: 0; width: 100%; margin: 0; padding: 0; display: block; z-index: 99999999999999999999999; user-select: none; cursor: pointer;";
-  div.innerHTML = \`<span style="position: absolute; width: calc(100% - 20px); min-height: 30px; font-size: 18px; color: yellow; background: rgba(180, 0, 0, 0.9); text-align: center; border-radius: 5px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">\${hint}</span>\`;
-  div.onclick = () => {
-    document.cookie = "${HINT_COOKIE}=agreed; path=/; max-age=31536000";
-    div.remove();
-  };
-  const appendHint = () => document.body.insertAdjacentElement('afterbegin', div);
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    appendHint();
-  } else {
-    document.addEventListener('DOMContentLoaded', appendHint);
-  }
-}, 5000);
+// Password Page
+const pwdPage = `
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        function setPassword() {
+            try {
+                var cookieDomain = window.location.hostname;
+                var password = document.getElementById('password').value;
+                var currentOrigin = window.location.origin;
+                var oneWeekLater = new Date();
+                oneWeekLater.setTime(oneWeekLater.getTime() + (7 * 24 * 60 * 60 * 1000)); // 一周
+                document.cookie = "${passwordCookieName}" + "=" + password + "; expires=" + oneWeekLater.toUTCString() + "; path=/; domain=" + cookieDomain;
+            } catch(e) {
+                alert(e.message);
+            }
+            location.reload();
+        }
+    </script>
+</head>
+<body>
+    <div>
+        <input id="password" type="password" placeholder="Password">
+        <button onclick="setPassword()">
+            Submit
+        </button>
+    </div>
+</body>
+</html>
 `;
 
-// 伪装注入
-const disguiseInjection = `
-(function() {
-  const now = new URL(window.location.href);
-  const proxyBase = now.host;
-  const proxyProtocol = now.protocol;
-  const proxyPrefix = proxyProtocol + "//" + proxyBase + "/";
-  let oriUrlStr = window.location.href.substring(proxyPrefix.length);
-  try {
-    oriUrlStr = decodeURIComponent(oriUrlStr);
-  } catch {}
-  const oriUrl = new URL(oriUrlStr);
-  const originalHost = oriUrl.host;
-  const originalOrigin = oriUrl.origin;
-  Object.defineProperty(document, 'domain', { get: () => originalHost, set: value => value });
-  Object.defineProperty(window, 'origin', { get: () => originalOrigin });
-  Object.defineProperty(document, 'referrer', {
-    get: () => {
-      const actualReferrer = document.referrer || '';
-      return actualReferrer.startsWith(proxyPrefix) ? actualReferrer.replace(proxyPrefix, '') : actualReferrer;
-    }
-  });
-  if (navigator.userAgentData) {
-    Object.defineProperty(navigator, 'userAgentData', {
-      get: () => ({ brands: [{ brand: "Chromium", version: "120" }], mobile: false, platform: "Windows" })
-    });
-  }
-  const languageCookie = document.cookie.split('; ').find(row => row.startsWith('${LANGUAGE_COOKIE}='));
-  const selectedLanguage = languageCookie ? languageCookie.split('=')[1] : 'zh-CN';
-  Object.defineProperty(navigator, 'language', { get: () => selectedLanguage });
-  Object.defineProperty(navigator, 'languages', { get: () => [selectedLanguage] });
-  const deviceCookie = document.cookie.split('; ').find(row => row.startsWith('${DEVICE_COOKIE}='));
-  const deviceType = deviceCookie ? deviceCookie.split('=')[1] : 'none';
-  if (deviceType !== 'none') {
-    const layouts = ${JSON.stringify(deviceLayouts)};
-    const layout = layouts[deviceType] || layouts.desktop;
-    Object.defineProperty(window, 'innerWidth', { get: () => layout.width });
-    Object.defineProperty(window, 'innerHeight', { get: () => layout.height });
-    const meta = document.createElement('meta');
-    meta.name = 'viewport';
-    meta.content = 'width=' + layout.width + ', initial-scale=1.0';
-    document.head.appendChild(meta);
-  }
-})();
+// Redirect Error Page
+const redirectError = `
+<html><head></head><body><h2>Error while redirecting: the website you want to access may contain wrong redirect information, and we can not parse the info</h2></body></html>
 `;
 
-// 元素屏蔽注入
-const blockElementsInjection = `
-(function() {
-  const blockElements = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_ELEMENTS_COOKIE}='));
-  const blockScope = document.cookie.split('; ').find(row => row.startsWith('${BLOCK_SCOPE_COOKIE}='));
-  const selectors = blockElements ? blockElements.split('=')[1].split(',').map(s => s.trim()).filter(s => s) : [];
-  const scope = blockScope ? blockScope.split('=')[1] : 'global';
-  const currentUrl = window.location.href;
-  if (scope === 'global' || (scope === 'specific' && currentUrl.includes(scope))) {
-    const observer = new MutationObserver(mutations => {
-      mutations.forEach(mutation => {
-        selectors.forEach(selector => {
-          try {
-            document.querySelectorAll(selector).forEach(el => el.remove());
-          } catch (e) {}
-        });
-        ${adBlockKeywords.map(keyword => `
-          try {
-            document.querySelectorAll('[class*="${keyword}"], [id*="${keyword}"]').forEach(el => el.remove());
-          } catch (e) {}
-        `).join('\n')}
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    selectors.forEach(selector => {
-      try {
-        document.querySelectorAll(selector).forEach(el => el.remove());
-      } catch (e) {}
-    });
-    ${adBlockKeywords.map(keyword => `
-      try {
-        document.querySelectorAll('[class*="${keyword}"], [id*="${keyword}"]').forEach(el => el.remove());
-      } catch (e) {}
-    `).join('\n')}
-  }
-})();
-`;
-
-// 自定义 Cookie 注入
-const customCookieInjection = `
-(function() {
-  const customCookie = document.cookie.split('; ').find(row => row.startsWith('${CUSTOM_COOKIE}='));
-  if (!customCookie) return;
-  try {
-    const cookieConfig = JSON.parse(decodeURIComponent(customCookie.split('=')[1]));
-    const currentHost = new URL(window.location.href).host;
-    cookieConfig.forEach(config => {
-      if (currentHost.includes(config.url)) {
-        Object.entries(config.cookies).forEach(([key, value]) => {
-          document.cookie = \`\${key}=\${value}; path=/; max-age=31536000\`;
-        });
-      }
-    });
-  } catch (e) {
-    console.error('自定义Cookie注入失败:', e.message);
-  }
-})();
-`;
-
-// HTTP 请求注入
-const httpRequestInjection = `
-(function() {
-  const nowURL = new URL(window.location.href);
-  const proxyHost = nowURL.host;
-  const proxyProtocol = nowURL.protocol;
-  const proxyPrefix = proxyProtocol + "//" + proxyHost + "/";
-  let originalUrlStr = window.location.href.substring(proxyPrefix.length);
-  try {
-    originalUrlStr = decodeURIComponent(originalUrlStr);
-  } catch {}
-  const originalUrl = new URL(originalUrlStr);
-  const originalHost = originalUrl.host;
-  const originalOrigin = originalUrl.origin;
-  function changeURL(url) {
-    if (!url) return null;
-    try {
-      if (url.startsWith('data:') || url.startsWith('mailto:') || url.startsWith('javascript:') || url.startsWith('chrome:') || url.startsWith('edge:')) return url;
-      if (url.startsWith(proxyPrefix)) url = url.substring(proxyPrefix.length);
-      if (url.startsWith(proxyHost + '/')) url = url.substring(proxyHost.length + 1);
-      if (url.startsWith(proxyHost)) url = url.substring(proxyHost.length);
-      let absoluteUrl = new URL(url, originalUrlStr).href;
-      absoluteUrl = absoluteUrl.replace(proxyPrefix, '');
-      absoluteUrl = absoluteUrl.replace(encodeURI(proxyPrefix), '');
-      absoluteUrl = absoluteUrl.replace(encodeURIComponent(proxyPrefix), '');
-      absoluteUrl = absoluteUrl.replace(proxyHost, originalHost);
-      absoluteUrl = absoluteUrl.replace(encodeURI(proxyHost), encodeURI(originalHost));
-      absoluteUrl = absoluteUrl.replace(encodeURIComponent(proxyHost), encodeURIComponent(originalHost));
-      return proxyPrefix + absoluteUrl;
-    } catch (e) {
-      return null;
-    }
-  }
-  function getOriginalUrl(url) {
-    if (!url) return null;
-    if (url.startsWith(proxyPrefix)) return url.substring(proxyPrefix.length);
-    return url;
-  }
-  function networkInject() {
-    const originalOpen = XMLHttpRequest.prototype.open;
-    const originalFetch = window.fetch;
-    XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
-      const modifiedUrl = changeURL(url);
-      if (!modifiedUrl) return;
-      return originalOpen.apply(this, [method, modifiedUrl, async, user, password]);
-    };
-    window.fetch = function(input, init) {
-      let url;
-      if (typeof input === 'string') {
-        url = input;
-      } else if (input instanceof Request) {
-        url = input.url;
-      } else {
-        url = input;
-      }
-      const modifiedUrl = changeURL(url);
-      if (!modifiedUrl) return Promise.reject(new Error('无效的URL'));
-      if (typeof input === 'string') {
-        return originalFetch(modifiedUrl, init);
-      } else {
-        const newRequest = new Request(modifiedUrl, input);
-        return originalFetch(newRequest, init);
-      }
-    };
-  }
-  function windowOpenInject() {
-    const originalOpen = window.open;
-    window.open = function(url, name, specs) {
-      const modifiedUrl = changeURL(url);
-      if (!modifiedUrl) return null;
-      return originalOpen.call(window, modifiedUrl, name, specs);
-    };
-  }
-  function appendChildInject() {
-    const originalAppendChild = Node.prototype.appendChild;
-    Node.prototype.appendChild = function(child) {
-      try {
-        if (child.src) child.src = changeURL(child.src) || child.src;
-        if (child.href) child.href = changeURL(child.href) || child.href;
-      } catch {}
-      return originalAppendChild.call(this, child);
-    };
-  }
-  function elementPropertyInject() {
-    const originalSetAttribute = HTMLElement.prototype.setAttribute;
-    HTMLElement.prototype.setAttribute = function(name, value) {
-      if (name === 'src' || name === 'href') value = changeURL(value) || value;
-      originalSetAttribute.call(this, name, value);
-    };
-    const originalGetAttribute = HTMLElement.prototype.getAttribute;
-    HTMLElement.prototype.getAttribute = function(name) {
-      const val = originalGetAttribute.call(this, name);
-      if (name === 'href' || name === 'src') return getOriginalUrl(val);
-      return val;
-    };
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'href');
-    Object.defineProperty(HTMLAnchorElement.prototype, 'href', {
-      get: function() {
-        const real = descriptor.get.call(this);
-        return getOriginalUrl(real);
-      },
-      set: function(val) {
-        descriptor.set.call(this, changeURL(val) || val);
-      },
-      configurable: true
-    });
-  }
-  class ProxyLocation {
-    constructor(originalLocation) { this.originalLocation = originalLocation; }
-    getStrNPosition(string, subString, index) {
-      return string.split(subString, index).join(subString).length;
-    }
-    getOriginalHref() {
-      return window.location.href.substring(this.getStrNPosition(window.location.href, '/', 3) + 1);
-    }
-    reload(forcedReload) { this.originalLocation.reload(forcedReload); }
-    replace(url) { this.originalLocation.replace(changeURL(url) || url); }
-    assign(url) { this.originalLocation.assign(changeURL(url) || url); }
-    get href() { return this.getOriginalHref(); }
-    set href(url) { this.originalLocation.href = changeURL(url) || url; }
-    get protocol() { return originalUrl.protocol; }
-    set protocol(value) {
-      originalUrl.protocol = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-    get host() { return originalUrl.host; }
-    set host(value) {
-      originalUrl.host = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-    get hostname() { return originalUrl.hostname; }
-    set hostname(value) {
-      originalUrl.hostname = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-    get port() { return originalUrl.port; }
-    set port(value) {
-      originalUrl.port = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-    get pathname() { return originalUrl.pathname; }
-    set pathname(value) {
-      originalUrl.pathname = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-    get search() { return originalUrl.search; }
-    set search(value) {
-      originalUrl.search = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-    get hash() { return originalUrl.hash; }
-    set hash(value) {
-      originalUrl.hash = value;
-      window.location.href = proxyPrefix + originalUrl.href;
-    }
-  }
-  function documentLocationInject() {
-    window.document.__defineGetter__('location', function() {
-      return new ProxyLocation(window.location);
-    });
-  }
-  function historyInject() {
-    const originalPushState = History.prototype.pushState;
-    const originalReplaceState = History.prototype.replaceState;
-    History.prototype.pushState = function(state, title, url) {
-      if (!url) return;
-      let modifiedUrl = url;
-      if (url.startsWith('/' + originalUrl.href)) modifiedUrl = url.substring(('/' + originalUrl.href).length);
-      if (url.startsWith('/' + originalUrl.href.substring(0, originalUrl.href.length - 1))) modifiedUrl = url.substring(('/' + originalUrl.href).length - 1);
-      modifiedUrl = changeURL(modifiedUrl) || modifiedUrl;
-      return originalPushState.apply(this, [state, title, modifiedUrl]);
-    };
-    History.prototype.replaceState = function(state, title, url) {
-      if (!url) return;
-      let modifiedUrl = url;
-      if (url.startsWith('/' + originalUrl.href)) modifiedUrl = url.substring(('/' + originalUrl.href).length);
-      if (url.startsWith('/' + originalUrl.href.substring(0, originalUrl.href.length - 1))) modifiedUrl = url.substring(('/' + originalUrl.href).length - 1);
-      modifiedUrl = changeURL(modifiedUrl) || modifiedUrl;
-      return originalReplaceState.apply(this, [state, title, modifiedUrl]);
-    };
-  }
-  function elementObserverInject() {
-    const observer = new MutationObserver(mutations => {
-      mutations.forEach(mutation => {
-        mutation.addedNodes.forEach(node => traverseAndConvert(node));
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-  function traverseAndConvert(node) {
-    if (!(node instanceof HTMLElement)) return;
-    removeIntegrityAttributes(node);
-    convertToAbsolute(node);
-    node.querySelectorAll('*').forEach(child => {
-      removeIntegrityAttributes(child);
-      convertToAbsolute(child);
-    });
-  }
-  function convertToAbsolute(element) {
-    let attribute = '';
-    let value = '';
-    if (element.hasAttribute('href')) {
-      attribute = 'href';
-      value = element.getAttribute('href');
-    } else if (element.hasAttribute('src')) {
-      attribute = 'src';
-      value = element.getAttribute('src');
-    }
-    if (attribute && value && !value.includes('*') && !value.startsWith(proxyPrefix)) {
-      try {
-        const absoluteUrl = changeURL(value);
-        if (absoluteUrl) element.setAttribute(attribute, absoluteUrl);
-      } catch (e) {}
-    }
-  }
-  function removeIntegrityAttributes(element) {
-    if (element.hasAttribute('integrity')) {
-      element.removeAttribute('integrity');
-    }
-    if (element.hasAttribute('nonce')) {
-      element.removeAttribute('nonce');
-    }
-  }
-  networkInject();
-  windowOpenInject();
-  appendChildInject();
-  elementPropertyInject();
-  documentLocationInject();
-  historyInject();
-  elementObserverInject();
-  function loopAndConvert() {
-    document.querySelectorAll('*').forEach(element => {
-      removeIntegrityAttributes(element);
-      convertToAbsolute(element);
-    });
-  }
-  function convertScripts() {
-    document.getElementsByTagName('script').forEach(script => {
-      removeIntegrityAttributes(script);
-      convertToAbsolute(script);
-    });
-    setTimeout(convertScripts, 3000);
-  }
-  loopAndConvert();
-  convertScripts();
-  window.addEventListener('load', () => {
-    loopAndConvert();
-    elementObserverInject();
-    convertScripts();
-  });
-  window.addEventListener('error', event => {
-    const element = event.target || event.srcElement;
-    if (element.tagName === 'SCRIPT' && !element.alreadyChanged) {
-      removeIntegrityAttributes(element);
-      convertToAbsolute(element);
-      const newScript = document.createElement('script');
-      newScript.src = element.src;
-      newScript.async = element.async;
-      newScript.defer = element.defer;
-      newScript.alreadyChanged = true;
-      document.head.appendChild(newScript);
-    }
-  });
-  convertToAbsolute(document.head);
-  convertToAbsolute(document.body);
-})();
-`;
-
-// 错误响应生成
-function getErrorResponse(message, status = 500) {
-  return new Response(message, {
-    status,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-  });
-}
-
-// HTML 响应生成
-function getHTMLResponse(content, headers = {}) {
-  return new Response(content, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      ...headers
-    }
-  });
-}
-
-// 获取 Cookie 值
-function getCookie(request, name) {
-  const cookieHeader = request.headers.get('Cookie') || '';
-  const cookies = cookieHeader.split('; ').reduce((acc, cookie) => {
-    const [key, value] = cookie.split('=');
-    acc[key] = value;
-    return acc;
-  }, {});
-  return cookies[name] || '';
-}
-
-// 设置 Cookie
-function setCookie(headers, name, value, options = {}) {
-  const cookie = `${name}=${encodeURIComponent(value)}; Path=/; ${options.maxAge ? `Max-Age=${options.maxAge}; ` : ''}${options.secure ? 'Secure; ' : ''}SameSite=Strict`;
-  headers.append('Set-Cookie', cookie);
-}
-
-// URL 是否有效
-function isValidUrl(url) {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// 处理请求
 async function handleRequest(request) {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  const originalUrlStr = decodeURIComponent(url.pathname.slice(1) + url.search + url.hash);
-
-  // 处理根路径
-  if (path === '/' || path === '') {
-    const lastVisit = getCookie(request, LAST_VISIT_COOKIE);
-    if (lastVisit && isValidUrl(lastVisit)) {
-      return Response.redirect(thisProxyServerUrl + encodeURIComponent(lastVisit), 302);
-    }
-    return getHTMLResponse(mainPage);
-  }
-
-  // 处理密码验证
-  if (request.method === 'POST' && path === '/verify-password') {
-    try {
-      const body = await request.json();
-      const inputPassword = body.password || '';
-      const isValid = PROXY_PASSWORD === '' || inputPassword === PROXY_PASSWORD;
-      return new Response(JSON.stringify({ success: isValid }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch {
-      return new Response(JSON.stringify({ success: false }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-
-  // 处理配置保存
-  if (request.method === 'POST' && path === '/save-config') {
-    try {
-      const body = await request.json();
-      const headers = new Headers();
-      if (body.language) setCookie(headers, LANGUAGE_COOKIE, body.language, { maxAge: 31536000 });
-      if (body.device) setCookie(headers, DEVICE_COOKIE, body.device, { maxAge: 31536000 });
-      if (body.blockExtensions) setCookie(headers, BLOCK_EXT_COOKIE, body.blockExtensions, { maxAge: 31536000 });
-      setCookie(headers, BLOCK_ADS_COOKIE, body.blockAds ? 'true' : 'false', { maxAge: 31536000 });
-      if (body.blockElements) setCookie(headers, BLOCK_ELEMENTS_COOKIE, body.blockElements, { maxAge: 31536000 });
-      if (body.blockScope) setCookie(headers, BLOCK_SCOPE_COOKIE, body.blockScope, { maxAge: 31536000 });
-      if (body.customCookies) setCookie(headers, CUSTOM_COOKIE, body.customCookies, { maxAge: 31536000 });
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...headers }
-      });
-    } catch {
-      return new Response(JSON.stringify({ success: false }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-
-  // 检查密码
-  if (SHOW_PASSWORD_PAGE && PROXY_PASSWORD && getCookie(request, PASSWORD_COOKIE) !== PROXY_PASSWORD) {
-    return getHTMLResponse(mainPage);
-  }
-
-  // 验证目标 URL
-  if (!isValidUrl(originalUrlStr)) {
-    return getErrorResponse('无效的目标URL', 400);
-  }
-
-  const originalUrl = new URL(originalUrlStr);
-  const headers = new Headers(request.headers);
-
-  // 设置设备模拟
-  const deviceType = getCookie(request, DEVICE_COOKIE);
-  if (deviceType && deviceUserAgents[deviceType]) {
-    headers.set('User-Agent', deviceUserAgents[deviceType]);
-  }
-
-  // 检查屏蔽扩展名
-  const blockExtensions = getCookie(request, BLOCK_EXT_COOKIE) || defaultBlockedExtensions.join(',');
-  const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase());
-  const pathLower = originalUrl.pathname.toLowerCase();
-  if (extensions.some(ext => pathLower.endsWith(ext))) {
-    return getErrorResponse('请求的文件类型被屏蔽', 403);
-  }
-
-  // 设置自定义 Cookie
-  const customCookie = getCookie(request, CUSTOM_COOKIE);
-  if (customCookie) {
-    try {
-      const cookieConfig = JSON.parse(decodeURIComponent(customCookie));
-      cookieConfig.forEach(config => {
-        if (originalUrl.host.includes(config.url)) {
-          Object.entries(config.cookies).forEach(([key, value]) => {
-            setCookie(headers, key, value, { maxAge: 31536000 });
-          });
-        }
-      });
-    } catch (e) {
-      console.error('自定义Cookie解析失败:', e.message);
-    }
-  }
-
-  // 设置上次访问的 Cookie
-  const responseHeaders = new Headers();
-  setCookie(responseHeaders, LAST_VISIT_COOKIE, originalUrlStr, { maxAge: 31536000 });
-
-  // 发起代理请求
   try {
-    const response = await fetch(originalUrl, {
-      method: request.method,
-      headers,
-      body: request.body,
-      redirect: 'follow'
-    });
-
-    const contentType = response.headers.get('Content-Type') || '';
-    const newHeaders = new Headers(response.headers);
-    newHeaders.set('Access-Control-Allow-Origin', '*');
-    newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    newHeaders.delete('Content-Security-Policy');
-    newHeaders.delete('Content-Security-Policy-Report-Only');
-
-    // 处理二进制内容（如视频）
-    if (contentType.includes('video') || contentType.includes('audio') || contentType.includes('image')) {
-      return new Response(response.body, {
-        status: response.status,
-        headers: newHeaders
-      });
-    }
-
-    // 处理 HTML 内容
-    if (contentType.includes('html')) {
-      let body = await response.text();
-      body = body.replace(/(src|href)="\/([^"]*)"/g, `$1="${thisProxyServerUrl}$2"`);
-      body = body.replace(/(src|href)="([^"]*)"/g, (match, attr, value) => {
-        if (value.startsWith('http') || value.startsWith('data:') || value.startsWith('mailto:') || value.startsWith('javascript:')) {
-          return match;
+    const siteCookie = request.headers.get('Cookie') || "";
+    // Password protection
+    if (password !== "") {
+      if (siteCookie) {
+        const pwd = getCook(siteCookie, passwordCookieName);
+        if (!pwd || pwd !== password) {
+          return handleWrongPwd();
         }
-        try {
-          const absoluteUrl = new URL(value, originalUrl).href;
-          return `${attr}="${thisProxyServerUrl}${encodeURIComponent(absoluteUrl)}"`;
-        } catch {
-          return match;
-        }
-      });
-
-      // 注入脚本
-      const scripts = [
-        proxyHintInjection,
-        disguiseInjection,
-        blockElementsInjection,
-        customCookieInjection,
-        httpRequestInjection
-      ].map(script => `<script id="${INJECTED_JS_ID}">${script}</script>`).join('\n');
-      body = body.replace('</head>', `${scripts}</head>`);
-
-      return new Response(body, {
-        status: response.status,
-        headers: { ...newHeaders, ...responseHeaders }
-      });
-    }
-
-    // 处理其他文本内容
-    if (contentType.includes('text') || contentType.includes('javascript') || contentType.includes('css')) {
-      let body = await response.text();
-      if (contentType.includes('javascript')) {
-        body = body.replace(/(['"])\/([^'"]*?)['"]/g, `$1${thisProxyServerUrl}$2$1`);
-      } else if (contentType.includes('css')) {
-        body = body.replace(/url\((['"]?)(\/[^)]*?)\1\)/g, `url($1${thisProxyServerUrl}$2$1)`);
+      } else {
+        return handleWrongPwd();
       }
-      return new Response(body, {
-        status: response.status,
-        headers: { ...newHeaders, ...responseHeaders }
+    }
+    const url = new URL(request.url);
+    if (request.url.endsWith("favicon.ico")) {
+      return getRedirect("https://www.baidu.com/favicon.ico");
+    }
+    if (request.url.endsWith("robots.txt")) {
+      return new Response(`User-Agent: *\nDisallow: /`, { headers: { "Content-Type": "text/plain" }});
+    }
+    const actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
+    if (actualUrlStr === "") {
+      return getHTMLResponse(mainPage);
+    }
+    
+    let targetUrl;
+    try {
+      targetUrl = new URL(actualUrlStr);
+    } catch {
+      targetUrl = new URL("https://" + actualUrlStr);
+    }
+    
+    // 检查是否有上次访问记录
+    let lastVisit;
+    if (siteCookie) {
+      lastVisit = getCook(siteCookie, lastVisitProxyCookie);
+    }
+    
+    if (!targetUrl.hostname.includes(".")) {
+      if (lastVisit) {
+        return getRedirect(`${thisProxyServerUrlHttps}${lastVisit}/${actualUrlStr}`);
+      }
+      return getHTMLResponse("无效的 URL 或无法获取上次访问的站点。<a href='/'>返回首页</a>");
+    }
+
+    // File extension blocking
+    const blockExtensions = getCook(siteCookie, blockExtensionsCookieName) || "";
+    const extensions = blockExtensions.split(',').map(ext => ext.trim().toLowerCase());
+    if (extensions.some(ext => targetUrl.pathname.toLowerCase().endsWith("." + ext))) {
+      return new Response(null, { status: 204 });
+    }
+    
+    // Ad blocking
+    const blockAds = getCook(siteCookie, blockAdsCookieName) === "true";
+    if (blockAds) {
+      const urlLower = targetUrl.href.toLowerCase();
+      if (adBlockKeywords.some(keyword => urlLower.includes(keyword))) {
+        return new Response(null, { status: 204 });
+      }
+    }
+    
+    // Custom cookies injection
+    const customCookies = getCook(siteCookie, customCookiesCookieName) || "";
+    let cookieHeader = "";
+    if (customCookies) {
+      const cookieLines = customCookies.split('\n');
+      for (const line of cookieLines) {
+        const [domain, cookie] = line.split(':').map(s => s.trim());
+        if (domain && cookie && targetUrl.hostname.includes(domain)) {
+          cookieHeader += `${cookie}; `;
+        }
+      }
+    }
+
+    // Language and Device
+    let selectedLanguage = getCook(siteCookie, languageCookieName) || 'zh-CN';
+    if (!supportedLanguages.some(lang => lang.code === selectedLanguage)) selectedLanguage = 'zh-CN';
+    const deviceType = getCook(siteCookie, deviceCookieName) || 'none';
+
+    // WebSocket bypass
+    if (request.headers.get('Upgrade') === 'websocket') {
+      const wsRequest = new Request(targetUrl, {
+        headers: request.headers,
+        method: request.method
+      });
+      return fetch(wsRequest);
+    }
+
+    // Modify Request Headers
+    const clientHeaderWithChange = new Headers();
+    for (const [key, value] of request.headers.entries()) {
+      let newValue = value.replace(thisProxyServerUrlHttps, targetUrl.origin + '/').replace(thisProxyServerUrl_hostOnly, targetUrl.host);
+      if (key.toLowerCase() === 'origin') newValue = targetUrl.origin;
+      if (key.toLowerCase() === 'referer') newValue = newValue.replace(thisProxyServerUrlHttps, targetUrl.origin + '/');
+      if (key.toLowerCase() === 'accept-language') newValue = selectedLanguage;
+      if (key.toLowerCase() === 'user-agent' && deviceType !== 'none') newValue = deviceUserAgents[deviceType];
+      clientHeaderWithChange.set(key, newValue);
+    }
+    
+    // Add custom cookies if any
+    if (cookieHeader) {
+      if (clientHeaderWithChange.has('Cookie')) {
+        clientHeaderWithChange.set('Cookie', clientHeaderWithChange.get('Cookie') + '; ' + cookieHeader);
+      } else {
+        clientHeaderWithChange.set('Cookie', cookieHeader);
+      }
+    }
+    
+    if (!clientHeaderWithChange.has('Origin')) clientHeaderWithChange.set('Origin', targetUrl.origin);
+    if (!clientHeaderWithChange.has('Accept-Language')) clientHeaderWithChange.set('Accept-Language', selectedLanguage);
+
+    // Custom headers
+    const customHeaders = getCook(siteCookie, customHeadersCookieName) || '';
+    if (customHeaders) {
+      customHeaders.split('\n').forEach(header => {
+        const [key, val] = header.split(':').map(s => s.trim());
+        if (key && val) clientHeaderWithChange.set(key, val);
       });
     }
 
-    // 默认处理
-    return new Response(response.body, {
-      status: response.status,
-      headers: { ...newHeaders, ...responseHeaders }
+    // Modify body if needed
+    let clientRequestBodyWithChange;
+    if (request.body) {
+      const text = await request.text();
+      clientRequestBodyWithChange = text
+        .replaceAll(thisProxyServerUrlHttps, targetUrl.origin + '/')
+        .replaceAll(thisProxyServerUrl_hostOnly, targetUrl.host);
+    }
+
+    const modifiedRequest = new Request(targetUrl, {
+      headers: clientHeaderWithChange,
+      method: request.method,
+      body: request.body ? clientRequestBodyWithChange : request.body,
+      redirect: "manual"
     });
+
+    const response = await fetch(modifiedRequest);
+    if (response.status.toString().startsWith("3") && response.headers.get("Location")) {
+      try {
+        const redirectUrl = new URL(response.headers.get("Location"), targetUrl.href).href;
+        if (redirectUrl === 'about:blank') throw new Error('Invalid redirect');
+        return getRedirect(thisProxyServerUrlHttps + redirectUrl);
+      } catch {
+        return getHTMLResponse(redirectError + "<br>Redirect URL: " + response.headers.get("Location"));
+      }
+    }
+
+    // Process Response
+    let modifiedResponse;
+    let bd;
+    const responseContentType = response.headers.get("Content-Type") || '';
+    const hasProxyHintCook = getCook(siteCookie, proxyHintCookieName) === "agreed";
+    if (response.body && responseContentType.startsWith("text/")) {
+      bd = await response.text();
+      // Rewrite absolute links
+      let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\s'"]+)`, 'g');
+      bd = bd.replace(regex, match => {
+        return match.includes("http") ? thisProxyServerUrlHttps + match : thisProxyServerUrl_hostOnly + "/" + match;
+      });
+      if (responseContentType.includes("html") || responseContentType.includes("javascript")) {
+        bd = bd.replace(/window\.location/g, "window." + replaceUrlObj);
+        bd = bd.replace(/document\.location/g, "document." + replaceUrlObj);
+      }
+      if (responseContentType.includes("text/html") && bd.includes("<html")) {
+        bd = covToAbs(bd, targetUrl.href);
+        bd = removeIntegrityAttributes(bd);
+        if (bd.charCodeAt(0) === 0xFEFF) {
+          bd = bd.substring(1);
+        }
+        const inject = `
+        <!DOCTYPE html>
+        <script id="${injectedJsId}">
+        ${(!hasProxyHintCook ? proxyHintInjection : "")}
+        ${disguiseInjection}
+        ${blockElementsInjection}
+        ${httpRequestInjection}
+        </script>
+        `;
+        bd = inject + bd;
+      }
+      modifiedResponse = new Response(bd, response);
+    } else {
+      modifiedResponse = new Response(response.body, response);
+    }
+
+    let headers = modifiedResponse.headers;
+    let cookieHeaders = [];
+    for (let [key, value] of headers.entries()) {
+      if (key.toLowerCase() === 'set-cookie') {
+        cookieHeaders.push({ headerName: key, headerValue: value });
+      }
+    }
+    if (cookieHeaders.length > 0) {
+      cookieHeaders.forEach(cookieHeader => {
+        let cookies = cookieHeader.headerValue.split(',').map(cookie => cookie.trim());
+        for (let i = 0; i < cookies.length; i++) {
+          let parts = cookies[i].split(';').map(part => part.trim());
+          // Modify Path
+          let pathIndex = parts.findIndex(part => part.toLowerCase().startsWith('path='));
+          let originalPath = pathIndex !== -1 ? parts[pathIndex].substring("path=".length) : null;
+          let absolutePath = "/" + new URL(originalPath || '/', targetUrl.href).href;
+          if (pathIndex !== -1) parts[pathIndex] = `Path=${absolutePath}`;
+          else parts.push(`Path=${absolutePath}`);
+          // Modify Domain
+          let domainIndex = parts.findIndex(part => part.toLowerCase().startsWith('domain='));
+          if (domainIndex !== -1) parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
+          else parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
+          cookies[i] = parts.join('; ');
+        }
+        headers.set(cookieHeader.headerName, cookies.join(', '));
+      });
+    }
+    // Add cookies for last visit and language
+    if (responseContentType.includes("text/html") && response.status === 200 && bd && bd.includes("<html")) {
+      headers.append("Set-Cookie", `${lastVisitProxyCookie}=${targetUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
+      headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
+      if (!hasProxyHintCook) {
+        const expiryDate = new Date();
+        expiryDate.setTime(expiryDate.getTime() + 24*60*60*1000);
+        headers.append("Set-Cookie", `${proxyHintCookieName}=agreed; expires=${expiryDate.toUTCString()}; path=/; domain=${thisProxyServerUrl_hostOnly}`);
+      }
+    }
+    modifiedResponse.headers.set('Access-Control-Allow-Origin', '*');
+    modifiedResponse.headers.set("X-Frame-Options", "ALLOWALL");
+    const forbiddenHeaders = ["Content-Length", "Content-Security-Policy", "Permissions-Policy", "Cross-Origin-Embedder-Policy", "Cross-Origin-Resource-Policy"];
+    forbiddenHeaders.forEach(hdr => {
+      modifiedResponse.headers.delete(hdr);
+      modifiedResponse.headers.delete(hdr + "-Report-Only");
+    });
+    if (!hasProxyHintCook) {
+      modifiedResponse.headers.set("Cache-Control", "max-age=0");
+    }
+    return modifiedResponse;
   } catch (e) {
-    return getErrorResponse(`代理请求失败: ${e.message}`, 502);
+    return getHTMLResponse(`请求处理失败: ${e.message}`);
   }
+}
+
+// Utility Functions
+function escapeRegExp(string) {
+  return string.replace(/[.*+\-?^${}()|[\]\\]/g, '\\$&');
+}
+function getCook(cookies, cookiename) {
+  const cookiestring = RegExp(escapeRegExp(cookiename) + "=[^;]+").exec(cookies);
+  return decodeURIComponent(cookiestring ? cookiestring.toString().replace(/^[^=]+./, "") : "");
+}
+function covToAbs(body, requestPathNow) {
+  const matchList = [[/href=("|')([^"']*)("|')/g, `href="`], [/src=("|')([^"']*)("|')/g, `src="`]];
+  let original = [], target = [];
+  for (const match of matchList) {
+    const iterator = body.matchAll(match[0]);
+    if (iterator) {
+      for (const replace of iterator) {
+        if (!replace.length) continue;
+        const strReplace = replace[0];
+        if (!strReplace.includes(thisProxyServerUrl_hostOnly)) {
+          if (!isPosEmbed(body, replace.index)) {
+            const relativePath = strReplace.substring(match[1].toString().length, strReplace.length - 1);
+            if (!relativePath.startsWith("data:") && !relativePath.startsWith("mailto:") && !relativePath.startsWith("javascript:") && !relativePath.startsWith("chrome") && !relativePath.startsWith("edge")) {
+              try {
+                const absolutePath = thisProxyServerUrlHttps + new URL(relativePath, requestPathNow).href;
+                original.push(strReplace);
+                target.push(match[1].toString() + absolutePath + `"`);
+              } catch {}
+            }
+          }
+        }
+      }
+    }
+  }
+  for (let i = 0; i < original.length; i++) {
+    body = body.replace(original[i], target[i]);
+  }
+  return body;
+}
+function removeIntegrityAttributes(body) {
+  return body.replace(/integrity=("|')([^"']*)("|')/g, '');
+}
+function isPosEmbed(html, pos) {
+  if (pos > html.length || pos < 0) return false;
+  let start = html.lastIndexOf('<', pos);
+  if (start === -1) start = 0;
+  let end = html.indexOf('>', pos);
+  if (end === -1) end = html.length;
+  const content = html.slice(start + 1, end);
+  return content.includes(">") || content.includes("<");
+}
+function handleWrongPwd() {
+  return showPasswordPage ? getHTMLResponse(pwdPage) : getHTMLResponse("<h1>403 Forbidden</h1><br>您无权访问此网页。");
+}
+function getHTMLResponse(html) {
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+function getRedirect(url) {
+  return Response.redirect(url, 301);
 }
