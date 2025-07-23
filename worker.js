@@ -1093,6 +1093,21 @@ async function handleRequest(request) {
     }
     
     const url = new URL(request.url);
+
+    // --- FIX for 405 Method Not Allowed (CORS Preflight) ---
+    // Handle OPTIONS requests for CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204, // No Content
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH',
+          'Access-Control-Allow-Headers': request.headers.get('Access-Control-Request-Headers') || '*',
+          'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+        },
+      });
+    }
+    // --- END FIX ---
     
     // 处理favicon和robots.txt
     if (request.url.endsWith("favicon.ico")) {
@@ -1102,7 +1117,7 @@ async function handleRequest(request) {
       return new Response(`User-Agent: *\nDisallow: /`, { headers: { "Content-Type": "text/plain" }});
     }
     
-    const actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
+    let actualUrlStr = url.pathname.substring(url.pathname.indexOf(str) + str.length) + url.search + url.hash;
     
     // 返回主页面如果没有目标URL
     if (actualUrlStr === "") {
@@ -1120,7 +1135,9 @@ async function handleRequest(request) {
       if (siteCookie) {
         const lastVisit = getCook(siteCookie, lastVisitProxyCookie);
         if (lastVisit) {
-          return getRedirect(thisProxyServerUrlHttps + lastVisit + "/" + actualUrlStr);
+          // ensure the redirection path is correct to avoid potential 301 loops
+          const newPath = new URL(actualUrlStr, lastVisit).href;
+          return getRedirect(thisProxyServerUrlHttps + newPath);
         }
       }
       return getHTMLResponse("无效的 URL 或无法获取上次访问的站点。");
@@ -1131,7 +1148,7 @@ async function handleRequest(request) {
       return getRedirect(thisProxyServerUrlHttps + "https://" + actualUrlStr);
     }
     
-    const actualUrl = new URL(actualUrlStr);
+    let actualUrl = new URL(actualUrlStr); // This will be the *initial* target URL before fetch follows redirects
 
     // 文件扩展名拦截
     const blockExtensions = getCook(siteCookie, blockExtensionsCookieName) || "";
@@ -1156,7 +1173,7 @@ async function handleRequest(request) {
 
     // WebSocket直通
     if (request.headers.get('Upgrade') === 'websocket') {
-      const wsRequest = new Request(actualUrl, {
+      const wsRequest = new Request(actualUrl, { // Use initial actualUrl for WebSocket
         headers: request.headers,
         method: request.method
       });
@@ -1221,25 +1238,19 @@ async function handleRequest(request) {
         .replaceAll(thisProxyServerUrl_hostOnly, actualUrl.host);
     }
 
-    const modifiedRequest = new Request(actualUrl, {
+    const modifiedRequest = new Request(actualUrl, { // Use initial actualUrl for the request
       headers: clientHeaderWithChange,
       method: request.method,
       body: request.body ? clientRequestBodyWithChange : request.body,
-      redirect: "manual"
+      redirect: "follow" // --- FIX for 301 Redirects: Automatically follow redirects ---
     });
 
     const response = await fetch(modifiedRequest);
     
-    // 处理重定向
-    if (response.status.toString().startsWith("3") && response.headers.get("Location")) {
-      try {
-        const redirectUrl = new URL(response.headers.get("Location"), actualUrlStr).href;
-        if (redirectUrl === 'about:blank') throw new Error('Invalid redirect');
-        return getRedirect(thisProxyServerUrlHttps + redirectUrl);
-      } catch {
-        return getHTMLResponse(redirectError + "<br>Redirect URL: " + response.headers.get("Location"));
-      }
-    }
+    // --- Removed manual 3xx redirect handling as redirect: "follow" handles it ---
+    // Now actualUrl should be updated to the final URL after redirects for subsequent processing
+    actualUrl = new URL(response.url); // Update actualUrl to the final URL after following redirects
+    actualUrlStr = response.url; // Update actualUrlStr as well for consistency
 
     // 处理响应
     let modifiedResponse;
@@ -1251,9 +1262,13 @@ async function handleRequest(request) {
       bd = await response.text();
       
       // 重写绝对链接
+      // Use the final actualUrlStr for accurate rewriting
       let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\s'"]+)`, 'g');
       bd = bd.replace(regex, match => {
-        return match.includes("http") ? thisProxyServerUrlHttps + match : thisProxyServerUrl_hostOnly + "/" + match;
+        // Ensure that URLs are correctly proxied. If the matched URL is absolute, it should be prefixed with the proxy server URL.
+        // If it's a relative path that was incorrectly matched as absolute, it needs different handling.
+        // Given the regex, it targets absolute URLs, so they should be proxied.
+        return thisProxyServerUrlHttps + match; // All absolute URLs in the content should be proxied.
       });
       
       if (responseContentType.includes("html") || responseContentType.includes("javascript")) {
@@ -1262,7 +1277,7 @@ async function handleRequest(request) {
       }
       
       if (responseContentType.includes("text/html") && bd.includes("<html")) {
-        bd = covToAbs(bd, actualUrlStr);
+        bd = covToAbs(bd, actualUrlStr); // Use the final actualUrlStr here
         bd = removeIntegrityAttributes(bd);
         if (bd.charCodeAt(0) === 0xFEFF) {
           bd = bd.substring(1);
@@ -1300,7 +1315,8 @@ async function handleRequest(request) {
           // 修改路径
           let pathIndex = parts.findIndex(part => part.toLowerCase().startsWith('path='));
           let originalPath = pathIndex !== -1 ? parts[pathIndex].substring("path=".length) : null;
-          let absolutePath = "/" + new URL(originalPath || '/', actualUrlStr).href;
+          // Use the final actualUrl for correct path resolution
+          let absolutePath = "/" + new URL(originalPath || '/', actualUrl.href).pathname; // Ensure correct path resolution based on actualUrl.href
           if (pathIndex !== -1) parts[pathIndex] = `Path=${absolutePath}`;
           else parts.push(`Path=${absolutePath}`);
           // 修改域名
@@ -1315,7 +1331,7 @@ async function handleRequest(request) {
     
     // 添加上次访问和语言cookie
     if (responseContentType.includes("text/html") && response.status === 200 && bd && bd.includes("<html")) {
-      headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
+      headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`); // Use actualUrl.origin from the final URL
       headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}`);
       if (!hasProxyHintCook) {
         const expiryDate = new Date();
@@ -1361,15 +1377,18 @@ function covToAbs(body, requestPathNow) {
       for (const replace of iterator) {
         if (!replace.length) continue;
         const strReplace = replace[0];
-        if (!strReplace.includes(thisProxyServerUrl_hostOnly)) {
+        if (!strReplace.includes(thisProxyServerUrl_hostOnly)) { 
           if (!isPosEmbed(body, replace.index)) {
             const relativePath = strReplace.substring(match[1].toString().length, strReplace.length - 1);
             if (!relativePath.startsWith("data:") && !relativePath.startsWith("mailto:") && !relativePath.startsWith("javascript:") && !relativePath.startsWith("chrome") && !relativePath.startsWith("edge")) {
               try {
-                const absolutePath = thisProxyServerUrlHttps + new URL(relativePath, requestPathNow).href;
+                const absoluteOriginPath = new URL(relativePath, requestPathNow).href;
+                const proxiedPath = thisProxyServerUrlHttps + absoluteOriginPath;
                 original.push(strReplace);
-                target.push(match[1].toString() + absolutePath + `"`);
-              } catch {}
+                target.push(match[1].toString() + proxiedPath + `"`);
+              } catch (e) {
+                // console.error("Error converting URL in covToAbs:", e, "Path:", relativePath, "Base:", requestPathNow);
+              }
             }
           }
         }
