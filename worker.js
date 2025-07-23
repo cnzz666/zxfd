@@ -1551,9 +1551,9 @@ async function handleRequest(request) {
   }
 }
 
-// 工具函数
+// 工具函数 - 修复后的正则表达式
 function escapeRegExp(string) {
-  return string.replace(/[.*+\\-?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[-.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function getCook(cookies, cookiename) {
