@@ -418,7 +418,7 @@ const httpRequestInjection = `
 })();
 `;
 
-// 主页面HTML - 更新后的简洁设计
+// 主页面HTML
 const mainPage = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -427,6 +427,18 @@ const mainPage = `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Online Proxy</title>
   <style>
+    :root {
+      --primary-color: #3498db;
+      --secondary-color: #2980b9;
+      --background-color: #f8f9fa;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #e0e0e0;
+      --success-color: #2ecc71;
+      --error-color: #e74c3c;
+      --warning-color: #f39c12;
+    }
+    
     * {
       margin: 0;
       padding: 0;
@@ -435,41 +447,62 @@ const mainPage = `
     }
     
     body {
-      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      line-height: 1.6;
       padding: 20px;
-      color: #fff;
+      min-height: 100vh;
     }
     
     .container {
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      border-radius: 12px;
-      width: 100%;
-      max-width: 500px;
-      padding: 30px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      max-width: 1200px;
+      margin: 0 auto;
     }
     
     header {
       text-align: center;
       margin-bottom: 30px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border-color);
     }
     
-    h1 {
-      font-size: 28px;
+    header h1 {
+      color: var(--primary-color);
       margin-bottom: 10px;
-      color: #4fc3f7;
+      font-size: 2.5rem;
     }
     
-    .description {
-      font-size: 16px;
-      opacity: 0.8;
+    header p {
+      font-size: 1.1rem;
+      color: #666;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      padding: 25px;
       margin-bottom: 25px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card h2 {
+      color: var(--primary-color);
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+    }
+    
+    .card h2 i {
+      margin-right: 10px;
     }
     
     .form-group {
@@ -479,80 +512,113 @@ const mainPage = `
     label {
       display: block;
       margin-bottom: 8px;
-      font-weight: 500;
+      font-weight: 600;
+      color: #555;
     }
     
-    input, select {
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
       width: 100%;
       padding: 12px 15px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      color: white;
-      font-size: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
     }
     
-    input:focus, select:focus {
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary-color);
       outline: none;
-      border-color: #4fc3f7;
-      box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.3);
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
     }
     
-    button {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(to right, #4fc3f7, #2196f3);
-      border: none;
-      border-radius: 8px;
+    .btn {
+      display: inline-block;
+      padding: 12px 25px;
+      background-color: var(--primary-color);
       color: white;
-      font-size: 16px;
-      font-weight: 600;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
-      transition: all 0.3s ease;
-      margin-top: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      transition: background-color 0.3s, transform 0.2s;
+      text-decoration: none;
     }
     
-    button:hover {
+    .btn:hover {
+      background-color: var(--secondary-color);
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
     }
     
-    .checkbox-group {
+    .btn-block {
+      display: block;
+      width: 100%;
+    }
+    
+    .btn-secondary {
+      background-color: #6c757d;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+    
+    .btn-success {
+      background-color: var(--success-color);
+    }
+    
+    .btn-success:hover {
+      background-color: #27ae60;
+    }
+    
+    .btn-warning {
+      background-color: var(--warning-color);
+    }
+    
+    .btn-warning:hover {
+      background-color: #e67e22;
+    }
+    
+    .flex-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    
+    .flex-item {
+      flex: 1;
+      min-width: 300px;
+    }
+    
+    .checkbox-container {
       display: flex;
       align-items: center;
       margin: 15px 0;
     }
     
-    .checkbox-group input {
-      width: auto;
+    .checkbox-container input[type="checkbox"] {
       margin-right: 10px;
-    }
-    
-    .advanced-btn {
-      background: rgba(255, 255, 255, 0.1);
-      margin-top: 20px;
-    }
-    
-    .advanced-section {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.5s ease;
-    }
-    
-    .advanced-section.active {
-      max-height: 1000px;
+      width: 18px;
+      height: 18px;
     }
     
     .footer {
-      margin-top: 25px;
       text-align: center;
-      font-size: 14px;
-      opacity: 0.7;
-      line-height: 1.6;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+      color: #777;
     }
     
     .footer a {
-      color: #4fc3f7;
+      color: var(--primary-color);
       text-decoration: none;
     }
     
@@ -560,23 +626,56 @@ const mainPage = `
       text-decoration: underline;
     }
     
-    .config-btn {
-      background: rgba(255, 255, 255, 0.1);
-      margin-top: 10px;
+    .hidden {
+      display: none;
     }
     
-    /* 响应式设计 */
-    @media (max-width: 600px) {
-      .container {
+    .cookie-injection-item {
+      padding: 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-bottom: 15px;
+      background-color: #f8f9fa;
+    }
+    
+    .cookie-injection-item p {
+      margin-bottom: 10px;
+      word-break: break-all;
+    }
+    
+    .cookie-injection-item button {
+      margin-right: 10px;
+    }
+    
+    .alert {
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    
+    .alert-warning {
+      background-color: #fef9e7;
+      border-left: 4px solid var(--warning-color);
+      color: #7d6608;
+    }
+    
+    .alert-success {
+      background-color: #eafaf1;
+      border-left: 4px solid var(--success-color);
+      color: #196f3d;
+    }
+    
+    @media (max-width: 768px) {
+      .flex-container {
+        flex-direction: column;
+      }
+      
+      .card {
         padding: 20px;
       }
       
-      h1 {
-        font-size: 24px;
-      }
-      
-      button {
-        padding: 12px;
+      header h1 {
+        font-size: 2rem;
       }
     }
   </style>
@@ -584,50 +683,119 @@ const mainPage = `
 <body>
   <div class="container">
     <header>
-      <h1>Website Online Proxy</h1>
-      <p class="description">请输入学术网站地址进行访问</p>
+      <h1>Web Online Proxy</h1>
+      <p>安全、高效的在线代理服务，支持设备模拟、广告拦截、自定义头等功能</p>
     </header>
     
-    <div class="form-group">
-      <label for="targetUrl">目标网址</label>
-      <input type="text" id="targetUrl" placeholder="例如: baike.baidu.com">
+    <div class="flex-container">
+      <div class="flex-item">
+        <div class="card">
+          <h2>访问网站</h2>
+          <div class="form-group">
+            <label for="targetUrl">目标网址</label>
+            <input type="text" id="targetUrl" placeholder="例如: baike.baidu.com">
+          </div>
+          <button class="btn btn-block" onclick="redirectTo()">访问</button>
+        </div>
+        
+        <div class="card">
+          <h2>设备与语言设置</h2>
+          <div class="form-group">
+            <label for="languageSelect">语言</label>
+            <select id="languageSelect">
+              ${supportedLanguages.map(lang => `<option value="${lang.code}" ${lang.code === 'zh-CN' ? 'selected' : ''}>${lang.name}</option>`).join('')}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="deviceSelect">设备模拟</label>
+            <select id="deviceSelect">
+              <option value="none" selected>不模拟</option>
+              <option value="desktop">电脑</option>
+              <option value="mobile">手机</option>
+            </select>
+          </div>
+          
+          <div class="checkbox-container">
+            <input type="checkbox" id="blockAds">
+            <label for="blockAds">拦截广告</label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex-item">
+        <div class="card">
+          <h2>高级配置</h2>
+          
+          <div class="form-group">
+            <label for="blockExtensionsInput">拦截文件扩展名</label>
+            <input type="text" id="blockExtensionsInput" placeholder="例如: jpg, gif">
+            <p class="help-text">多个扩展名用逗号分隔</p>
+          </div>
+          
+          <div class="form-group">
+            <label for="blockElementsInput">屏蔽元素选择器</label>
+            <input type="text" id="blockElementsInput" placeholder="例如: .ad, #banner">
+            <p class="help-text">多个选择器用逗号分隔</p>
+          </div>
+          
+          <div class="form-group">
+            <label for="blockElementsScope">屏蔽范围</label>
+            <select id="blockElementsScope">
+              <option value="global">全局</option>
+              <option value="specific">指定链接</option>
+            </select>
+          </div>
+          
+          <div class="form-group" id="blockElementsScopeUrlContainer" style="display: none;">
+            <label for="blockElementsScopeUrl">目标域名</label>
+            <input type="text" id="blockElementsScopeUrl" placeholder="例如: http://example.com">
+          </div>
+        </div>
+        
+        <div class="card">
+          <h2>Cookie注入</h2>
+          <div id="cookieInjectionList"></div>
+          <button class="btn btn-block" onclick="addCookieInjection()">添加规则</button>
+        </div>
+      </div>
     </div>
     
-    <button id="visitBtn">访问网站</button>
-    
-    <button class="advanced-btn" id="toggleAdvanced">高级选项</button>
-    
-    <div class="advanced-section" id="advancedOptions">
+    <div class="card">
+      <h2>自定义HTTP头</h2>
       <div class="form-group">
-        <label for="languageSelect">语言</label>
-        <select id="languageSelect">
-          ${supportedLanguages.map(lang => `<option value="${lang.code}" ${lang.code === 'zh-CN' ? 'selected' : ''}>${lang.name}</option>`).join('')}
-        </select>
+        <textarea id="customHeadersInput" rows="4" placeholder="X-Custom-Header: Value&#10;Another-Header: AnotherValue"></textarea>
+        <p class="help-text">每行一个Header，格式: Header-Name: Value</p>
       </div>
-      
-      <div class="form-group">
-        <label for="deviceSelect">设备模拟</label>
-        <select id="deviceSelect">
-          <option value="none" selected>不模拟</option>
-          <option value="desktop">电脑</option>
-          <option value="mobile">手机</option>
-        </select>
-      </div>
-      
-      <div class="checkbox-group">
-        <input type="checkbox" id="blockAds">
-        <label for="blockAds">拦截广告</label>
-      </div>
-      
-      <button class="config-btn" id="blockExtensionsBtn">配置拦截器</button>
-      <button class="config-btn" id="blockElementsBtn">屏蔽元素</button>
-      <button class="config-btn" id="customHeadersBtn">自定义头</button>
-      <button class="config-btn" id="cookieInjectionBtn">Cookie注入</button>
+      <button class="btn btn-success" onclick="saveCustomHeaders()">保存</button>
+    </div>
+    
+    <div class="alert alert-warning">
+      <strong>使用声明：</strong> 本工具仅用于学术研究和文献查阅，请严格遵守相关法律法规。使用代理登录网站存在安全风险，请谨慎操作。
     </div>
     
     <div class="footer">
-      <p>声明：本工具仅用于学术研究和文献查阅，请严格遵守相关法律法规。</p>
       <p>By Sak 2025 | <a href="https://github.com/1234567Yang/cf-proxy-ex/">项目开源地址</a></p>
+    </div>
+  </div>
+  
+  <div id="cookieInjectionEditModal" class="hidden">
+    <div class="card" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; z-index: 1000;">
+      <h2>编辑Cookie注入规则</h2>
+      <div class="form-group">
+        <label for="cookieInjectionUrl">目标网站</label>
+        <input type="text" id="cookieInjectionUrl" placeholder="例如: example.com (留空为全局)">
+      </div>
+      
+      <div class="form-group">
+        <label for="cookieInjectionValue">Cookie内容</label>
+        <textarea id="cookieInjectionValue" rows="3" placeholder="例如: key=value; key2=value2"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <button class="btn btn-success" onclick="saveCookieInjection()">保存</button>
+        <button class="btn btn-secondary" onclick="closeCookieInjectionEditModal()">取消</button>
+      </div>
     </div>
   </div>
   
@@ -637,114 +805,232 @@ const mainPage = `
       const loadCookies = () => {
         const cookies = document.cookie.split('; ').reduce((acc, row) => {
           const [key, value] = row.split('=');
-          acc[key] = value;
+          acc[key] = decodeURIComponent(value);
           return acc;
         }, {});
         
         if (cookies['${languageCookieName}']) {
           document.getElementById('languageSelect').value = cookies['${languageCookieName}'];
         }
+        
         if (cookies['${deviceCookieName}']) {
           document.getElementById('deviceSelect').value = cookies['${deviceCookieName}'];
         }
-        if (cookies['${blockAdsCookieName}']) {
-          document.getElementById('blockAds').checked = cookies['${blockAdsCookieName}'] === 'true';
+        
+        document.getElementById('blockAds').checked = cookies['${blockAdsCookieName}'] === 'true';
+        
+        if (cookies['${blockExtensionsCookieName}']) {
+          document.getElementById('blockExtensionsInput').value = cookies['${blockExtensionsCookieName}'];
+        }
+        
+        if (cookies['${blockElementsCookieName}']) {
+          document.getElementById('blockElementsInput').value = cookies['${blockElementsCookieName}'];
+        }
+        
+        if (cookies['${blockElementsScopeCookieName}']) {
+          document.getElementById('blockElementsScope').value = cookies['${blockElementsScopeCookieName}'];
+          document.getElementById('blockElementsScopeUrlContainer').style.display = 
+            cookies['${blockElementsScopeCookieName}'] === 'specific' ? 'block' : 'none';
+          
+          if (cookies['${blockElementsScopeCookieName}_URL']) {
+            document.getElementById('blockElementsScopeUrl').value = cookies['${blockElementsScopeCookieName}_URL'];
+          }
+        }
+        
+        if (cookies['${customHeadersCookieName}']) {
+          document.getElementById('customHeadersInput').value = cookies['${customHeadersCookieName}'];
+        }
+        
+        if (cookies['${cookieInjectionCookieName}']) {
+          loadCookieInjections(cookies['${cookieInjectionCookieName}']);
         }
       };
       
-      // 保存配置到Cookie
-      const saveCookie = (name, value) => {
-        const cookieDomain = window.location.hostname;
-        const oneYearLater = new Date();
-        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-        document.cookie = \`\${name}=\${value}; expires=\${oneYearLater.toUTCString()}; path=/; domain=\${cookieDomain}; Secure; SameSite=Lax\`;
+      // 加载Cookie注入规则
+      const loadCookieInjections = (cookieData) => {
+        try {
+          const injections = JSON.parse(cookieData);
+          const listContainer = document.getElementById('cookieInjectionList');
+          listContainer.innerHTML = '';
+          
+          injections.forEach((injection, index) => {
+            const injectionItem = document.createElement('div');
+            injectionItem.className = 'cookie-injection-item';
+            injectionItem.innerHTML = \`
+              <p><strong>\${injection.url || '全局'}</strong>: \${injection.cookies.substring(0, 80)}\${injection.cookies.length > 80 ? '...' : ''}</p>
+              <button class="btn" onclick="editCookieInjection(\${index})">编辑</button>
+              <button class="btn btn-secondary" onclick="deleteCookieInjection(\${index})">删除</button>
+            \`;
+            listContainer.appendChild(injectionItem);
+          });
+        } catch (e) {
+          console.error('Failed to load cookie injections:', e);
+        }
       };
       
-      // 初始化
-      loadCookies();
+      // 设置Cookie
+      const setCookie = (name, value, days = 7) => {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = "expires=" + date.toUTCString();
+        document.cookie = \`\${name}=\${encodeURIComponent(value)}; \${expires}; path=/; domain=\${window.location.hostname}; Secure; SameSite=Lax\`;
+      };
       
-      // 高级选项切换
-      const advancedBtn = document.getElementById('toggleAdvanced');
-      const advancedSection = document.getElementById('advancedOptions');
-      
-      advancedBtn.addEventListener('click', () => {
-        advancedSection.classList.toggle('active');
-        advancedBtn.textContent = advancedSection.classList.contains('active') ? 
-          '隐藏高级选项' : '高级选项';
-      });
-      
-      // 配置变更保存
+      // 监听设置变化
       document.getElementById('languageSelect').addEventListener('change', function() {
-        saveCookie('${languageCookieName}', this.value);
+        setCookie('${languageCookieName}', this.value);
       });
       
       document.getElementById('deviceSelect').addEventListener('change', function() {
-        saveCookie('${deviceCookieName}', this.value);
+        setCookie('${deviceCookieName}', this.value);
       });
       
       document.getElementById('blockAds').addEventListener('change', function() {
-        saveCookie('${blockAdsCookieName}', this.checked);
+        setCookie('${blockAdsCookieName}', this.checked);
       });
       
-      // 访问按钮
-      document.getElementById('visitBtn').addEventListener('click', () => {
-        const targetUrl = document.getElementById('targetUrl').value.trim();
-        const currentOrigin = window.location.origin;
-        
-        if (!targetUrl) {
-          alert('请输入目标网址');
-          return;
-        }
-        
-        const finalUrl = currentOrigin + '/' + 
-          (targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl);
-        
-        window.location.href = finalUrl;
+      document.getElementById('blockElementsScope').addEventListener('change', function() {
+        setCookie('${blockElementsScopeCookieName}', this.value);
+        document.getElementById('blockElementsScopeUrlContainer').style.display = 
+          this.value === 'specific' ? 'block' : 'none';
       });
       
-      // 配置按钮事件
-      const showConfigModal = (title, fields) => {
-        // 简化的配置实现
-        let configStr = title + "\\n\\n";
-        fields.forEach(field => {
-          const value = prompt(field.prompt);
-          if (value !== null) {
-            saveCookie(field.cookieName, value);
+      // 初始加载
+      loadCookies();
+    });
+    
+    // 编辑Cookie注入规则
+    window.editCookieInjection = (index) => {
+      const cookieData = document.cookie.split('; ').find(row => row.startsWith('${cookieInjectionCookieName}='));
+      if (cookieData) {
+        try {
+          const cookieValue = decodeURIComponent(cookieData.split('=')[1]);
+          const injections = JSON.parse(cookieValue);
+          
+          if (injections[index]) {
+            document.getElementById('cookieInjectionUrl').value = injections[index].url || '';
+            document.getElementById('cookieInjectionValue').value = injections[index].cookies;
+            window.currentCookieInjectionIndex = index;
+            document.getElementById('cookieInjectionEditModal').classList.remove('hidden');
           }
-        });
+        } catch (e) {
+          console.error('Error editing cookie injection:', e);
+        }
+      }
+    };
+    
+    // 删除Cookie注入规则
+    window.deleteCookieInjection = (index) => {
+      const cookieData = document.cookie.split('; ').find(row => row.startsWith('${cookieInjectionCookieName}='));
+      if (cookieData) {
+        try {
+          const cookieValue = decodeURIComponent(cookieData.split('=')[1]);
+          let injections = JSON.parse(cookieValue);
+          injections.splice(index, 1);
+          
+          setCookie('${cookieInjectionCookieName}', JSON.stringify(injections));
+          loadCookieInjections(JSON.stringify(injections));
+        } catch (e) {
+          console.error('Error deleting cookie injection:', e);
+        }
+      }
+    };
+    
+    // 添加新Cookie注入规则
+    window.addCookieInjection = () => {
+      document.getElementById('cookieInjectionUrl').value = '';
+      document.getElementById('cookieInjectionValue').value = '';
+      window.currentCookieInjectionIndex = -1;
+      document.getElementById('cookieInjectionEditModal').classList.remove('hidden');
+    };
+    
+    // 保存Cookie注入规则
+    window.saveCookieInjection = () => {
+      const url = document.getElementById('cookieInjectionUrl').value.trim();
+      const cookies = document.getElementById('cookieInjectionValue').value.trim();
+      
+      if (!cookies) {
+        alert('请填写Cookie内容');
+        return;
+      }
+      
+      const cookieData = document.cookie.split('; ').find(row => row.startsWith('${cookieInjectionCookieName}='));
+      let injections = [];
+      
+      if (cookieData) {
+        try {
+          const cookieValue = decodeURIComponent(cookieData.split('=')[1]);
+          injections = JSON.parse(cookieValue);
+        } catch (e) {
+          console.error('Error parsing cookie injections:', e);
+        }
+      }
+      
+      const injection = {
+        url: url || '',
+        cookies: cookies
       };
       
-      document.getElementById('blockExtensionsBtn').addEventListener('click', () => {
-        showConfigModal('配置拦截器', [{
-          prompt: '请输入需要拦截的文件扩展名（例如：jpg, gif）',
-          cookieName: '${blockExtensionsCookieName}'
-        }]);
-      });
+      if (window.currentCookieInjectionIndex >= 0) {
+        injections[window.currentCookieInjectionIndex] = injection;
+      } else {
+        injections.push(injection);
+      }
       
-      document.getElementById('blockElementsBtn').addEventListener('click', () => {
-        showConfigModal('屏蔽元素', [{
-          prompt: '请输入需要屏蔽的 CSS 选择器（例如：.ad, #banner）',
-          cookieName: '${blockElementsCookieName}'
-        }]);
-      });
+      setCookie('${cookieInjectionCookieName}', JSON.stringify(injections));
+      loadCookieInjections(JSON.stringify(injections));
+      closeCookieInjectionEditModal();
+    };
+    
+    // 关闭Cookie编辑模态框
+    window.closeCookieInjectionEditModal = () => {
+      document.getElementById('cookieInjectionEditModal').classList.add('hidden');
+    };
+    
+    // 保存自定义头
+    window.saveCustomHeaders = () => {
+      const headers = document.getElementById('customHeadersInput').value.trim();
+      setCookie('${customHeadersCookieName}', headers);
+      alert('自定义头设置已保存');
+    };
+    
+    // 重定向到目标网站
+    window.redirectTo = () => {
+      const targetUrl = document.getElementById('targetUrl').value.trim();
+      if (!targetUrl) {
+        alert('请输入目标网址');
+        return;
+      }
       
-      document.getElementById('customHeadersBtn').addEventListener('click', () => {
-        showConfigModal('自定义 HTTP 头', [{
-          prompt: '请输入自定义头（格式：Header-Name: value）',
-          cookieName: '${customHeadersCookieName}'
-        }]);
-      });
+      const currentOrigin = window.location.origin;
+      const finalUrl = currentOrigin + '/' + (targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl);
+      window.location.href = finalUrl;
+    };
+    
+    // 保存元素屏蔽设置
+    window.saveBlockSettings = () => {
+      const elements = document.getElementById('blockElementsInput').value.trim();
+      const scope = document.getElementById('blockElementsScope').value;
+      const scopeUrl = document.getElementById('blockElementsScopeUrl').value.trim();
       
-      document.getElementById('cookieInjectionBtn').addEventListener('click', () => {
-        showConfigModal('Cookie注入', [{
-          prompt: '请输入目标网站（例如：example.com）',
-          cookieName: '${cookieInjectionCookieName}_URL'
-        }, {
-          prompt: '请输入Cookie内容（例如：key=value; key2=value2）',
-          cookieName: '${cookieInjectionCookieName}_VALUE'
-        }]);
-      });
-    });
+      setCookie('${blockElementsCookieName}', elements);
+      setCookie('${blockElementsScopeCookieName}', scope);
+      
+      if (scope === 'specific' && scopeUrl) {
+        setCookie('${blockElementsScopeCookieName}_URL', scopeUrl);
+      } else {
+        document.cookie = \`${blockElementsScopeCookieName}_URL=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;\`;
+      }
+      
+      alert('元素屏蔽设置已保存');
+    };
+    
+    // 保存文件扩展名拦截设置
+    window.saveBlockExtensions = () => {
+      const extensions = document.getElementById('blockExtensionsInput').value.trim();
+      setCookie('${blockExtensionsCookieName}', extensions);
+      alert('文件扩展名拦截设置已保存');
+    };
   </script>
 </body>
 </html>
@@ -755,70 +1041,95 @@ const pwdPage = `
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>密码验证</title>
   <style>
     body {
-      background: linear-gradient(135deg, #1a2a6c, #b21f1f);
-      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f5f5;
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 20px;
+      height: 100vh;
+      margin: 0;
     }
     
-    .password-box {
-      background: rgba(0, 0, 0, 0.7);
+    .login-container {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       padding: 30px;
-      border-radius: 12px;
       width: 100%;
       max-width: 400px;
       text-align: center;
     }
     
     h2 {
-      color: #fff;
+      color: #333;
       margin-bottom: 20px;
     }
     
-    input {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 15px;
-      border: none;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
     }
     
-    button {
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #555;
+    }
+    
+    input[type="password"] {
       width: 100%;
       padding: 12px;
-      background: #4fc3f7;
-      border: none;
-      border-radius: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 12px;
+      background-color: #3498db;
       color: white;
-      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
       cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .btn:hover {
+      background-color: #2980b9;
     }
   </style>
 </head>
 <body>
-  <div class="password-box">
-    <h2>需要密码访问</h2>
-    <input id="password" type="password" placeholder="输入密码">
-    <button onclick="setPassword()">提交</button>
+  <div class="login-container">
+    <h2>代理访问验证</h2>
+    <div class="form-group">
+      <label for="password">密码</label>
+      <input type="password" id="password" placeholder="请输入访问密码">
+    </div>
+    <button class="btn" onclick="setPassword()">提交</button>
   </div>
   
   <script>
     function setPassword() {
-      try {
-        const password = document.getElementById('password').value;
-        const cookieDomain = window.location.hostname;
-        const oneYearLater = new Date();
-        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-        document.cookie = \`${passwordCookieName}=\${password}; expires=\${oneYearLater.toUTCString()}; path=/; domain=\${cookieDomain}; Secure; SameSite=Lax\`;
-      } catch(e) {
-        alert(e.message);
+      const password = document.getElementById('password').value;
+      if (!password) {
+        alert('请输入密码');
+        return;
       }
+      
+      const date = new Date();
+      date.setTime(date.getTime() + (7 * 24 * 60 * 60 * 1000));
+      const expires = "expires=" + date.toUTCString();
+      document.cookie = "${passwordCookieName}=" + password + "; " + expires + "; path=/; domain=" + window.location.hostname + "; Secure; SameSite=Lax";
       location.reload();
     }
   </script>
@@ -828,32 +1139,67 @@ const pwdPage = `
 
 // 重定向错误页面
 const redirectError = `
+<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>重定向错误</title>
   <style>
     body {
-      background: #1a2a6c;
-      color: white;
-      font-family: sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8d7da;
+      color: #721c24;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
+      margin: 0;
       text-align: center;
     }
     
-    .error-box {
-      background: rgba(0, 0, 0, 0.7);
+    .error-container {
+      background-color: white;
+      border: 1px solid #f5c6cb;
+      border-radius: 8px;
       padding: 30px;
-      border-radius: 12px;
       max-width: 600px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    h1 {
+      margin-bottom: 20px;
+    }
+    
+    p {
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #721c24;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 16px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div class="error-box">
-    <h2>重定向错误</h2>
-    <p>无法处理重定向：您尝试访问的网站可能包含错误的重定向信息。</p>
+  <div class="error-container">
+    <h1>重定向错误</h1>
+    <p>处理重定向时出错：目标网站包含错误的跳转信息，我们无法解析。</p>
+    <p>可能原因：</p>
+    <ul style="text-align: left; margin: 20px 0;">
+      <li>网站使用了不兼容的跳转方式</li>
+      <li>目标网站需要登录认证</li>
+      <li>代理配置限制了某些内容</li>
+    </ul>
+    <button class="btn" onclick="window.history.back()">返回上一页</button>
   </div>
 </body>
 </html>
@@ -959,12 +1305,30 @@ async function handleRequest(request) {
     if (!clientHeaderWithChange.has('Accept-Language')) clientHeaderWithChange.set('Accept-Language', selectedLanguage);
     
     // Cookie注入功能
-    const cookieInjectionUrl = getCook(siteCookie, `${cookieInjectionCookieName}_URL`);
-    const cookieInjectionValue = getCook(siteCookie, `${cookieInjectionCookieName}_VALUE`);
-    
-    if (cookieInjectionUrl && cookieInjectionValue) {
-      const existingCookie = clientHeaderWithChange.get('Cookie') || '';
-      clientHeaderWithChange.set('Cookie', existingCookie + (existingCookie ? '; ' : '') + cookieInjectionValue);
+    const cookieInjectionData = getCook(siteCookie, cookieInjectionCookieName);
+    if (cookieInjectionData) {
+      try {
+        const injections = JSON.parse(decodeURIComponent(cookieInjectionData));
+        let combinedCookies = [];
+        
+        // 应用全局cookie
+        injections.filter(inj => !inj.url).forEach(inj => {
+          combinedCookies.push(inj.cookies);
+        });
+        
+        // 应用特定网站cookie
+        injections.filter(inj => inj.url && actualUrl.host.includes(inj.url)).forEach(inj => {
+          combinedCookies.push(inj.cookies);
+        });
+        
+        if (combinedCookies.length > 0) {
+          // 合并现有cookie和注入的cookie
+          const existingCookie = clientHeaderWithChange.get('Cookie') || '';
+          clientHeaderWithChange.set('Cookie', existingCookie + (existingCookie ? '; ' : '') + combinedCookies.join('; '));
+        }
+      } catch (e) {
+        console.error('Error applying cookie injections:', e);
+      }
     }
     
     // 自定义头部
@@ -1000,9 +1364,12 @@ async function handleRequest(request) {
         let locationHeader = response.headers.get("Location");
         let finalRedirectUrl;
 
+        // 如果源服务器返回的Location头已经包含了代理地址，直接使用它。
+        // 这通常发生在源服务器有特殊配置或在客户端-代理-服务器之间有复杂交互时。
         if (locationHeader.startsWith(thisProxyServerUrlHttps)) {
           finalRedirectUrl = locationHeader;
         } else {
+          // 正常的重定向，将目标URL解析为绝对路径，然后通过代理访问。
           let resolvedOriginalUrl = new URL(locationHeader, actualUrlStr).href;
           finalRedirectUrl = thisProxyServerUrlHttps + resolvedOriginalUrl;
         }
@@ -1015,6 +1382,7 @@ async function handleRequest(request) {
         return getRedirect(finalRedirectUrl);
 
       } catch (e) {
+        // 提供更详细的中文错误信息
         return getHTMLResponse(`处理重定向时出错: ${e.message}<br>原始Location头: ${response.headers.get("Location")}`);
       }
     }
@@ -1041,8 +1409,8 @@ async function handleRequest(request) {
       
       if (responseContentType.includes("text/html") && bd.includes("<html")) {
         bd = covToAbs(bd, actualUrlStr);
-        bd = removeIntegrityAttributes(bd);
-        if (bd.charCodeAt(0) === 0xFEFF) {
+        bd = removeIntegrityAttributes(bd); // 现在此函数也会移除 meta CSP
+        if (bd.charCodeAt(0) === 0xFEFF) { // 移除 UTF-8 BOM
           bd = bd.substring(1);
         }
         const inject = `
@@ -1087,7 +1455,7 @@ async function handleRequest(request) {
           
           // 确保添加 Secure 和 SameSite=Lax
           if (!parts.some(p => p.toLowerCase().startsWith('secure'))) parts.push('Secure');
-          if (!parts.some(p => p.toLowerCase().startsWith('samesite='))) parts.push('SameSite=Lax');
+          if (!parts.some(p => p.toLowerCase().startsWith('samesite='))) parts.push('SameSite=Lax'); // 或 SameSite=None; if needed for cross-site, requires Secure
 
           cookies[i] = parts.join('; ');
         }
@@ -1095,10 +1463,15 @@ async function handleRequest(request) {
       });
     }
     
-    // 添加上次访问和语言cookie
+    // 添加上次访问和语言cookie，并确保 Secure 和 SameSite=Lax
     if (responseContentType.includes("text/html") && response.status === 200 && bd && bd.includes("<html")) {
       headers.append("Set-Cookie", `${lastVisitProxyCookie}=${actualUrl.origin}; Path=/; Domain=${thisProxyServerUrl_hostOnly}; Secure; SameSite=Lax`);
       headers.append("Set-Cookie", `${languageCookieName}=${selectedLanguage}; Path=/; Domain=${thisProxyServerUrl_hostOnly}; Secure; SameSite=Lax`);
+      if (!hasProxyHintCook) {
+        const expiryDate = new Date();
+        expiryDate.setTime(expiryDate.getTime() + 24*60*60*1000);
+        headers.append("Set-Cookie", `${proxyHintCookieName}=agreed; expires=${expiryDate.toUTCString()}; path=/; domain=${thisProxyServerUrl_hostOnly}; Secure; SameSite=Lax`);
+      }
     }
     
     // 设置CORS和安全性头
@@ -1110,6 +1483,9 @@ async function handleRequest(request) {
       modifiedResponse.headers.delete(hdr);
       modifiedResponse.headers.delete(hdr + "-Report-Only");
     });
+    if (!hasProxyHintCook) {
+      modifiedResponse.headers.set("Cache-Control", "max-age=0");
+    }
     
     return modifiedResponse;
   } catch (e) {
@@ -1119,7 +1495,7 @@ async function handleRequest(request) {
 
 // 工具函数
 function escapeRegExp(string) {
-  return string.replace(/[.*+\\-?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[-.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function getCook(cookies, cookiename) {
