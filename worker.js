@@ -25,6 +25,8 @@ const proxyHintCookieName = "__PROXY_HINT__";
 const password = "";
 const showPasswordPage = true;
 const replaceUrlObj = "__location__yproxy__";
+const cookieInjectionDataName = "__PROXY_COOKIE_INJECTION__";
+const noHintCookieName = "__PROXY_NO_HINT__";
 
 var thisProxyServerUrlHttps;
 var thisProxyServerUrl_hostOnly;
@@ -32,41 +34,329 @@ var thisProxyServerUrl_hostOnly;
 
 // =======================================================================================
 // 第三部分：代理提示注入脚本
-// 功能：在代理页面显示使用警告提示
+// 功能：在代理页面显示使用警告提示（修改为弹窗样式）
 // =======================================================================================
 
 const proxyHintInjection = `
-
 function toEntities(str) {
 return str.split("").map(ch => \`&#\${ch.charCodeAt(0)};\`).join("");
 }
-
 
 //---***========================================***---提示使用代理---***========================================***---
 
 setTimeout(() => {
 var hint = \`
-Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit the link below.
-警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见以下链接。
+Warning: You are currently using a web proxy, so do not log in to any website. For further details, please visit the link below.
+警告：您当前正在使用网络代理，请勿登录任何网站。详情请见以下链接。
 \`;
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
 document.body.insertAdjacentHTML(
   'afterbegin', 
-  \`<div style="position:fixed;left:0px;top:0px;width:100%;margin:0px;padding:0px;display:block;z-index:99999999999999999999999;user-select:none;cursor:pointer;" id="__PROXY_HINT_DIV__" onclick="document.getElementById('__PROXY_HINT_DIV__').remove();">
-    <span style="position:relative;display:block;width:calc(100% - 20px);min-height:30px;font-size:14px;color:yellow;background:rgb(180,0,0);text-align:center;border-radius:5px;padding-left:10px;padding-right:10px;padding-top:1px;padding-bottom:1px;">
-      \${toEntities(hint)}
-      <br>
-      <a href="https://github.com/1234567Yang/cf-proxy-ex/" style="color:rgb(250,250,180);">https://github.com/1234567Yang/cf-proxy-ex/</a>
-    </span>
+  \`<div id="__PROXY_HINT_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;opacity:0;transition:opacity 0.5s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:500px;width:90%;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.5s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#c53030;margin-bottom:15px;">安全警告 Security Warning</h3>
+        <p style="margin-bottom:20px;line-height:1.6;">\${toEntities(hint)}</p>
+        <a href="https://github.com/1234567Yang/cf-proxy-ex/" target="_blank" style="color:#2c5282;display:block;margin-bottom:20px;">https://github.com/1234567Yang/cf-proxy-ex/</a>
+        <div style="display:flex;justify-content:center;gap:10px;">
+          <button onclick="closeHint(false)" style="padding:8px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">关闭 Close</button>
+          <button onclick="closeHint(true)" style="padding:8px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">不再显示 Don't show again</button>
+        </div>
+      </div>
+    </div>
   </div>
   \`
 );
+
+setTimeout(() => {
+  const modal = document.getElementById('__PROXY_HINT_MODAL__');
+  const content = modal.querySelector('div > div');
+  modal.style.opacity = '1';
+  content.style.transform = 'scale(1)';
+}, 100);
 }else{
 alert(hint + "https://github.com/1234567Yang/cf-proxy-ex");
 }
-}, 5000);
+}, 1000);
 
+function closeHint(dontShowAgain) {
+const modal = document.getElementById('__PROXY_HINT_MODAL__');
+modal.style.opacity = '0';
+setTimeout(() => {
+  modal.remove();
+  if(dontShowAgain) {
+    // 设置不再显示的cookie
+    const expiryDate = new Date();
+    expiryDate.setTime(expiryDate.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30天
+    document.cookie = "${noHintCookieName}=1; expires=" + expiryDate.toUTCString() + "; path=/";
+  }
+}, 500);
+}
+`;
+
+// =======================================================================================
+// Cookie注入功能脚本
+// 功能：提供cookie注入界面和功能
+// =======================================================================================
+
+const cookieInjectionScript = `
+// Cookie注入功能
+function initCookieInjection() {
+  // 创建Cookie注入按钮
+  const cookieBtn = document.createElement('button');
+  cookieBtn.innerHTML = '🍪 Cookie注入';
+  cookieBtn.style.position = 'fixed';
+  cookieBtn.style.bottom = '20px';
+  cookieBtn.style.right = '20px';
+  cookieBtn.style.zIndex = '999999';
+  cookieBtn.style.padding = '10px 15px';
+  cookieBtn.style.background = 'linear-gradient(45deg, #90cdf4, #b7e4f4)';
+  cookieBtn.style.border = 'none';
+  cookieBtn.style.borderRadius = '20px';
+  cookieBtn.style.color = '#2d3748';
+  cookieBtn.style.cursor = 'pointer';
+  cookieBtn.style.boxShadow = '0 4px 15px rgba(160,174,192,0.3)';
+  cookieBtn.style.fontSize = '14px';
+  cookieBtn.style.fontWeight = 'bold';
+  
+  cookieBtn.onclick = showCookieModal;
+  document.body.appendChild(cookieBtn);
+}
+
+function showCookieModal() {
+  // 检查是否已存在弹窗
+  if(document.getElementById('__COOKIE_INJECTION_MODAL__')) return;
+  
+  const modalHTML = \`
+  <div id="__COOKIE_INJECTION_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#2c5282;margin-bottom:20px;">Cookie注入设置</h3>
+        
+        <div style="margin-bottom:20px;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">注入方式:</label>
+          <select id="injectionType" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            <option value="global">全局注入（所有网站）</option>
+            <option value="specific">指定网站注入</option>
+          </select>
+        </div>
+        
+        <div id="specificSiteDiv" style="margin-bottom:20px;display:none;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">目标网站域名:</label>
+          <input type="text" id="targetDomain" placeholder="例如: example.com" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+        </div>
+        
+        <div style="margin-bottom:20px;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">输入方式:</label>
+          <select id="inputType" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            <option value="combined">合成Cookie输入</option>
+            <option value="separate">分别输入</option>
+          </select>
+        </div>
+        
+        <div id="combinedInput" style="margin-bottom:20px;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">Cookie字符串:</label>
+          <textarea id="combinedCookie" placeholder="例如: name=value; name2=value2" style="width:100%;height:80px;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;"></textarea>
+        </div>
+        
+        <div id="separateInput" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">名称:</label>
+              <input type="text" id="cookieName" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">值:</label>
+              <input type="text" id="cookieValue" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">域名:</label>
+              <input type="text" id="cookieDomain" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">路径:</label>
+              <input type="text" id="cookiePath" value="/" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+          </div>
+          <button onclick="addSeparateCookie()" style="padding:6px 12px;background:rgba(160,174,192,0.3);border:none;border-radius:12px;color:#2d3748;cursor:pointer;font-size:12px;">添加Cookie</button>
+          <div id="cookieList" style="margin-top:10px;max-height:100px;overflow-y:auto;"></div>
+        </div>
+        
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button onclick="saveCookieSettings()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存设置</button>
+          <button onclick="closeCookieModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  \`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  // 初始化事件监听
+  setTimeout(() => {
+    const modal = document.getElementById('__COOKIE_INJECTION_MODAL__');
+    const content = modal.querySelector('div > div');
+    modal.style.opacity = '1';
+    content.style.transform = 'scale(1)';
+    
+    // 绑定事件
+    document.getElementById('injectionType').addEventListener('change', toggleInjectionType);
+    document.getElementById('inputType').addEventListener('change', toggleInputType);
+    
+    // 加载已保存的设置
+    loadCookieSettings();
+  }, 100);
+}
+
+function toggleInjectionType() {
+  const type = document.getElementById('injectionType').value;
+  document.getElementById('specificSiteDiv').style.display = type === 'specific' ? 'block' : 'none';
+}
+
+function toggleInputType() {
+  const type = document.getElementById('inputType').value;
+  document.getElementById('combinedInput').style.display = type === 'combined' ? 'block' : 'none';
+  document.getElementById('separateInput').style.display = type === 'separate' ? 'block' : 'none';
+}
+
+let separateCookies = [];
+
+function addSeparateCookie() {
+  const name = document.getElementById('cookieName').value.trim();
+  const value = document.getElementById('cookieValue').value.trim();
+  const domain = document.getElementById('cookieDomain').value.trim();
+  const path = document.getElementById('cookiePath').value.trim() || '/';
+  
+  if(!name || !value) {
+    alert('请填写Cookie名称和值');
+    return;
+  }
+  
+  const cookie = { name, value, domain, path };
+  separateCookies.push(cookie);
+  updateCookieList();
+  
+  // 清空输入框
+  document.getElementById('cookieName').value = '';
+  document.getElementById('cookieValue').value = '';
+}
+
+function updateCookieList() {
+  const list = document.getElementById('cookieList');
+  list.innerHTML = '';
+  
+  separateCookies.forEach((cookie, index) => {
+    const item = document.createElement('div');
+    item.style.display = 'flex';
+    item.style.justifyContent = 'space-between';
+    item.style.alignItems = 'center';
+    item.style.padding = '5px';
+    item.style.marginBottom = '5px';
+    item.style.background = 'rgba(255,255,255,0.2)';
+    item.style.borderRadius = '5px';
+    item.style.fontSize = '12px';
+    
+    item.innerHTML = \`
+      <span>\${cookie.name}=\${cookie.value}</span>
+      <button onclick="removeCookie(\${index})" style="background:none;border:none;color:#c53030;cursor:pointer;font-size:14px;">×</button>
+    \`;
+    
+    list.appendChild(item);
+  });
+}
+
+function removeCookie(index) {
+  separateCookies.splice(index, 1);
+  updateCookieList();
+}
+
+function saveCookieSettings() {
+  const injectionType = document.getElementById('injectionType').value;
+  const targetDomain = document.getElementById('targetDomain').value.trim();
+  const inputType = document.getElementById('inputType').value;
+  
+  let cookies = [];
+  
+  if(inputType === 'combined') {
+    const cookieStr = document.getElementById('combinedCookie').value.trim();
+    if(cookieStr) {
+      // 解析合成Cookie字符串
+      cookieStr.split(';').forEach(pair => {
+        const [name, value] = pair.split('=').map(s => s.trim());
+        if(name && value) {
+          cookies.push({
+            name: name,
+            value: value,
+            domain: targetDomain || '',
+            path: '/'
+          });
+        }
+      });
+    }
+  } else {
+    cookies = separateCookies;
+  }
+  
+  const settings = {
+    injectionType,
+    targetDomain,
+    cookies
+  };
+  
+  // 保存到localStorage
+  try {
+    localStorage.setItem('${cookieInjectionDataName}', JSON.stringify(settings));
+    alert('Cookie设置已保存！');
+    closeCookieModal();
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+function loadCookieSettings() {
+  try {
+    const saved = localStorage.getItem('${cookieInjectionDataName}');
+    if(saved) {
+      const settings = JSON.parse(saved);
+      
+      document.getElementById('injectionType').value = settings.injectionType || 'global';
+      document.getElementById('targetDomain').value = settings.targetDomain || '';
+      document.getElementById('inputType').value = settings.inputType || 'combined';
+      
+      toggleInjectionType();
+      toggleInputType();
+      
+      if(settings.cookies && settings.cookies.length > 0) {
+        if(settings.inputType === 'combined') {
+          const cookieStr = settings.cookies.map(c => \`\${c.name}=\${c.value}\`).join('; ');
+          document.getElementById('combinedCookie').value = cookieStr;
+        } else {
+          separateCookies = settings.cookies;
+          updateCookieList();
+        }
+      }
+    }
+  } catch(e) {
+    console.log('加载Cookie设置失败:', e);
+  }
+}
+
+function closeCookieModal() {
+  const modal = document.getElementById('__COOKIE_INJECTION_MODAL__');
+  if(modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => {
+      modal.remove();
+    }, 300);
+  }
+}
+
+// 初始化Cookie注入功能
+setTimeout(initCookieInjection, 2000);
 `;
 
 // =======================================================================================
@@ -797,34 +1087,32 @@ const mainPage = `
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Proxy</title>
+    <title>Website Proxy</title>
     <style>
         html, body {
             height: 100%;
             margin: 0;
-            overflow: auto;
+            overflow-x: hidden; /* 仅隐藏水平滚动条 */
+            overflow-y: auto; /* 允许垂直滚动 */
             background-color: #f0f4f8;
         }
         
         body {
             font-family: 'Roboto', Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
             color: #2d3748;
             background-image: url('https://www.loliapi.com/acg/');
             background-size: cover;
             background-position: center;
+            background-attachment: fixed; /* 背景固定，内容滚动 */
             background-repeat: no-repeat;
             position: relative;
-            overflow: hidden;
+            padding: 30px 0; /* 上下留白，避免内容贴边 */
         }
         
+        /* 背景模糊和渐变覆盖层使用固定定位，不随内容滚动 */
         body::after {
             content: '';
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -838,7 +1126,7 @@ const mainPage = `
         
         body::before {
             content: '';
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -847,17 +1135,24 @@ const mainPage = `
             z-index: -1;
         }
         
+        /* 容器用于限制最大宽度并居中内容 */
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        
         .content {
             text-align: center;
-            max-width: 80%;
+            width: 100%; /* 占满容器宽度 */
             padding: 30px;
             background-color: rgba(255, 255, 255, 0.3);
             border-radius: 15px;
             box-shadow: 0 8px 32px rgba(160, 174, 192, 0.3), 0 0 10px rgba(226, 232, 240, 0.2);
             backdrop-filter: blur(5px);
             border: 1px solid rgba(160, 174, 192, 0.3);
-            transform: scale(0.5);
-            opacity: 0.5;
+            transform: scale(0.95);
+            opacity: 0;
             filter: blur(10px);
             transition: transform 1s ease-out, opacity 1s ease-out, filter 1s ease-out;
             position: relative;
@@ -871,8 +1166,9 @@ const mainPage = `
         }
         
         .content:hover {
-            transform: scale(1.03);
+            transform: scale(1.02);
             box-shadow: 0 12px 40px rgba(160, 174, 192, 0.5), 0 0 20px rgba(226, 232, 240, 0.3);
+            transition: all 0.3s ease;
         }
         
         h1 {
@@ -900,8 +1196,8 @@ const mainPage = `
             border-radius: 25px;
             outline: none;
             display: block;
-            width: 80%;
-            max-width: 300px;
+            width: 100%;
+            max-width: 350px;
             transition: all 0.3s ease;
         }
         
@@ -942,15 +1238,18 @@ const mainPage = `
             color: #2c5282;
             text-decoration: none;
             font-weight: bold;
-            transition: color 0.3s ease, transform 0.3s ease;
+            transition: all 0.3s ease;
             display: block;
             margin: 10px 0;
+            padding: 8px 0;
+            border-radius: 8px;
         }
         
         a:hover {
             color: #1a365d;
-            transform: scale(1.05);
+            transform: translateX(5px);
             text-shadow: 0 0 5px rgba(160, 174, 192, 0.3);
+            background-color: rgba(255, 255, 255, 0.1);
         }
         
         .notes {
@@ -968,10 +1267,11 @@ const mainPage = `
             color: #c53030;
         }
         
+        /* 响应式设计优化 */
         @media (max-width: 768px) {
             .content {
                 max-width: 90%;
-                padding: 20px;
+                padding: 20px 15px;
             }
             
             h1 {
@@ -985,6 +1285,24 @@ const mainPage = `
             }
         }
         
+        @media (max-width: 480px) {
+            body {
+                padding: 15px 0;
+            }
+            
+            .content {
+                padding: 15px 10px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .description {
+                font-size: 0.9rem;
+            }
+        }
+        
         @media (min-resolution: 2dppx) {
             body {
                 background-size: cover;
@@ -993,32 +1311,34 @@ const mainPage = `
     </style>
 </head>
 <body>
-    <div class="content">
-        <h1>Web Proxy</h1>
-        
-        <div class="description">
-            本项目基于开源项目优化修改，旨在提供安全的Web Proxy。
-            请在下方输入您想要访问的网站地址，我们将为您提供代理服务。
-        </div>
-        
-        <form id="urlForm" onsubmit="redirectToProxy(event)">
-            <fieldset style="border: none;">
-                <label for="targetUrl" style="display: none;">目标网址</label>
-                <input type="text" id="targetUrl" placeholder="例如: github.com 或 https://github.com" required>
-                <button type="submit">访问</button>
-            </fieldset>
-        </form>
-        
-        <div class="links-container">
-            <a href="https://github.com/1234567Yang/cf-proxy-ex/" target="_blank">原项目开源地址</a>
-            <a href="https://github.com/cnzz666/zxfd" target="_blank">优化项目地址</a>
-            <a href="https://github.com/1234567Yang/cf-proxy-ex/blob/main/deploy_on_deno_tutorial.md" target="_blank">自建代理教程</a>
-        </div>
-        
-        <div class="notes">
-            <p><span class="important">重要提示:</span> 使用代理时请勿登录任何账户，保护您的个人信息安全。</p>
-            <p>如果遇到400错误，请尝试清除浏览器Cookie。</p>
-            <p>本工具仅用于合法用途，请勿用于违反法律法规的活动。</p>
+    <div class="container">
+        <div class="content">
+            <h1>Website Proxy</h1>
+            
+            <div class="description">
+                本项目基于开源项目优化修改，旨在提供安全的Website Proxy。
+                请在下方输入您想要访问的网站地址，我们将为您提供代理服务。
+            </div>
+            
+            <form id="urlForm" onsubmit="redirectToProxy(event)">
+                <fieldset style="border: none;">
+                    <label for="targetUrl" style="display: none;">目标网址</label>
+                    <input type="text" id="targetUrl" placeholder="例如: github.com 或 https://github.com" required>
+                    <button type="submit">访问</button>
+                </fieldset>
+            </form>
+            
+            <div class="links-container">
+                <a href="https://github.com/1234567Yang/cf-proxy-ex/" target="_blank">原项目开源地址</a>
+                <a href="https://github.com/cnzz666/zxfd" target="_blank">优化项目地址</a>
+                <a href="https://github.com/1234567Yang/cf-proxy-ex/blob/main/deploy_on_deno_tutorial.md" target="_blank">自建代理教程</a>
+            </div>
+            
+            <div class="notes">
+                <p><span class="important">重要提示:</span> 使用代理时请勿登录任何账户，保护您的个人信息安全。</p>
+                <p>如果遇到400错误，请尝试清除浏览器Cookie。</p>
+                <p>本工具仅用于合法用途，请勿用于违反法律法规的活动。</p>
+            </div>
         </div>
     </div>
 
@@ -1040,8 +1360,10 @@ const mainPage = `
             }
         }
     </script>
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"23706d89f379497d9a10994cbea3fda0","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
+    
 `;
 
 // =======================================================================================
@@ -1297,6 +1619,7 @@ async function handleRequest(request) {
   var modifiedResponse;
   var bd;
   var hasProxyHintCook = (getCook(proxyHintCookieName, siteCookie) != "");
+  var hasNoHintCookie = (getCook(noHintCookieName, siteCookie) != "");
   const contentType = response.headers.get("Content-Type");
 
 
@@ -1357,12 +1680,11 @@ async function handleRequest(request) {
 
 
         // the proxy hint must be written as a single IIFE, or it will show error in example.com   idk what's wrong
-        (function () {
-          // proxy hint
-          ${((!hasProxyHintCook) ? proxyHintInjection : "")}
-        })();
+        ${((!hasProxyHintCook && !hasNoHintCookie) ? proxyHintInjection : "")}
 
 
+        // Cookie注入功能
+        ${cookieInjectionScript}
 
 
         (function () {
@@ -1525,7 +1847,7 @@ async function handleRequest(request) {
     //origin: "https://www.baidu.com"
     headers.append("Set-Cookie", cookieValue);
 
-    if (response.body && !hasProxyHintCook) { //response.body 确保是正常网页再设置cookie
+    if (response.body && !hasProxyHintCook && !hasNoHintCookie) { //response.body 确保是正常网页再设置cookie
       //添加代理提示
       const expiryDate = new Date();
       expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000); // 24小时
@@ -1588,7 +1910,7 @@ async function handleRequest(request) {
 
 
 
-  if (!hasProxyHintCook) {
+  if (!hasProxyHintCook && !hasNoHintCookie) {
     //设置content立刻过期，防止多次弹代理警告（但是如果是Content-no-change还是会弹出）
     modifiedResponse.headers.set("Cache-Control", "max-age=0");
   }
