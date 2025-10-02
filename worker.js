@@ -28,7 +28,6 @@ const replaceUrlObj = "__location__yproxy__";
 
 var thisProxyServerUrlHttps;
 var thisProxyServerUrl_hostOnly;
-// const CSSReplace = ["https://", "http://"];
 
 // =======================================================================================
 // 第三部分：代理提示注入脚本
@@ -37,28 +36,20 @@ var thisProxyServerUrl_hostOnly;
 
 const proxyHintInjection = `
 
-function toEntities(str) {
-return str.split("").map(ch => \`&#\${ch.charCodeAt(0)};\`).join("");
-}
-
 // 存储不再显示提示的状态
 if (!localStorage.getItem('proxyHintDismissed')) {
   localStorage.setItem('proxyHintDismissed', 'false');
 }
 
-//---***========================================***---提示使用代理---***========================================***---
+// 页面加载完成后显示弹窗
+window.addEventListener('load', function() {
+  setTimeout(() => {
+    if (localStorage.getItem('proxyHintDismissed') === 'true') {
+      return;
+    }
+    
+    var hint = \`Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit the link below. 警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见以下链接。\`;
 
-setTimeout(() => {
-  if (localStorage.getItem('proxyHintDismissed') === 'true') {
-    return;
-  }
-  
-  var hint = \`
-Warning: You are currently using a web proxy, so do not log in to any website. Click to close this hint. For further details, please visit the link below.
-警告：您当前正在使用网络代理，请勿登录任何网站。单击关闭此提示。详情请见以下链接。
-\`;
-
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
     // 创建玻璃态弹窗
     const hintOverlay = document.createElement('div');
     hintOverlay.style.cssText = \`
@@ -67,60 +58,82 @@ Warning: You are currently using a web proxy, so do not log in to any website. C
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(5px);
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(15px);
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 99999999999999999999999;
+      z-index: 999999;
       opacity: 0;
-      transition: opacity 0.5s ease;
+      transition: all 0.5s ease;
+      font-family: 'Roboto', Arial, sans-serif;
     \`;
     
     const hintContent = document.createElement('div');
     hintContent.style.cssText = \`
-      background: rgba(255, 255, 255, 0.2);
-      backdrop-filter: blur(10px);
-      border-radius: 15px;
-      padding: 30px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 40px;
       max-width: 500px;
       width: 90%;
       text-align: center;
       border: 1px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      transform: scale(0.8);
-      transition: transform 0.5s ease;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      transform: translateY(50px) scale(0.9);
+      transition: all 0.5s ease;
       color: white;
+      position: relative;
+      overflow: hidden;
     \`;
     
+    // 添加渐变背景
+    const gradientBg = document.createElement('div');
+    gradientBg.style.cssText = \`
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(74, 144, 226, 0.3), rgba(148, 85, 211, 0.3));
+      z-index: -1;
+    \`;
+    hintContent.appendChild(gradientBg);
+    
     hintContent.innerHTML = \`
-      <h3 style="margin-bottom: 20px; color: #ffeb3b;">代理使用警告</h3>
-      <p style="margin-bottom: 20px; line-height: 1.5;">\${hint}</p>
-      <div style="margin-bottom: 15px;">
-        <a href="https://github.com/1234567Yang/cf-proxy-ex/" 
-           style="color: #90caf9; text-decoration: none; font-weight: bold;">
-          https://github.com/1234567Yang/cf-proxy-ex/
-        </a>
-      </div>
-      <div style="display: flex; gap: 10px; justify-content: center;">
-        <button id="closeHint" style="
-          padding: 10px 20px;
-          background: rgba(255, 255, 255, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 25px;
-          color: white;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        ">关闭提示</button>
-        <button id="dismissHint" style="
-          padding: 10px 20px;
-          background: rgba(255, 59, 59, 0.3);
-          border: 1px solid rgba(255, 59, 59, 0.5);
-          border-radius: 25px;
-          color: white;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        ">不再显示</button>
+      <div style="position: relative; z-index: 1;">
+        <h3 style="margin-bottom: 20px; color: #fff; font-size: 24px; text-shadow: 0 2px 10px rgba(0,0,0,0.3);">代理使用警告</h3>
+        <p style="margin-bottom: 25px; line-height: 1.6; font-size: 16px; color: rgba(255,255,255,0.9);">\${hint}</p>
+        <div style="margin-bottom: 20px;">
+          <a href="https://github.com/1234567Yang/cf-proxy-ex/" 
+             style="color: #90caf9; text-decoration: none; font-weight: bold; font-size: 14px; padding: 8px 16px; background: rgba(255,255,255,0.1); border-radius: 20px; display: inline-block;">
+            https://github.com/1234567Yang/cf-proxy-ex/
+          </a>
+        </div>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+          <button id="closeHint" style="
+            padding: 12px 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+          ">关闭提示</button>
+          <button id="dismissHint" style="
+            padding: 12px 30px;
+            background: rgba(255, 87, 87, 0.3);
+            border: 1px solid rgba(255, 87, 87, 0.5);
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+          ">不再显示</button>
+        </div>
       </div>
     \`;
     
@@ -130,15 +143,17 @@ Warning: You are currently using a web proxy, so do not log in to any website. C
     // 动画显示
     setTimeout(() => {
       hintOverlay.style.opacity = '1';
-      hintContent.style.transform = 'scale(1)';
+      hintContent.style.transform = 'translateY(0) scale(1)';
     }, 100);
     
     // 关闭按钮事件
     document.getElementById('closeHint').onclick = function() {
       hintOverlay.style.opacity = '0';
-      hintContent.style.transform = 'scale(0.8)';
+      hintContent.style.transform = 'translateY(50px) scale(0.9)';
       setTimeout(() => {
-        document.body.removeChild(hintOverlay);
+        if (hintOverlay.parentNode) {
+          document.body.removeChild(hintOverlay);
+        }
       }, 500);
     };
     
@@ -146,15 +161,15 @@ Warning: You are currently using a web proxy, so do not log in to any website. C
     document.getElementById('dismissHint').onclick = function() {
       localStorage.setItem('proxyHintDismissed', 'true');
       hintOverlay.style.opacity = '0';
-      hintContent.style.transform = 'scale(0.8)';
+      hintContent.style.transform = 'translateY(50px) scale(0.9)';
       setTimeout(() => {
-        document.body.removeChild(hintOverlay);
+        if (hintOverlay.parentNode) {
+          document.body.removeChild(hintOverlay);
+        }
       }, 500);
     };
-  } else {
-    alert(hint + "https://github.com/1234567Yang/cf-proxy-ex");
-  }
-}, 1000);
+  }, 500);
+});
 
 `;
 
@@ -761,6 +776,7 @@ function initToolbar() {
   // 主工具按钮
   const mainButton = document.createElement('button');
   mainButton.innerHTML = '🛠️';
+  mainButton.title = '代理工具';
   mainButton.style.cssText = \`
     width: 50px;
     height: 50px;
@@ -876,13 +892,13 @@ function showCookiePanel() {
   
   const panel = createPanel('🍪 Cookie注入', \`
     <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: bold;">注入地址:</label>
+      <label style="display: block; margin-bottom: 8px; font-weight: bold; color: white;">注入地址:</label>
       <input type="text" id="cookie-url" value="\${currentHost}" readonly 
              style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
     </div>
     
     <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: bold;">输入方式:</label>
+      <label style="display: block; margin-bottom: 8px; font-weight: bold; color: white;">输入方式:</label>
       <select id="cookie-type" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
         <option value="combined" \${siteCookies.type === 'combined' ? 'selected' : ''}>合成Cookie</option>
         <option value="segments" \${siteCookies.type === 'segments' ? 'selected' : ''}>分段Cookie</option>
@@ -890,13 +906,13 @@ function showCookiePanel() {
     </div>
     
     <div id="combined-section" style="margin-bottom: 15px; display: \${siteCookies.type === 'combined' ? 'block' : 'none'}">
-      <label style="display: block; margin-bottom: 8px; font-weight: bold;">合成Cookie:</label>
+      <label style="display: block; margin-bottom: 8px; font-weight: bold; color: white;">合成Cookie:</label>
       <textarea id="combined-cookie" placeholder="例如: name=value; name2=value2" 
                 style="width: 100%; height: 80px; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: vertical;">\${siteCookies.combined || ''}</textarea>
     </div>
     
     <div id="segments-section" style="margin-bottom: 15px; display: \${siteCookies.type === 'segments' ? 'block' : 'none'}">
-      <label style="display: block; margin-bottom: 8px; font-weight: bold;">分段Cookie:</label>
+      <label style="display: block; margin-bottom: 8px; font-weight: bold; color: white;">分段Cookie:</label>
       <div id="cookie-segments">
         \${(siteCookies.segments || []).map(segment => \`
           <div class="cookie-segment" style="display: flex; gap: 8px; margin-bottom: 8px;">
@@ -1062,12 +1078,13 @@ function convertCookieFormat() {
 //---***========================================***---广告拦截功能---***========================================***---
 let adBlockEnabled = false;
 let adBlockRules = [];
+let blockedCount = 0;
 
 function showAdblockPanel() {
   const panel = createPanel('🛡️ 广告拦截', \`
     <div style="margin-bottom: 20px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin: 0;">广告拦截</h3>
+        <h3 style="margin: 0; color: white;">广告拦截</h3>
         <label class="switch">
           <input type="checkbox" id="adblock-toggle" \${adBlockEnabled ? 'checked' : ''}>
           <span class="slider"></span>
@@ -1075,35 +1092,35 @@ function showAdblockPanel() {
       </div>
       
       <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-        <div style="font-size: 24px; font-weight: bold; color: #4caf50; text-align: center; margin-bottom: 10px;">188</div>
-        <div style="text-align: center;">已拦截广告数量</div>
+        <div style="font-size: 24px; font-weight: bold; color: #4caf50; text-align: center; margin-bottom: 10px;">\${blockedCount}</div>
+        <div style="text-align: center; color: rgba(255,255,255,0.8);">已拦截广告数量</div>
       </div>
     </div>
     
     <div style="margin-bottom: 15px;">
-      <h4 style="margin-bottom: 10px;">规则订阅</h4>
+      <h4 style="margin-bottom: 10px; color: white;">规则订阅</h4>
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <label style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" checked disabled>
+        <label style="display: flex; align-items: center; gap: 8px; color: white;">
+          <input type="checkbox" id="easylist" checked>
           <span>EasyList</span>
         </label>
-        <label style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" checked disabled>
+        <label style="display: flex; align-items: center; gap: 8px; color: white;">
+          <input type="checkbox" id="easylist-china" checked>
           <span>EasyList China</span>
         </label>
-        <label style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" checked disabled>
+        <label style="display: flex; align-items: center; gap: 8px; color: white;">
+          <input type="checkbox" id="easyprivacy" checked>
           <span>EasyPrivacy</span>
         </label>
-        <label style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" checked disabled>
+        <label style="display: flex; align-items: center; gap: 8px; color: white;">
+          <input type="checkbox" id="anti-adblock" checked>
           <span>Anti-Adblock</span>
         </label>
       </div>
     </div>
     
     <div style="margin-bottom: 15px;">
-      <h4 style="margin-bottom: 10px;">自定义规则</h4>
+      <h4 style="margin-bottom: 10px; color: white;">自定义规则</h4>
       <textarea id="custom-rules" placeholder="添加自定义规则（每行一个）" 
                 style="width: 100%; height: 100px; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: vertical;"></textarea>
       <button type="button" id="save-rules" style="width: 100%; padding: 8px; margin-top: 8px; background: rgba(76,175,80,0.3); border: 1px solid rgba(76,175,80,0.5); border-radius: 8px; color: white; cursor: pointer;">保存规则</button>
@@ -1174,29 +1191,53 @@ function showAdblockPanel() {
   document.getElementById('mark-ad').addEventListener('click', startAdMarking);
 }
 
-function enableAdBlock() {
+async function enableAdBlock() {
   // 加载规则并开始拦截
-  loadAdBlockRules();
+  await loadAdBlockRules();
   interceptAds();
+  showNotification('广告拦截规则已加载', 'success');
 }
 
 function disableAdBlock() {
   // 停止拦截
-  adBlockRules = [];
+  adBlockEnabled = false;
+  showNotification('广告拦截已关闭', 'info');
 }
 
-function loadAdBlockRules() {
-  // 这里应该从订阅的URL加载规则
-  // 简化版本使用内置规则
-  adBlockRules = [
-    'adsystem.com',
-    'doubleclick.net',
-    'googleadservices.com',
-    'googlesyndication.com',
-    'ad.*.com',
-    '*.ads.*',
-    'tracker'
-  ];
+async function loadAdBlockRules() {
+  adBlockRules = [];
+  
+  // 加载选中的规则订阅
+  const subscriptions = {
+    easylist: 'https://easylist-downloads.adblockplus.org/easylist.txt',
+    'easylist-china': 'https://easylist-downloads.adblockplus.org/easylistchina.txt',
+    easyprivacy: 'https://easylist-downloads.adblockplus.org/easyprivacy.txt',
+    'anti-adblock': 'https://easylist-downloads.adblockplus.org/antiadblockfilters.txt'
+  };
+
+  for (const [id, url] of Object.entries(subscriptions)) {
+    const checkbox = document.getElementById(id);
+    if (checkbox && checkbox.checked) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const rules = text.split('\\n')
+          .filter(line => line && !line.startsWith('!') && !line.startsWith('['))
+          .map(rule => rule.trim());
+        adBlockRules.push(...rules);
+        console.log(\`Loaded \${rules.length} rules from \${id}\`);
+      } catch (error) {
+        console.error(\`Failed to load rules from \${url}:\`, error);
+      }
+    }
+  }
+
+  // 加载自定义规则
+  const customRules = localStorage.getItem('adblockCustomRules');
+  if (customRules) {
+    const rules = customRules.split('\\n').filter(rule => rule.trim());
+    adBlockRules.push(...rules);
+  }
 }
 
 function interceptAds() {
@@ -1208,10 +1249,15 @@ function interceptAds() {
     const url = typeof input === 'string' ? input : input.url;
     
     if (adBlockRules.some(rule => {
-      const regex = new RegExp(rule.replace(/\\*/g, '.*'));
-      return regex.test(url);
+      try {
+        const regex = new RegExp(rule.replace(/\\*/g, '.*'));
+        return regex.test(url);
+      } catch {
+        return url.includes(rule);
+      }
     })) {
       console.log('Blocked ad request:', url);
+      blockedCount++;
       return Promise.reject(new Error('Ad blocked'));
     }
     
@@ -1230,10 +1276,15 @@ function interceptAds() {
       },
       set: function(value) {
         if (adBlockRules.some(rule => {
-          const regex = new RegExp(rule.replace(/\\*/g, '.*'));
-          return regex.test(value);
+          try {
+            const regex = new RegExp(rule.replace(/\\*/g, '.*'));
+            return regex.test(value);
+          } catch {
+            return value.includes(rule);
+          }
         })) {
           console.log('Blocked ad image:', value);
+          blockedCount++;
           return;
         }
         originalSrc.set.call(this, value);
@@ -1242,11 +1293,38 @@ function interceptAds() {
     
     return img;
   };
+
+  // 拦截脚本加载
+  const originalCreateElement = document.createElement;
+  document.createElement = function(tagName) {
+    const element = originalCreateElement.call(this, tagName);
+    if (tagName.toLowerCase() === 'script') {
+      const originalSetAttribute = element.setAttribute;
+      element.setAttribute = function(name, value) {
+        if (name === 'src' && adBlockRules.some(rule => {
+          try {
+            const regex = new RegExp(rule.replace(/\\*/g, '.*'));
+            return regex.test(value);
+          } catch {
+            return value.includes(rule);
+          }
+        })) {
+          console.log('Blocked ad script:', value);
+          blockedCount++;
+          return;
+        }
+        originalSetAttribute.call(this, name, value);
+      };
+    }
+    return element;
+  };
 }
 
 function saveCustomRules() {
-  const rules = document.getElementById('custom-rules').value.split('\\n');
-  adBlockRules = adBlockRules.concat(rules);
+  const rules = document.getElementById('custom-rules').value.split('\\n').filter(rule => rule.trim());
+  localStorage.setItem('adblockCustomRules', rules.join('\\n'));
+  adBlockRules = adBlockRules.filter(rule => !rule.startsWith('CUSTOM:'));
+  rules.forEach(rule => adBlockRules.push('CUSTOM:' + rule));
   showNotification('自定义规则已保存', 'success');
 }
 
@@ -1254,13 +1332,17 @@ function startAdMarking() {
   showNotification('点击页面上的广告元素进行标记', 'info');
   
   document.body.style.cursor = 'crosshair';
-  const elements = [];
   
   function markElement(e) {
     e.preventDefault();
     e.stopPropagation();
     
     const element = e.target;
+    const rect = element.getBoundingClientRect();
+    
+    // 只标记可见的、足够大的元素
+    if (rect.width < 10 || rect.height < 10) return;
+    
     element.style.outline = '2px solid red';
     element.style.position = 'relative';
     
@@ -1292,7 +1374,6 @@ function startAdMarking() {
     };
     
     element.appendChild(removeBtn);
-    elements.push(element);
     
     return false;
   }
@@ -1310,12 +1391,14 @@ function startAdMarking() {
 //---***========================================***---资源嗅探功能---***========================================***---
 let requests = [];
 let requestInterceptorEnabled = false;
+let originalFetch = window.fetch;
+let originalXHR = window.XMLHttpRequest;
 
 function showSnifferPanel() {
   const panel = createPanel('👃 资源嗅探', \`
     <div style="margin-bottom: 15px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0;">请求监控</h3>
+        <h3 style="margin: 0; color: white;">请求监控</h3>
         <label class="switch">
           <input type="checkbox" id="sniffer-toggle" \${requestInterceptorEnabled ? 'checked' : ''}>
           <span class="slider"></span>
@@ -1336,10 +1419,10 @@ function showSnifferPanel() {
           <div class="request-item" style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;" data-index="\${index}">
             <div style="display: flex; justify-content: space-between;">
               <span style="font-weight: bold; color: \${getMethodColor(req.method)}">\${req.method}</span>
-              <span style="font-size: 12px; opacity: 0.7;">\${new Date(req.timestamp).toLocaleTimeString()}</span>
+              <span style="font-size: 12px; opacity: 0.7; color: white;">\${new Date(req.timestamp).toLocaleTimeString()}</span>
             </div>
-            <div style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="\${req.url}">\${req.url}</div>
-            <div style="font-size: 11px; opacity: 0.7;">状态: \${req.status} | 大小: \${formatSize(req.size)}</div>
+            <div style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.9);" title="\${req.url}">\${req.url}</div>
+            <div style="font-size: 11px; opacity: 0.7; color: white;">状态: \${req.status} | 大小: \${formatSize(req.size)} | 类型: \${req.type}</div>
           </div>
         \`).join('')}
       </div>
@@ -1360,6 +1443,7 @@ function showSnifferPanel() {
   document.getElementById('clear-requests').addEventListener('click', function() {
     requests = [];
     document.getElementById('requests-list').innerHTML = '';
+    showNotification('记录已清空', 'info');
   });
 
   document.getElementById('export-requests').addEventListener('click', function() {
@@ -1371,6 +1455,7 @@ function showSnifferPanel() {
     a.download = 'requests.json';
     a.click();
     URL.revokeObjectURL(url);
+    showNotification('数据已导出', 'success');
   });
 
   // 请求项点击事件
@@ -1395,7 +1480,7 @@ function getMethodColor(method) {
 }
 
 function formatSize(bytes) {
-  if (bytes === 0) return '0 B';
+  if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -1403,36 +1488,40 @@ function formatSize(bytes) {
 }
 
 function startRequestInterception() {
-  const originalFetch = window.fetch;
-  const originalXHR = window.XMLHttpRequest;
-  
   // 拦截fetch
   window.fetch = function(...args) {
     const startTime = Date.now();
+    const requestUrl = typeof args[0] === 'string' ? args[0] : args[0].url;
+    const requestMethod = (args[1] && args[1].method) || 'GET';
+    
     const request = {
-      method: 'GET',
-      url: typeof args[0] === 'string' ? args[0] : args[0].url,
+      method: requestMethod,
+      url: requestUrl,
       timestamp: startTime,
-      type: 'fetch'
+      type: 'fetch',
+      status: 'Pending',
+      size: 0,
+      duration: 0
     };
+    
+    const requestIndex = requests.length;
+    addRequest(request);
     
     return originalFetch.apply(this, args).then(response => {
       const endTime = Date.now();
       request.status = response.status;
       request.duration = endTime - startTime;
-      request.size = 0;
       
       // 克隆response来读取大小
-      response.clone().text().then(text => {
-        request.size = new Blob([text]).size;
-        addRequest(request);
+      return response.clone().arrayBuffer().then(buffer => {
+        request.size = buffer.byteLength;
+        updateRequest(requestIndex, request);
+        return response;
       });
-      
-      return response;
     }).catch(error => {
       request.status = 'Error';
       request.error = error.message;
-      addRequest(request);
+      updateRequest(requestIndex, request);
       throw error;
     });
   };
@@ -1444,32 +1533,38 @@ function startRequestInterception() {
     const originalSend = xhr.send;
     
     let request = {};
+    let requestIndex;
     
-    xhr.open = function(method, url) {
+    xhr.open = function(method, url, async, user, password) {
       request = {
         method: method,
         url: url,
         timestamp: Date.now(),
-        type: 'xhr'
+        type: 'xhr',
+        status: 'Pending',
+        size: 0,
+        duration: 0
       };
+      requestIndex = requests.length;
+      addRequest(request);
       return originalOpen.apply(this, arguments);
     };
     
     xhr.send = function(data) {
-      request.requestData = data;
       const startTime = Date.now();
+      request.requestData = data;
       
       xhr.addEventListener('load', function() {
         request.status = xhr.status;
         request.duration = Date.now() - startTime;
         request.size = xhr.responseText.length;
-        addRequest(request);
+        updateRequest(requestIndex, request);
       });
       
       xhr.addEventListener('error', function() {
         request.status = 'Error';
         request.error = 'Request failed';
-        addRequest(request);
+        updateRequest(requestIndex, request);
       });
       
       return originalSend.apply(this, arguments);
@@ -1480,55 +1575,63 @@ function startRequestInterception() {
 }
 
 function stopRequestInterception() {
-  // 恢复原始方法
-  // 注意：这需要更复杂的实现来完全恢复
-  // 简化版本中，我们只是停止记录新请求
+  window.fetch = originalFetch;
+  window.XMLHttpRequest = originalXHR;
 }
 
 function addRequest(request) {
   requests.push(request);
-  if (requests.length > 1000) {
-    requests.shift(); // 限制记录数量
+  updateRequestsList();
+}
+
+function updateRequest(index, request) {
+  if (requests[index]) {
+    requests[index] = request;
+    updateRequestsList();
   }
-  
-  // 更新UI
+}
+
+function updateRequestsList() {
   const list = document.getElementById('requests-list');
   if (list) {
-    const item = document.createElement('div');
-    item.className = 'request-item';
-    item.style.cssText = 'padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;';
-    item.dataset.index = requests.length - 1;
-    item.innerHTML = \`
-      <div style="display: flex; justify-content: space-between;">
-        <span style="font-weight: bold; color: \${getMethodColor(request.method)}">\${request.method}</span>
-        <span style="font-size: 12px; opacity: 0.7;">\${new Date(request.timestamp).toLocaleTimeString()}</span>
-      </div>
-      <div style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="\${request.url}">\${request.url}</div>
-      <div style="font-size: 11px; opacity: 0.7;">状态: \${request.status} | 大小: \${formatSize(request.size)}</div>
-    \`;
-    list.appendChild(item);
+    list.innerHTML = '';
+    requests.forEach((req, index) => {
+      const item = document.createElement('div');
+      item.className = 'request-item';
+      item.style.cssText = 'padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;';
+      item.dataset.index = index;
+      item.innerHTML = \`
+        <div style="display: flex; justify-content: space-between;">
+          <span style="font-weight: bold; color: \${getMethodColor(req.method)}">\${req.method}</span>
+          <span style="font-size: 12px; opacity: 0.7; color: white;">\${new Date(req.timestamp).toLocaleTimeString()}</span>
+        </div>
+        <div style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.9);" title="\${req.url}">\${req.url}</div>
+        <div style="font-size: 11px; opacity: 0.7; color: white;">状态: \${req.status} | 大小: \${formatSize(req.size)} | 类型: \${req.type}</div>
+      \`;
+      list.appendChild(item);
+    });
   }
 }
 
 function showRequestDetail(request) {
   const panel = createPanel('请求详情', \`
     <div style="margin-bottom: 15px;">
-      <h4>基本信息</h4>
+      <h4 style="color: white;">基本信息</h4>
       <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">
-        <div><strong>URL:</strong> \${request.url}</div>
-        <div><strong>方法:</strong> \${request.method}</div>
-        <div><strong>状态:</strong> \${request.status}</div>
-        <div><strong>类型:</strong> \${request.type}</div>
-        <div><strong>时间:</strong> \${new Date(request.timestamp).toLocaleString()}</div>
-        <div><strong>耗时:</strong> \${request.duration}ms</div>
-        <div><strong>大小:</strong> \${formatSize(request.size)}</div>
+        <div style="color: white;"><strong>URL:</strong> \${request.url}</div>
+        <div style="color: white;"><strong>方法:</strong> \${request.method}</div>
+        <div style="color: white;"><strong>状态:</strong> \${request.status}</div>
+        <div style="color: white;"><strong>类型:</strong> \${request.type}</div>
+        <div style="color: white;"><strong>时间:</strong> \${new Date(request.timestamp).toLocaleString()}</div>
+        <div style="color: white;"><strong>耗时:</strong> \${request.duration}ms</div>
+        <div style="color: white;"><strong>大小:</strong> \${formatSize(request.size)}</div>
       </div>
     </div>
     
     \${request.requestData ? \`
     <div style="margin-bottom: 15px;">
-      <h4>请求数据</h4>
-      <textarea readonly style="width: 100%; height: 100px; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: vertical;">\${request.requestData}</textarea>
+      <h4 style="color: white;">请求数据</h4>
+      <textarea readonly style="width: 100%; height: 100px; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; resize: vertical;">\${typeof request.requestData === 'string' ? request.requestData : JSON.stringify(request.requestData)}</textarea>
     </div>
     \` : ''}
     
@@ -1541,10 +1644,10 @@ function showRequestDetail(request) {
   document.getElementById('block-request').addEventListener('click', function() {
     // 添加拦截规则
     const domain = new URL(request.url).hostname;
-    if (adBlockRules.indexOf(domain) === -1) {
-      adBlockRules.push(domain);
-      showNotification(\`已拦截域名: \${domain}\`, 'success');
-    }
+    const customRules = localStorage.getItem('adblockCustomRules') || '';
+    const newRules = customRules + '\\n' + domain;
+    localStorage.setItem('adblockCustomRules', newRules.trim());
+    showNotification(\`已拦截域名: \${domain}\`, 'success');
   });
 
   document.getElementById('modify-request').addEventListener('click', function() {
@@ -1556,12 +1659,12 @@ function showRequestDetail(request) {
 function showRequestPanel() {
   const panel = createPanel('🔧 请求修改', \`
     <div style="margin-bottom: 15px;">
-      <h3>请求重写规则</h3>
-      <p style="opacity: 0.8; font-size: 14px;">修改特定请求的URL、请求头或响应</p>
+      <h3 style="color: white;">请求重写规则</h3>
+      <p style="opacity: 0.8; font-size: 14px; color: white;">修改特定请求的URL、请求头或响应</p>
     </div>
     
     <div style="margin-bottom: 15px;">
-      <h4>浏览器标识</h4>
+      <h4 style="color: white;">浏览器标识</h4>
       <select id="user-agent" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
         <option value="">默认</option>
         <option value="Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36">Android (手机)</option>
@@ -1576,7 +1679,7 @@ function showRequestPanel() {
     </div>
     
     <div style="margin-bottom: 15px;">
-      <h4>请求语言</h4>
+      <h4 style="color: white;">请求语言</h4>
       <select id="accept-language" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
         <option value="">默认</option>
         <option value="zh-CN,zh;q=0.9,en;q=0.8">中文简体</option>
@@ -1590,7 +1693,7 @@ function showRequestPanel() {
     </div>
     
     <div style="margin-bottom: 15px;">
-      <h4>自定义请求头</h4>
+      <h4 style="color: white;">自定义请求头</h4>
       <div id="custom-headers">
         <div class="header-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
           <input type="text" placeholder="Header名称" class="header-name" style="flex: 1; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
@@ -1686,27 +1789,48 @@ function saveRequestSettings() {
 }
 
 function applyRequestSettings() {
-  saveRequestSettings();
+  const settings = JSON.parse(localStorage.getItem('requestSettings') || '{}');
+  
+  // 应用User-Agent
+  if (settings.userAgent) {
+    Object.defineProperty(navigator, 'userAgent', {
+      get: function() { return settings.userAgent; },
+      configurable: true
+    });
+  }
+  
+  // 应用Accept-Language
+  if (settings.acceptLanguage) {
+    Object.defineProperty(navigator, 'language', {
+      get: function() { return settings.acceptLanguage.split(',')[0]; },
+      configurable: true
+    });
+    Object.defineProperty(navigator, 'languages', {
+      get: function() { return settings.acceptLanguage.split(',').map(lang => lang.trim()); },
+      configurable: true
+    });
+  }
+  
   showNotification('请求设置已应用', 'success');
 }
 
 function showRequestModifier(request) {
   const panel = createPanel('修改请求', \`
     <div style="margin-bottom: 15px;">
-      <h4>修改请求</h4>
+      <h4 style="color: white;">修改请求</h4>
       <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-        <strong>原始URL:</strong> \${request.url}
+        <strong style="color: white;">原始URL:</strong> <span style="color: rgba(255,255,255,0.8);">\${request.url}</span>
       </div>
     </div>
     
     <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 8px;">新的URL:</label>
+      <label style="display: block; margin-bottom: 8px; color: white;">新的URL:</label>
       <input type="text" id="modified-url" value="\${request.url}" 
              style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
     </div>
     
     <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 8px;">请求方法:</label>
+      <label style="display: block; margin-bottom: 8px; color: white;">请求方法:</label>
       <select id="modified-method" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
         <option value="GET" \${request.method === 'GET' ? 'selected' : ''}>GET</option>
         <option value="POST" \${request.method === 'POST' ? 'selected' : ''}>POST</option>
@@ -1759,27 +1883,27 @@ function createPanel(title, content) {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) scale(0.8);
+    transform: translate(-50%, -50%) scale(0.9);
     width: 90%;
     max-width: 500px;
     max-height: 80vh;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 20px;
+    padding: 25px;
     z-index: 10001;
     color: white;
     overflow-y: auto;
     opacity: 0;
-    transition: all 0.3s ease;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transition: all 0.4s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   \`;
   
   panel.innerHTML = \`
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h2 style="margin: 0; font-size: 18px;">\${title}</h2>
-      <button id="close-panel" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px;">×</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+      <h2 style="margin: 0; font-size: 20px; color: white; font-weight: 600;">\${title}</h2>
+      <button id="close-panel" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 5px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,0.1);">×</button>
     </div>
     \${content}
   \`;
@@ -1795,24 +1919,24 @@ function createPanel(title, content) {
   // 关闭按钮事件
   document.getElementById('close-panel').addEventListener('click', function() {
     panel.style.opacity = '0';
-    panel.style.transform = 'translate(-50%, -50%) scale(0.8)';
+    panel.style.transform = 'translate(-50%, -50%) scale(0.9)';
     setTimeout(() => {
       if (panel.parentNode) {
         document.body.removeChild(panel);
       }
-    }, 300);
+    }, 400);
   });
   
   // 点击外部关闭
   panel.addEventListener('click', function(e) {
     if (e.target === panel) {
       panel.style.opacity = '0';
-      panel.style.transform = 'translate(-50%, -50%) scale(0.8)';
+      panel.style.transform = 'translate(-50%, -50%) scale(0.9)';
       setTimeout(() => {
         if (panel.parentNode) {
           document.body.removeChild(panel);
         }
-      }, 300);
+      }, 400);
     }
   });
   
@@ -1833,12 +1957,16 @@ function showNotification(message, type = 'info') {
     background: \${backgroundColor};
     color: white;
     padding: 12px 20px;
-    border-radius: 8px;
+    border-radius: 12px;
     z-index: 10002;
     transform: translateX(100%);
     transition: transform 0.3s ease;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.2);
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 300px;
+    word-wrap: break-word;
   \`;
   
   notification.textContent = message;
@@ -1877,7 +2005,40 @@ window.addEventListener('load', () => {
   obsPage();
   covScript();
   initToolbar(); // 初始化工具栏
+  
+  // 自动加载已保存的Cookie
+  setTimeout(() => {
+    autoInjectCookies();
+  }, 1000);
 });
+
+function autoInjectCookies() {
+  const currentUrl = getOriginalUrl(window.location.href);
+  const currentHost = new URL(currentUrl).hostname;
+  
+  const savedCookies = JSON.parse(localStorage.getItem('proxyCookies') || '{}');
+  const siteCookies = savedCookies[currentHost];
+  
+  if (siteCookies) {
+    let cookieString = '';
+    if (siteCookies.type === 'combined') {
+      cookieString = siteCookies.combined;
+    } else {
+      cookieString = siteCookies.segments.map(segment => \`\${segment.name}=\${segment.value}\`).join('; ');
+    }
+    
+    if (cookieString) {
+      cookieString.split(';').forEach(cookie => {
+        const [name, value] = cookie.trim().split('=');
+        if (name && value) {
+          document.cookie = \`\${name}=\${value}; path=/; domain=\${currentHost}\`;
+        }
+      });
+      console.log('Auto-injected cookies for:', currentHost);
+    }
+  }
+}
+
 console.log("WINDOW ONLOAD EVENT ADDED");
 
 
@@ -2957,4 +3118,4 @@ function nthIndex(str, pat, n) {
     if (i < 0) break;
   }
   return i;
-}
+}   
