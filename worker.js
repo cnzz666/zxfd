@@ -1,5 +1,3 @@
-[file name]: worker1.js
-[file content begin]
 // ======================================================================================= 
 // 原作者开源地址:https://github.com/1234567Yang/cf-proxy-ex/
 // 本项目基于原作者进行优化修改，开源地址:https://github.com/cnzz666/zxfd
