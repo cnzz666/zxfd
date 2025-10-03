@@ -26,2442 +26,1414 @@ const showPasswordPage = true;
 const replaceUrlObj = "__location__yproxy__";
 const cookieInjectionDataName = "__PROXY_COOKIE_INJECTION__";
 const noHintCookieName = "__PROXY_NO_HINT__";
-const adBlockEnabledName = "__PROXY_ADBLOCK_ENABLED__";
-const imageModeName = "__PROXY_IMAGE_MODE__";
-const resourceSnifferName = "__PROXY_RESOURCE_SNIFFER__";
-const requestModifierName = "__PROXY_REQUEST_MODIFIER__";
-const userAgentName = "__PROXY_USER_AGENT__";
-const languageName = "__PROXY_LANGUAGE__";
+const adBlockDataName = "__PROXY_ADBLOCK__";
+const requestModDataName = "__PROXY_REQUEST_MOD__";
+const resourceSnifferDataName = "__PROXY_RESOURCE_SNIFFER__";
+const imageBlockDataName = "__PROXY_IMAGE_BLOCK__";
 
 var thisProxyServerUrlHttps;
 var thisProxyServerUrl_hostOnly;
 
 // =======================================================================================
 // 第三部分：代理提示注入脚本
-// 功能：在代理页面显示使用警告提示（修改为现代化弹窗样式）
+// 功能：在代理页面显示使用警告提示（修改为玻璃样式弹窗）
 // =======================================================================================
 
 const proxyHintInjection = `
-// 现代化代理提示弹窗
-function showProxyHintModal() {
-    if (document.getElementById('__PROXY_HINT_MODAL__')) return;
+function toEntities(str) {
+return str.split("").map(ch => \`&#\${ch.charCodeAt(0)};\`).join("");
+}
+
+//---***========================================***---提示使用代理---***========================================***---
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if(document.getElementById('__PROXY_HINT_MODAL__')) return;
     
-    const modalHTML = \`
-    <div id="__PROXY_HINT_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;opacity:0;transition:opacity 0.5s ease;backdrop-filter:blur(5px);">
-        <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(15px);border-radius:20px;padding:40px;max-width:600px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);transform:scale(0.9) translateY(20px);transition:all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-            <div style="text-align:center;color:#ffffff;">
-                <div style="margin-bottom:25px;">
-                    <div style="font-size:48px;margin-bottom:10px;">⚠️</div>
-                    <h3 style="color:#ff6b6b;margin-bottom:15px;font-size:24px;font-weight:600;text-shadow:0 2px 4px rgba(0,0,0,0.3);">安全警告 Security Warning</h3>
-                </div>
-                <div style="background:rgba(0,0,0,0.3);padding:20px;border-radius:12px;margin-bottom:25px;text-align:left;">
-                    <p style="margin-bottom:15px;line-height:1.6;font-size:15px;color:#e0e0e0;">
-                        <strong style="color:#ff6b6b;">Warning:</strong> You are currently using a web proxy service. For security reasons, please DO NOT log in to any sensitive accounts or enter personal information.
-                    </p>
-                    <p style="margin-bottom:15px;line-height:1.6;font-size:15px;color:#e0e0e0;">
-                        <strong style="color:#ff6b6b;">警告：</strong> 您当前正在使用网络代理服务。出于安全考虑，请勿登录任何敏感账户或输入个人信息。
-                    </p>
-                    <div style="border-left:3px solid #4fc3f7;padding-left:12px;margin:15px 0;">
-                        <p style="font-size:13px;color:#b0b0b0;line-height:1.5;">
-                            This proxy is for educational purposes only. Use at your own risk.
-                            <br>此代理仅用于教育目的，使用风险自负。
-                        </p>
-                    </div>
-                </div>
-                <div style="margin-bottom:25px;">
-                    <a href="https://github.com/1234567Yang/cf-proxy-ex/" target="_blank" style="color:#4fc3f7;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:5px;">
-                        <span>📚 项目文档 Project Documentation</span>
-                    </a>
-                </div>
-                <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;">
-                    <button onclick="closeHint(false)" style="padding:12px 30px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;border-radius:25px;color:white;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(102,126,234,0.4);">
-                        关闭提示 Close
-                    </button>
-                    <button onclick="closeHint(true)" style="padding:12px 30px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);border-radius:25px;color:white;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.3s ease;">
-                        不再显示 Don't show again
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    setTimeout(() => {
-        const modal = document.getElementById('__PROXY_HINT_MODAL__');
-        const content = modal.querySelector('div > div');
-        modal.style.opacity = '1';
-        content.style.transform = 'scale(1) translateY(0)';
-    }, 100);
-}
-
-function closeHint(dontShowAgain) {
-    const modal = document.getElementById('__PROXY_HINT_MODAL__');
-    if (modal) {
-        const content = modal.querySelector('div > div');
-        content.style.transform = 'scale(0.9) translateY(20px)';
-        modal.style.opacity = '0';
-        setTimeout(() => {
-            modal.remove();
-            if(dontShowAgain) {
-                const expiryDate = new Date();
-                expiryDate.setTime(expiryDate.getTime() + (30 * 24 * 60 * 60 * 1000));
-                document.cookie = "${noHintCookieName}=1; expires=" + expiryDate.toUTCString() + "; path=/";
-            }
-        }, 500);
-    }
-}
-
-// 页面加载完成后显示弹窗
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(showProxyHintModal, 1000);
-    });
-} else {
-    setTimeout(showProxyHintModal, 1000);
-}
-`;
-
-// =======================================================================================
-// 第四部分：工具栏系统
-// 功能：创建右下角工具栏，包含所有高级功能入口
-// =======================================================================================
-
-const toolbarSystem = `
-// 工具栏系统
-function initToolbarSystem() {
-    createMainToolbar();
-    loadAllSettings();
-}
-
-function createMainToolbar() {
-    const toolbarHTML = \`
-    <div id="proxy-toolbar" style="position:fixed;bottom:20px;right:20px;z-index:2147483647;display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
-        <!-- 主工具栏 -->
-        <div id="main-toolbar-buttons" style="display:flex;flex-direction:column;gap:8px;">
-            <button id="tools-toggle" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;color:white;cursor:pointer;font-size:20px;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;">
-                🛠️
-            </button>
-        </div>
-        
-        <!-- 扩展工具栏（默认隐藏） -->
-        <div id="extended-toolbar" style="display:none;flex-direction:column;gap:8px;">
-            <button class="tool-btn" data-tool="cookie" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border:none;color:white;cursor:pointer;font-size:18px;box-shadow:0 4px 15px rgba(0,0,0,0.2);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;">
-                🍪
-            </button>
-            <button class="tool-btn" data-tool="adblock" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border:none;color:white;cursor:pointer;font-size:18px;box-shadow:0 4px 15px rgba(0,0,0,0.2);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;">
-                🚫
-            </button>
-            <button class="tool-btn" data-tool="sniffer" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#4ecdc4 0%,#44a08d 100%);border:none;color:white;cursor:pointer;font-size:18px;box-shadow:0 4px 15px rgba(0,0,0,0.2);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;">
-                🔍
-            </button>
-            <button class="tool-btn" data-tool="settings" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#ffd89b 0%,#19547b 100%);border:none;color:white;cursor:pointer;font-size:18px;box-shadow:0 4px 15px rgba(0,0,0,0.2);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;">
-                ⚙️
-            </button>
-        </div>
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', toolbarHTML);
-    
-    // 添加事件监听
-    document.getElementById('tools-toggle').addEventListener('click', toggleExtendedToolbar);
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const tool = this.getAttribute('data-tool');
-            openToolModal(tool);
-        });
-    });
-    
-    // 添加悬停效果
-    document.querySelectorAll('.tool-btn, #tools-toggle').forEach(btn => {
-        btn.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.1) translateY(-2px)';
-            this.style.boxShadow = '0 6px 25px rgba(0,0,0,0.3)';
-        });
-        btn.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1) translateY(0)';
-            this.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
-        });
-    });
-}
-
-function toggleExtendedToolbar() {
-    const extendedToolbar = document.getElementById('extended-toolbar');
-    const mainButton = document.getElementById('tools-toggle');
-    
-    if (extendedToolbar.style.display === 'none') {
-        extendedToolbar.style.display = 'flex';
-        mainButton.style.transform = 'rotate(45deg)';
-        mainButton.innerHTML = '✕';
-    } else {
-        extendedToolbar.style.display = 'none';
-        mainButton.style.transform = 'rotate(0deg)';
-        mainButton.innerHTML = '🛠️';
-    }
-}
-
-function openToolModal(toolName) {
-    // 关闭其他打开的模态框
-    closeAllModals();
-    
-    switch(toolName) {
-        case 'cookie':
-            showCookieInjectionModal();
-            break;
-        case 'adblock':
-            showAdBlockModal();
-            break;
-        case 'sniffer':
-            showResourceSnifferModal();
-            break;
-        case 'settings':
-            showSettingsModal();
-            break;
-    }
-}
-
-function closeAllModals() {
-    const modals = document.querySelectorAll('.proxy-modal');
-    modals.forEach(modal => {
-        modal.style.opacity = '0';
-        setTimeout(() => modal.remove(), 300);
-    });
-}
-
-// 全局样式
-const toolbarStyles = \`
-<style>
-.proxy-modal {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2147483646;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    backdrop-filter: blur(5px);
-}
-
-.proxy-modal-content {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    padding: 30px;
-    max-width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 25px 50px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.2);
-    transform: scale(0.9) translateY(20px);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    color: white;
-}
-
-.proxy-modal.show {
-    opacity: 1;
-}
-
-.proxy-modal-content.show {
-    transform: scale(1) translateY(0);
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
-}
-
-.modal-title {
-    font-size: 22px;
-    font-weight: 600;
-    color: white;
-    margin: 0;
-}
-
-.close-modal {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 5px;
-    border-radius: 50%;
-    width: 35px;
-    height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.3s ease;
-}
-
-.close-modal:hover {
-    background: rgba(255,255,255,0.1);
-}
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #e0e0e0;
-    font-size: 14px;
-}
-
-.form-input, .form-select, .form-textarea {
-    width: 100%;
-    padding: 12px 15px;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.3);
-    background: rgba(255,255,255,0.1);
-    color: white;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-}
-
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-    outline: none;
-    border-color: #4fc3f7;
-    background: rgba(255,255,255,0.15);
-    box-shadow: 0 0 0 2px rgba(79,195,247,0.2);
-}
-
-.form-textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.btn {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 25px;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-}
-
-.btn-secondary {
-    background: rgba(255,255,255,0.1);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-}
-
-.btn-group {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 25px;
-}
-
-.tab-container {
-    margin-bottom: 20px;
-}
-
-.tab-buttons {
-    display: flex;
-    background: rgba(255,255,255,0.1);
-    border-radius: 10px;
-    padding: 5px;
-    margin-bottom: 20px;
-}
-
-.tab-btn {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    background: none;
-    color: rgba(255,255,255,0.7);
-    cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    font-size: 13px;
-}
-
-.tab-btn.active {
-    background: rgba(255,255,255,0.2);
-    color: white;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 24px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(255,255,255,0.3);
-    transition: .4s;
-    border-radius: 24px;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked + .slider {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-input:checked + .slider:before {
-    transform: translateX(26px);
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    margin-left: 8px;
-}
-
-.status-on {
-    background: #4caf50;
-    color: white;
-}
-
-.status-off {
-    background: #f44336;
-    color: white;
-}
-
-.resource-item {
-    background: rgba(255,255,255,0.05);
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    border-left: 3px solid #4fc3f7;
-}
-
-.resource-url {
-    font-size: 12px;
-    color: #e0e0e0;
-    word-break: break-all;
-    margin-bottom: 5px;
-}
-
-.resource-info {
-    font-size: 11px;
-    color: #b0b0b0;
-    display: flex;
-    gap: 10px;
-}
-
-.ad-element-highlight {
-    outline: 2px dashed #ff4757 !important;
-    background: rgba(255,71,87,0.1) !important;
-    position: relative;
-    cursor: crosshair;
-}
-
-.ad-element-highlight::after {
-    content: "🚫 AD";
-    position: absolute;
-    top: -20px;
-    right: -2px;
-    background: #ff4757;
-    color: white;
-    padding: 2px 6px;
-    font-size: 10px;
-    border-radius: 3px;
-    z-index: 2147483645;
-}
-</style>
+    var hint = \`
+Warning: You are currently using a web proxy, so do not log in to any website. For further details, please visit the link below.
+警告：您当前正在使用网络代理，请勿登录任何网站。详情请见以下链接。
 \`;
 
-// 注入全局样式
-document.head.insertAdjacentHTML('beforeend', toolbarStyles);
+    document.body.insertAdjacentHTML(
+      'afterbegin', 
+      \`<div id="__PROXY_HINT_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:99999999999999999999999;user-select:none;opacity:0;transition:opacity 0.5s ease;">
+        <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:500px;width:90%;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.5s ease;">
+          <div style="text-align:center;color:#2d3748;">
+            <h3 style="color:#c53030;margin-bottom:15px;">安全警告 Security Warning</h3>
+            <p style="margin-bottom:20px;line-height:1.6;">\${toEntities(hint)}</p>
+            <a href="https://github.com/1234567Yang/cf-proxy-ex/" target="_blank" style="color:#2c5282;display:block;margin-bottom:20px;">https://github.com/1234567Yang/cf-proxy-ex/</a>
+            <div style="display:flex;justify-content:center;gap:10px;">
+              <button onclick="closeHint(false)" style="padding:8px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">关闭 Close</button>
+              <button onclick="closeHint(true)" style="padding:8px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">不再显示 Don't show again</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    \`);
+
+    setTimeout(() => {
+      const modal = document.getElementById('__PROXY_HINT_MODAL__');
+      const content = modal.querySelector('div > div');
+      modal.style.opacity = '1';
+      content.style.transform = 'scale(1)';
+    }, 100);
+  }, 500);
+});
+
+function closeHint(dontShowAgain) {
+const modal = document.getElementById('__PROXY_HINT_MODAL__');
+modal.style.opacity = '0';
+setTimeout(() => {
+  modal.remove();
+  if(dontShowAgain) {
+    // 设置不再显示的cookie
+    const expiryDate = new Date();
+    expiryDate.setTime(expiryDate.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30天
+    document.cookie = "${noHintCookieName}=1; expires=" + expiryDate.toUTCString() + "; path=/";
+  }
+}, 500);
+}
 `;
 
 // =======================================================================================
-// 第五部分：Cookie注入功能
-// 功能：完整的Cookie注入系统，支持合成和分段输入
+// 第四部分：工具栏注入脚本
+// 功能：在代理页面右下角显示工具栏
 // =======================================================================================
 
-const cookieInjectionSystem = `
-// Cookie注入系统
-let currentCookies = [];
+const toolbarInjection = `
+// 工具栏功能
+function initToolbar() {
+  // 创建工具栏容器
+  const toolbar = document.createElement('div');
+  toolbar.id = '__PROXY_TOOLBAR__';
+  toolbar.style.position = 'fixed';
+  toolbar.style.bottom = '20px';
+  toolbar.style.right = '20px';
+  toolbar.style.zIndex = '999998';
+  toolbar.style.display = 'flex';
+  toolbar.style.flexDirection = 'column';
+  toolbar.style.gap = '10px';
+  toolbar.style.alignItems = 'end';
+  
+  // 创建主工具按钮
+  const mainToolBtn = document.createElement('button');
+  mainToolBtn.innerHTML = '🛠️';
+  mainToolBtn.title = '代理工具';
+  mainToolBtn.style.width = '50px';
+  mainToolBtn.style.height = '50px';
+  mainToolBtn.style.background = 'linear-gradient(45deg, #90cdf4, #b7e4f4)';
+  mainToolBtn.style.border = 'none';
+  mainToolBtn.style.borderRadius = '50%';
+  mainToolBtn.style.color = '#2d3748';
+  mainToolBtn.style.cursor = 'pointer';
+  mainToolBtn.style.boxShadow = '0 4px 15px rgba(160,174,192,0.3)';
+  mainToolBtn.style.fontSize = '20px';
+  mainToolBtn.style.transition = 'all 0.3s ease';
+  
+  mainToolBtn.onmouseenter = () => {
+    mainToolBtn.style.transform = 'scale(1.1)';
+    mainToolBtn.style.boxShadow = '0 6px 20px rgba(160,174,192,0.5)';
+  };
+  
+  mainToolBtn.onmouseleave = () => {
+    mainToolBtn.style.transform = 'scale(1)';
+    mainToolBtn.style.boxShadow = '0 4px 15px rgba(160,174,192,0.3)';
+  };
+  
+  // 创建功能按钮容器
+  const toolsContainer = document.createElement('div');
+  toolsContainer.id = '__PROXY_TOOLS_CONTAINER__';
+  toolsContainer.style.display = 'none';
+  toolsContainer.style.flexDirection = 'column';
+  toolsContainer.style.gap = '10px';
+  toolsContainer.style.alignItems = 'end';
+  
+  // Cookie注入按钮
+  const cookieBtn = createToolButton('🍪', 'Cookie注入', showCookieModal);
+  
+  // 广告拦截按钮
+  const adBlockBtn = createToolButton('🚫', '广告拦截', showAdBlockModal);
+  
+  // 资源嗅探按钮
+  const snifferBtn = createToolButton('🔍', '资源嗅探', showSnifferModal);
+  
+  // 请求修改按钮
+  const requestModBtn = createToolButton('🔧', '请求修改', showRequestModModal);
+  
+  // 无图模式按钮
+  const imageBlockBtn = createToolButton('🖼️', '无图模式', toggleImageBlock);
+  
+  // 添加按钮到容器
+  toolsContainer.appendChild(cookieBtn);
+  toolsContainer.appendChild(adBlockBtn);
+  toolsContainer.appendChild(snifferBtn);
+  toolsContainer.appendChild(requestModBtn);
+  toolsContainer.appendChild(imageBlockBtn);
+  
+  // 主按钮点击事件
+  let toolsVisible = false;
+  mainToolBtn.onclick = () => {
+    toolsVisible = !toolsVisible;
+    if (toolsVisible) {
+      toolsContainer.style.display = 'flex';
+      // 加载各功能状态
+      loadImageBlockState();
+    } else {
+      toolsContainer.style.display = 'none';
+    }
+  };
+  
+  toolbar.appendChild(toolsContainer);
+  toolbar.appendChild(mainToolBtn);
+  document.body.appendChild(toolbar);
+}
+
+function createToolButton(emoji, title, onClick) {
+  const btn = document.createElement('button');
+  btn.innerHTML = emoji;
+  btn.title = title;
+  btn.style.width = '40px';
+  btn.style.height = '40px';
+  btn.style.background = 'linear-gradient(45deg, #90cdf4, #b7e4f4)';
+  btn.style.border = 'none';
+  btn.style.borderRadius = '50%';
+  btn.style.color = '#2d3748';
+  btn.style.cursor = 'pointer';
+  btn.style.boxShadow = '0 3px 10px rgba(160,174,192,0.3)';
+  btn.style.fontSize = '16px';
+  btn.style.transition = 'all 0.3s ease';
+  
+  btn.onmouseenter = () => {
+    btn.style.transform = 'scale(1.1)';
+    btn.style.boxShadow = '0 5px 15px rgba(160,174,192,0.4)';
+  };
+  
+  btn.onmouseleave = () => {
+    btn.style.transform = 'scale(1)';
+    btn.style.boxShadow = '0 3px 10px rgba(160,174,192,0.3)';
+  };
+  
+  btn.onclick = onClick;
+  return btn;
+}
+
+// 初始化工具栏
+setTimeout(initToolbar, 1000);
+`;
+
+// =======================================================================================
+// 第五部分：Cookie注入功能脚本
+// 功能：提供cookie注入界面和功能
+// =======================================================================================
+
+const cookieInjectionScript = `
+// Cookie注入功能
+function showCookieModal() {
+  // 检查是否已存在弹窗
+  if(document.getElementById('__COOKIE_INJECTION_MODAL__')) return;
+  
+  // 获取当前网站信息
+  const currentSite = window.location.href;
+  
+  const modalHTML = \`
+  <div id="__COOKIE_INJECTION_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#2c5282;margin-bottom:20px;">🍪 Cookie注入设置</h3>
+        
+        <div style="margin-bottom:20px;text-align:left;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">注入网站:</label>
+          <input type="text" id="targetSite" value="\${currentSite}" readonly style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.3);color:#666;">
+        </div>
+        
+        <div style="margin-bottom:20px;text-align:left;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">输入方式:</label>
+          <select id="inputType" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            <option value="combined">合成Cookie输入</option>
+            <option value="separate">分别输入</option>
+          </select>
+        </div>
+        
+        <div id="combinedInput" style="margin-bottom:20px;text-align:left;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">Cookie字符串:</label>
+          <textarea id="combinedCookie" placeholder="例如: name=value; name2=value2; path=/; domain=.example.com" style="width:100%;height:120px;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;"></textarea>
+          <div style="font-size:12px;color:#666;margin-top:5px;">提示：可以包含path、domain等属性</div>
+        </div>
+        
+        <div id="separateInput" style="display:none;text-align:left;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">名称:</label>
+              <input type="text" id="cookieName" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">值:</label>
+              <input type="text" id="cookieValue" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">域名:</label>
+              <input type="text" id="cookieDomain" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:5px;font-size:12px;">路径:</label>
+              <input type="text" id="cookiePath" value="/" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            </div>
+          </div>
+          <button onclick="addSeparateCookie()" style="padding:6px 12px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;font-size:12px;">添加Cookie</button>
+          <div id="cookieList" style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);"></div>
+        </div>
+        
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button onclick="saveCookieSettings()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存并刷新</button>
+          <button onclick="closeCookieModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  \`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  // 初始化事件监听
+  setTimeout(() => {
+    const modal = document.getElementById('__COOKIE_INJECTION_MODAL__');
+    const content = modal.querySelector('div > div');
+    modal.style.opacity = '1';
+    content.style.transform = 'scale(1)';
+    
+    // 绑定事件
+    document.getElementById('inputType').addEventListener('change', toggleInputType);
+    
+    // 加载已保存的设置
+    loadCookieSettings();
+  }, 100);
+}
+
+function toggleInputType() {
+  const type = document.getElementById('inputType').value;
+  document.getElementById('combinedInput').style.display = type === 'combined' ? 'block' : 'none';
+  document.getElementById('separateInput').style.display = type === 'separate' ? 'block' : 'none';
+}
+
 let separateCookies = [];
 
-function showCookieInjectionModal() {
-    const modalHTML = \`
-    <div class="proxy-modal" id="cookie-modal">
-        <div class="proxy-modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">🍪 Cookie注入</h3>
-                <button class="close-modal" onclick="closeAllModals()">×</button>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">目标网站</label>
-                <input type="text" id="target-website" class="form-input" value="\${getCurrentWebsite()}" readonly>
-                <div style="font-size:12px;color:#b0b0b0;margin-top:5px;">自动获取当前代理网站地址</div>
-            </div>
-            
-            <div class="tab-container">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="switchCookieTab('combined')">合成Cookie</button>
-                    <button class="tab-btn" onclick="switchCookieTab('separate')">分段输入</button>
-                </div>
-                
-                <div id="combined-tab" class="tab-content active">
-                    <div class="form-group">
-                        <label class="form-label">Cookie字符串</label>
-                        <textarea id="combined-cookie" class="form-textarea" placeholder="例如: name=value; name2=value2; path=/; domain=.example.com"></textarea>
-                        <div style="font-size:12px;color:#b0b0b0;margin-top:5px;">输入完整的Cookie字符串，多个Cookie用分号分隔</div>
-                    </div>
-                </div>
-                
-                <div id="separate-tab" class="tab-content">
-                    <div class="form-group">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                            <div>
-                                <label class="form-label">Cookie名称</label>
-                                <input type="text" id="cookie-name" class="form-input" placeholder="cookie名">
-                            </div>
-                            <div>
-                                <label class="form-label">Cookie值</label>
-                                <input type="text" id="cookie-value" class="form-input" placeholder="cookie值">
-                            </div>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
-                            <div>
-                                <label class="form-label">域名</label>
-                                <input type="text" id="cookie-domain" class="form-input" placeholder="可选，如: .example.com">
-                            </div>
-                            <div>
-                                <label class="form-label">路径</label>
-                                <input type="text" id="cookie-path" class="form-input" value="/" placeholder="默认: /">
-                            </div>
-                        </div>
-                        <button class="btn btn-secondary" onclick="addSeparateCookie()" style="width:100%;margin-bottom:15px;">添加Cookie</button>
-                        
-                        <div id="cookie-list" style="max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="checkbox" id="auto-refresh" checked>
-                    <span style="color:#e0e0e0;font-size:14px;">保存后自动刷新页面应用Cookie</span>
-                </label>
-            </div>
-            
-            <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
-                <button class="btn btn-primary" onclick="saveCookieSettings()">保存并应用</button>
-            </div>
-        </div>
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    setTimeout(() => {
-        const modal = document.getElementById('cookie-modal');
-        const content = modal.querySelector('.proxy-modal-content');
-        modal.classList.add('show');
-        content.classList.add('show');
-        
-        loadCookieSettings();
-    }, 50);
-}
-
-function switchCookieTab(tabName) {
-    // 更新标签按钮
-    document.querySelectorAll('#cookie-modal .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-    
-    // 更新标签内容
-    document.querySelectorAll('#cookie-modal .tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(tabName + '-tab').classList.add('active');
-}
-
 function addSeparateCookie() {
-    const name = document.getElementById('cookie-name').value.trim();
-    const value = document.getElementById('cookie-value').value.trim();
-    const domain = document.getElementById('cookie-domain').value.trim();
-    const path = document.getElementById('cookie-path').value.trim() || '/';
-    
-    if (!name || !value) {
-        showNotification('请填写Cookie名称和值', 'error');
-        return;
-    }
-    
-    const cookie = {
-        name: name,
-        value: value,
-        domain: domain,
-        path: path,
-        secure: false,
-        httpOnly: false
-    };
-    
-    separateCookies.push(cookie);
-    updateCookieList();
-    
-    // 清空输入框
-    document.getElementById('cookie-name').value = '';
-    document.getElementById('cookie-value').value = '';
-    document.getElementById('cookie-domain').value = '';
-    document.getElementById('cookie-path').value = '/';
-    
-    showNotification('Cookie已添加到列表', 'success');
+  const name = document.getElementById('cookieName').value.trim();
+  const value = document.getElementById('cookieValue').value.trim();
+  const domain = document.getElementById('cookieDomain').value.trim();
+  const path = document.getElementById('cookiePath').value.trim() || '/';
+  
+  if(!name || !value) {
+    alert('请填写Cookie名称和值');
+    return;
+  }
+  
+  const cookie = { name, value, domain, path };
+  separateCookies.push(cookie);
+  updateCookieList();
+  
+  // 清空输入框
+  document.getElementById('cookieName').value = '';
+  document.getElementById('cookieValue').value = '';
+  document.getElementById('cookieDomain').value = '';
+  document.getElementById('cookiePath').value = '/';
 }
 
 function updateCookieList() {
-    const list = document.getElementById('cookie-list');
-    list.innerHTML = '';
+  const list = document.getElementById('cookieList');
+  list.innerHTML = '';
+  
+  if(separateCookies.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#666;padding:10px;">暂无Cookie</div>';
+    return;
+  }
+  
+  separateCookies.forEach((cookie, index) => {
+    const item = document.createElement('div');
+    item.style.display = 'flex';
+    item.style.justifyContent = 'space-between';
+    item.style.alignItems = 'center';
+    item.style.padding = '8px';
+    item.style.marginBottom = '5px';
+    item.style.background = 'rgba(255,255,255,0.2)';
+    item.style.borderRadius = '6px';
+    item.style.fontSize = '12px';
     
-    if (separateCookies.length === 0) {
-        list.innerHTML = '<div style="text-align:center;color:#b0b0b0;padding:20px;font-size:13px;">暂无Cookie，请添加</div>';
-        return;
-    }
+    item.innerHTML = \`
+      <div style="flex:1;">
+        <strong>\${cookie.name}</strong>=\${cookie.value}<br>
+        <small style="color:#666;">\${cookie.domain || '当前域名'} | \${cookie.path}</small>
+      </div>
+      <button onclick="removeCookie(\${index})" style="background:none;border:none;color:#c53030;cursor:pointer;font-size:16px;padding:0 5px;">×</button>
+    \`;
     
-    separateCookies.forEach((cookie, index) => {
-        const item = document.createElement('div');
-        item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px;margin-bottom:5px;background:rgba(255,255,255,0.1);border-radius:6px;font-size:12px;';
-        
-        item.innerHTML = \`
-            <div style="flex:1;">
-                <div style="font-weight:500;color:white;">\${cookie.name}=\${cookie.value}</div>
-                <div style="font-size:10px;color:#b0b0b0;">\${cookie.domain || '当前域名'} | \${cookie.path}</div>
-            </div>
-            <button onclick="removeSeparateCookie(\${index})" style="background:none;border:none;color:#ff4757;cursor:pointer;padding:5px;border-radius:3px;font-size:14px;">×</button>
-        \`;
-        
-        list.appendChild(item);
-    });
+    list.appendChild(item);
+  });
 }
 
-function removeSeparateCookie(index) {
-    separateCookies.splice(index, 1);
-    updateCookieList();
-}
-
-function parseCombinedCookie(cookieStr) {
-    const cookies = [];
-    const pairs = cookieStr.split(';').map(pair => pair.trim()).filter(pair => pair);
-    
-    pairs.forEach(pair => {
-        const [name, ...valueParts] = pair.split('=');
-        const value = valueParts.join('=');
-        
-        if (name && value) {
-            cookies.push({
-                name: name.trim(),
-                value: value.trim(),
-                domain: '',
-                path: '/',
-                secure: false,
-                httpOnly: false
-            });
-        }
-    });
-    
-    return cookies;
+function removeCookie(index) {
+  separateCookies.splice(index, 1);
+  updateCookieList();
 }
 
 function saveCookieSettings() {
-    const targetWebsite = document.getElementById('target-website').value;
-    const activeTab = document.querySelector('#cookie-modal .tab-btn.active').textContent;
-    const autoRefresh = document.getElementById('auto-refresh').checked;
-    
-    let cookies = [];
-    
-    if (activeTab.includes('合成')) {
-        const cookieStr = document.getElementById('combined-cookie').value.trim();
-        if (cookieStr) {
-            cookies = parseCombinedCookie(cookieStr);
+  const targetSite = document.getElementById('targetSite').value;
+  const inputType = document.getElementById('inputType').value;
+  
+  let cookies = [];
+  
+  if(inputType === 'combined') {
+    const cookieStr = document.getElementById('combinedCookie').value.trim();
+    if(cookieStr) {
+      // 解析合成Cookie字符串
+      const cookiePairs = cookieStr.split(';').map(pair => pair.trim()).filter(pair => pair);
+      cookiePairs.forEach(pair => {
+        const [name, ...valueParts] = pair.split('=');
+        if(name && valueParts.length > 0) {
+          const value = valueParts.join('=').trim();
+          cookies.push({
+            name: name.trim(),
+            value: value,
+            domain: '',
+            path: '/'
+          });
         }
-    } else {
-        cookies = [...separateCookies];
+      });
     }
+  } else {
+    cookies = separateCookies;
+  }
+  
+  const settings = {
+    inputType,
+    cookies
+  };
+  
+  // 保存到localStorage
+  try {
+    const allSettings = JSON.parse(localStorage.getItem('${cookieInjectionDataName}') || '{}');
+    allSettings[targetSite] = settings;
+    localStorage.setItem('${cookieInjectionDataName}', JSON.stringify(allSettings));
     
-    const settings = {
-        targetWebsite: targetWebsite,
-        inputType: activeTab.includes('合成') ? 'combined' : 'separate',
-        cookies: cookies,
-        timestamp: new Date().toISOString()
-    };
+    // 实际注入Cookie
+    injectCookies(cookies);
     
-    try {
-        // 保存到localStorage
-        const allSettings = JSON.parse(localStorage.getItem('${cookieInjectionDataName}') || '{}');
-        allSettings[targetWebsite] = settings;
-        localStorage.setItem('${cookieInjectionDataName}', JSON.stringify(allSettings));
-        
-        // 立即应用Cookie
-        applyCookiesImmediately(cookies);
-        
-        showNotification('Cookie设置已保存并应用', 'success');
-        
-        if (autoRefresh) {
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } else {
-            setTimeout(closeAllModals, 1500);
-        }
-    } catch (e) {
-        showNotification('保存失败: ' + e.message, 'error');
-    }
+    alert('Cookie设置已保存！页面将刷新以应用更改。');
+    setTimeout(() => {
+      location.reload();
+    }, 1000);
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
 }
 
-function applyCookiesImmediately(cookies) {
-    cookies.forEach(cookie => {
-        let cookieStr = \`\${cookie.name}=\${cookie.value}\`;
-        if (cookie.domain) cookieStr += \`; domain=\${cookie.domain}\`;
-        if (cookie.path) cookieStr += \`; path=\${cookie.path}\`;
-        if (cookie.secure) cookieStr += '; secure';
-        if (cookie.httpOnly) cookieStr += '; HttpOnly';
-        
-        document.cookie = cookieStr;
-    });
+function injectCookies(cookies) {
+  cookies.forEach(cookie => {
+    let cookieStr = \`\${cookie.name}=\${cookie.value}\`;
+    if(cookie.domain) cookieStr += \`; domain=\${cookie.domain}\`;
+    if(cookie.path) cookieStr += \`; path=\${cookie.path}\`;
+    cookieStr += '; samesite=lax';
+    
+    document.cookie = cookieStr;
+  });
 }
 
 function loadCookieSettings() {
-    try {
-        const targetWebsite = getCurrentWebsite();
-        const allSettings = JSON.parse(localStorage.getItem('${cookieInjectionDataName}') || '{}');
-        const settings = allSettings[targetWebsite];
-        
-        if (settings) {
-            // 设置输入类型
-            if (settings.inputType === 'combined') {
-                switchCookieTab('combined');
-                if (settings.cookies && settings.cookies.length > 0) {
-                    const cookieStr = settings.cookies.map(c => \`\${c.name}=\${c.value}\`).join('; ');
-                    document.getElementById('combined-cookie').value = cookieStr;
-                }
-            } else {
-                switchCookieTab('separate');
-                separateCookies = settings.cookies || [];
-                updateCookieList();
-            }
+  try {
+    const targetSite = document.getElementById('targetSite').value;
+    const allSettings = JSON.parse(localStorage.getItem('${cookieInjectionDataName}') || '{}');
+    const settings = allSettings[targetSite];
+    
+    if(settings) {
+      document.getElementById('inputType').value = settings.inputType || 'combined';
+      
+      toggleInputType();
+      
+      if(settings.cookies && settings.cookies.length > 0) {
+        if(settings.inputType === 'combined') {
+          const cookieStr = settings.cookies.map(c => \`\${c.name}=\${c.value}\`).join('; ');
+          document.getElementById('combinedCookie').value = cookieStr;
+        } else {
+          separateCookies = settings.cookies;
+          updateCookieList();
         }
-    } catch (e) {
-        console.log('加载Cookie设置失败:', e);
+      }
     }
+  } catch(e) {
+    console.log('加载Cookie设置失败:', e);
+  }
 }
 
-function getCurrentWebsite() {
-    try {
-        const currentUrl = new URL(window.location.href);
-        const proxyBase = currentUrl.protocol + '//' + currentUrl.host + '/';
-        const originalUrl = currentUrl.href.substring(proxyBase.length);
-        const urlObj = new URL(originalUrl);
-        return urlObj.hostname;
-    } catch (e) {
-        return 'unknown';
-    }
-}
-
-function showNotification(message, type = 'info') {
-    // 移除现有的通知
-    const existingNotice = document.getElementById('proxy-notification');
-    if (existingNotice) existingNotice.remove();
-    
-    const backgroundColor = type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3';
-    
-    const noticeHTML = \`
-    <div id="proxy-notification" style="position:fixed;top:20px;right:20px;background:\${backgroundColor};color:white;padding:12px 20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:2147483647;max-width:300px;word-break:break-word;transform:translateX(100px);opacity:0;transition:all 0.3s ease;">
-        \${message}
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', noticeHTML);
-    
+function closeCookieModal() {
+  const modal = document.getElementById('__COOKIE_INJECTION_MODAL__');
+  if(modal) {
+    modal.style.opacity = '0';
     setTimeout(() => {
-        const notice = document.getElementById('proxy-notification');
-        notice.style.transform = 'translateX(0)';
-        notice.style.opacity = '1';
-    }, 10);
-    
-    setTimeout(() => {
-        const notice = document.getElementById('proxy-notification');
-        if (notice) {
-            notice.style.transform = 'translateX(100px)';
-            notice.style.opacity = '0';
-            setTimeout(() => notice.remove(), 300);
-        }
-    }, 3000);
+      modal.remove();
+    }, 300);
+  }
 }
 `;
 
 // =======================================================================================
-// 第六部分：广告拦截系统
-// 功能：完整的广告拦截和元素标记系统
+// 第六部分：广告拦截功能脚本
+// 功能：实现广告拦截和元素标记
 // =======================================================================================
 
-const adBlockSystem = `
-// 广告拦截系统
+const adBlockScript = `
+// 广告拦截功能
 let adBlockEnabled = false;
 let adBlockRules = [];
-let isSelectingAd = false;
+let elementPickerActive = false;
 
 function showAdBlockModal() {
-    const modalHTML = \`
-    <div class="proxy-modal" id="adblock-modal">
-        <div class="proxy-modal-content" style="max-width:800px;">
-            <div class="modal-header">
-                <h3 class="modal-title">🚫 广告拦截</h3>
-                <button class="close-modal" onclick="closeAllModals()">×</button>
-            </div>
-            
-            <div class="form-group">
-                <label style="display:flex;align-items:center;justify-content:space-between;">
-                    <span style="color:#e0e0e0;font-size:16px;font-weight:500;">启用广告拦截</span>
-                    <label class="switch">
-                        <input type="checkbox" id="adblock-enabled" \${adBlockEnabled ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                </label>
-            </div>
-            
-            <div class="tab-container">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="switchAdBlockTab('rules')">拦截规则</button>
-                    <button class="tab-btn" onclick="switchAdBlockTab('custom')">自定义规则</button>
-                    <button class="tab-btn" onclick="switchAdBlockTab('element')">元素标记</button>
-                </div>
-                
-                <div id="rules-tab" class="tab-content active">
-                    <div class="form-group">
-                        <label class="form-label">规则订阅</label>
-                        <div style="display:grid;gap:10px;">
-                            <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <input type="checkbox" id="rule-easylist" checked>
-                                <span style="color:#e0e0e0;">EasyList (主要规则)</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <input type="checkbox" id="rule-easylist-china" checked>
-                                <span style="color:#e0e0e0;">EasyList China (中文规则)</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <input type="checkbox" id="rule-cjx-annoyance">
-                                <span style="color:#e0e0e0;">CJX Annoyance (烦人内容)</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <input type="checkbox" id="rule-easyprivacy">
-                                <span style="color:#e0e0e0;">EasyPrivacy (隐私保护)</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <input type="checkbox" id="rule-antiadblock">
-                                <span style="color:#e0e0e0;">Anti-Adblock (反屏蔽检测)</span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="btn-group">
-                        <button class="btn btn-secondary" onclick="updateAdBlockRules()">更新规则</button>
-                        <button class="btn btn-primary" onclick="loadDefaultRules()">加载默认规则</button>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">已加载规则数量: <span id="rules-count">0</span></label>
-                        <div id="rules-list" style="max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-top:10px;font-size:12px;"></div>
-                    </div>
-                </div>
-                
-                <div id="custom-tab" class="tab-content">
-                    <div class="form-group">
-                        <label class="form-label">自定义规则 (每行一个)</label>
-                        <textarea id="custom-rules" class="form-textarea" placeholder="例如: ||ads.example.com^
-##.ad-container
-@@||good-ad.example.com^" style="height:200px;"></textarea>
-                        <div style="font-size:12px;color:#b0b0b0;margin-top:5px;">
-                            支持Adblock Plus语法: <br>
-                            <code>||domain.com^</code> - 拦截域名 <br>
-                            <code>##.class-name</code> - 隐藏元素 <br>
-                            <code>@@||domain.com^</code> - 白名单
-                        </div>
-                    </div>
-                    
-                    <div class="btn-group">
-                        <button class="btn btn-primary" onclick="saveCustomRules()">保存自定义规则</button>
-                    </div>
-                </div>
-                
-                <div id="element-tab" class="tab-content">
-                    <div class="form-group">
-                        <p style="color:#e0e0e0;margin-bottom:15px;">点击"开始标记"后，点击页面上的广告元素进行标记拦截</p>
-                        
-                        <div class="btn-group">
-                            <button class="btn btn-primary" id="start-select-btn" onclick="startElementSelection()">开始标记</button>
-                            <button class="btn btn-secondary" id="stop-select-btn" onclick="stopElementSelection()" style="display:none;">停止标记</button>
-                        </div>
-                        
-                        <div id="selected-elements" style="margin-top:20px;max-height:200px;overflow-y:auto;"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
-                <button class="btn btn-primary" onclick="applyAdBlockSettings()">应用设置</button>
-            </div>
+  if(document.getElementById('__ADBLOCK_MODAL__')) return;
+  
+  const modalHTML = \`
+  <div id="__ADBLOCK_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:900px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#2c5282;margin-bottom:20px;">🚫 广告拦截设置</h3>
+        
+        <div style="display:flex;gap:15px;margin-bottom:20px;justify-content:center;">
+          <button id="toggleAdBlock" onclick="toggleAdBlock()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">启用广告拦截</button>
+          <button onclick="startElementPicker()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">标记广告元素</button>
+          <button onclick="loadDefaultRules()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">加载默认规则</button>
         </div>
+        
+        <div style="text-align:left;margin-bottom:20px;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">自定义规则 (每行一条):</label>
+          <textarea id="customRules" placeholder="例如: ||ads.example.com^
+##.ad-container
+##a[href*=\"ads\"]" style="width:100%;height:200px;padding:12px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;font-family:monospace;"></textarea>
+        </div>
+        
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button onclick="saveAdBlockRules()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存规则</button>
+          <button onclick="closeAdBlockModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">关闭</button>
+        </div>
+      </div>
     </div>
-    \`;
+  </div>
+  \`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  setTimeout(() => {
+    const modal = document.getElementById('__ADBLOCK_MODAL__');
+    const content = modal.querySelector('div > div');
+    modal.style.opacity = '1';
+    content.style.transform = 'scale(1)';
     
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    setTimeout(() => {
-        const modal = document.getElementById('adblock-modal');
-        const content = modal.querySelector('.proxy-modal-content');
-        modal.classList.add('show');
-        content.classList.add('show');
-        
-        loadAdBlockSettings();
-    }, 50);
+    loadAdBlockSettings();
+  }, 100);
 }
 
-function switchAdBlockTab(tabName) {
-    // 更新标签按钮
-    document.querySelectorAll('#adblock-modal .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-    
-    // 更新标签内容
-    document.querySelectorAll('#adblock-modal .tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(tabName + '-tab').classList.add('active');
+function toggleAdBlock() {
+  adBlockEnabled = !adBlockEnabled;
+  const button = document.getElementById('toggleAdBlock');
+  if(adBlockEnabled) {
+    button.textContent = '禁用广告拦截';
+    button.style.background = 'linear-gradient(45deg,#90cdf4,#b7e4f4)';
+    applyAdBlockRules();
+  } else {
+    button.textContent = '启用广告拦截';
+    button.style.background = 'rgba(160,174,192,0.3)';
+    removeAdBlockRules();
+  }
+  saveAdBlockSettings();
 }
 
-function loadAdBlockSettings() {
-    try {
-        // 加载开关状态
-        const enabled = localStorage.getItem('${adBlockEnabledName}') === 'true';
-        document.getElementById('adblock-enabled').checked = enabled;
-        adBlockEnabled = enabled;
-        
-        // 加载规则选择
-        const ruleSettings = JSON.parse(localStorage.getItem('adblock_rule_settings') || '{"easylist":true,"easylist_china":true}');
-        document.getElementById('rule-easylist').checked = ruleSettings.easylist || false;
-        document.getElementById('rule-easylist-china').checked = ruleSettings.easylist_china || false;
-        document.getElementById('rule-cjx-annoyance').checked = ruleSettings.cjx_annoyance || false;
-        document.getElementById('rule-easyprivacy').checked = ruleSettings.easyprivacy || false;
-        document.getElementById('rule-antiadblock').checked = ruleSettings.antiadblock || false;
-        
-        // 加载自定义规则
-        const customRules = localStorage.getItem('adblock_custom_rules') || '';
-        document.getElementById('custom-rules').value = customRules;
-        
-        // 加载规则列表
-        const rules = JSON.parse(localStorage.getItem('adblock_rules') || '[]');
-        adBlockRules = rules;
-        updateRulesDisplay();
-        
-    } catch (e) {
-        console.error('加载广告拦截设置失败:', e);
-    }
+function startElementPicker() {
+  elementPickerActive = true;
+  closeAdBlockModal();
+  
+  // 添加元素选择模式样式
+  const style = document.createElement('style');
+  style.id = '__ELEMENT_PICKER_STYLE__';
+  style.textContent = \`
+    * { cursor: crosshair !important; }
+    .__adblock_hover__ { outline: 2px solid #c53030 !important; background: rgba(197, 48, 48, 0.1) !important; }
+    .__adblock_selected__ { outline: 3px solid #c53030 !important; background: rgba(197, 48, 48, 0.2) !important; }
+  \`;
+  document.head.appendChild(style);
+  
+  // 创建确认面板
+  const panel = document.createElement('div');
+  panel.id = '__ELEMENT_PICKER_PANEL__';
+  panel.style.position = 'fixed';
+  panel.style.bottom = '20px';
+  panel.style.left = '50%';
+  panel.style.transform = 'translateX(-50%)';
+  panel.style.background = 'rgba(255,255,255,0.9)';
+  panel.style.backdropFilter = 'blur(10px)';
+  panel.style.padding = '15px';
+  panel.style.borderRadius = '10px';
+  panel.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+  panel.style.zIndex = '1000001';
+  panel.style.display = 'flex';
+  panel.style.gap = '10px';
+  panel.style.alignItems = 'center';
+  
+  panel.innerHTML = \`
+    <span style="color:#2d3748;font-weight:bold;">选择要拦截的元素</span>
+    <button onclick="confirmBlockElement()" style="padding:8px 16px;background:#c53030;border:none;border-radius:15px;color:white;cursor:pointer;">确认拦截</button>
+    <button onclick="cancelElementPicker()" style="padding:8px 16px;background:rgba(160,174,192,0.3);border:none;border-radius:15px;color:#2d3748;cursor:pointer;">取消</button>
+  \`;
+  
+  document.body.appendChild(panel);
+  
+  // 添加鼠标移动事件监听
+  document.addEventListener('mouseover', handleElementHover, true);
+  document.addEventListener('click', handleElementClick, true);
 }
 
-function updateRulesDisplay() {
-    document.getElementById('rules-count').textContent = adBlockRules.length;
-    
-    const rulesList = document.getElementById('rules-list');
-    if (adBlockRules.length === 0) {
-        rulesList.innerHTML = '<div style="text-align:center;color:#b0b0b0;padding:20px;">暂无规则，请点击"加载默认规则"</div>';
-        return;
-    }
-    
-    let html = '';
-    adBlockRules.slice(0, 50).forEach((rule, index) => {
-        html += \`<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.1);word-break:break-all;">\${rule}</div>\`;
-    });
-    
-    if (adBlockRules.length > 50) {
-        html += \`<div style="text-align:center;color:#b0b0b0;padding:10px;">... 还有 \${adBlockRules.length - 50} 条规则</div>\`;
-    }
-    
-    rulesList.innerHTML = html;
+function handleElementHover(e) {
+  if(!elementPickerActive) return;
+  e.stopPropagation();
+  e.preventDefault();
+  
+  // 移除之前的高亮
+  const previous = document.querySelector('.__adblock_hover__');
+  if(previous) previous.classList.remove('__adblock_hover__');
+  
+  // 高亮当前元素
+  e.target.classList.add('__adblock_hover__');
 }
 
-async function loadDefaultRules() {
-    showNotification('正在加载默认规则...', 'info');
-    
-    const rules = [];
-    const ruleSettings = {
-        easylist: document.getElementById('rule-easylist').checked,
-        easylist_china: document.getElementById('rule-easylist-china').checked,
-        cjx_annoyance: document.getElementById('rule-cjx-annoyance').checked,
-        easyprivacy: document.getElementById('rule-easyprivacy').checked,
-        antiadblock: document.getElementById('rule-antiadblock').checked
-    };
-    
-    try {
-        if (ruleSettings.easylist) {
-            const response = await fetch('https://easylist-downloads.adblockplus.org/easylist.txt');
-            const text = await response.text();
-            rules.push(...text.split('\\n').filter(rule => rule && !rule.startsWith('!')));
-        }
-        
-        if (ruleSettings.easylist_china) {
-            const response = await fetch('https://easylist-downloads.adblockplus.org/easylistchina.txt');
-            const text = await response.text();
-            rules.push(...text.split('\\n').filter(rule => rule && !rule.startsWith('!')));
-        }
-        
-        if (ruleSettings.cjx_annoyance) {
-            const response = await fetch('https://fastly.jsdelivr.net/gh/cjx82630/cjxlist/cjx-annoyance.txt');
-            const text = await response.text();
-            rules.push(...text.split('\\n').filter(rule => rule && !rule.startsWith('!')));
-        }
-        
-        if (ruleSettings.easyprivacy) {
-            const response = await fetch('https://easylist-downloads.adblockplus.org/easyprivacy.txt');
-            const text = await response.text();
-            rules.push(...text.split('\\n').filter(rule => rule && !rule.startsWith('!')));
-        }
-        
-        if (ruleSettings.antiadblock) {
-            const response = await fetch('https://easylist-downloads.adblockplus.org/antiadblockfilters.txt');
-            const text = await response.text();
-            rules.push(...text.split('\\n').filter(rule => rule && !rule.startsWith('!')));
-        }
-        
-        // 添加自定义规则
-        const customRules = document.getElementById('custom-rules').value.split('\\n').filter(rule => rule.trim());
-        rules.push(...customRules);
-        
-        // 去重
-        adBlockRules = [...new Set(rules)].filter(rule => rule.trim());
-        
-        // 保存到localStorage
-        localStorage.setItem('adblock_rules', JSON.stringify(adBlockRules));
-        localStorage.setItem('adblock_rule_settings', JSON.stringify(ruleSettings));
-        
-        updateRulesDisplay();
-        showNotification(\`成功加载 \${adBlockRules.length} 条规则\`, 'success');
-        
-    } catch (error) {
-        showNotification('加载规则失败: ' + error.message, 'error');
-    }
+function handleElementClick(e) {
+  if(!elementPickerActive) return;
+  e.stopPropagation();
+  e.preventDefault();
+  
+  // 移除之前的选择
+  const previous = document.querySelector('.__adblock_selected__');
+  if(previous) previous.classList.remove('__adblock_selected__');
+  
+  // 选择当前元素
+  e.target.classList.add('__adblock_selected__');
+  window.selectedElement = e.target;
 }
 
-function updateAdBlockRules() {
-    loadDefaultRules();
-}
-
-function saveCustomRules() {
-    const customRules = document.getElementById('custom-rules').value;
-    localStorage.setItem('adblock_custom_rules', customRules);
-    showNotification('自定义规则已保存', 'success');
-}
-
-function startElementSelection() {
-    isSelectingAd = true;
-    document.getElementById('start-select-btn').style.display = 'none';
-    document.getElementById('stop-select-btn').style.display = 'block';
-    
-    // 添加选择模式样式
-    document.body.style.cursor = 'crosshair';
-    
-    // 添加元素点击事件
-    document.addEventListener('click', handleElementSelection, true);
-    document.addEventListener('mouseover', handleElementHover, true);
-    document.addEventListener('mouseout', handleElementUnhover, true);
-    
-    showNotification('选择模式已激活，点击页面上的广告元素进行标记', 'info');
-}
-
-function stopElementSelection() {
-    isSelectingAd = false;
-    document.getElementById('start-select-btn').style.display = 'block';
-    document.getElementById('stop-select-btn').style.display = 'none';
-    
-    // 恢复正常光标
-    document.body.style.cursor = '';
-    
-    // 移除事件监听
-    document.removeEventListener('click', handleElementSelection, true);
-    document.removeEventListener('mouseover', handleElementHover, true);
-    document.removeEventListener('mouseout', handleElementUnhover, true);
-    
-    // 移除所有高亮
-    document.querySelectorAll('.ad-element-highlight').forEach(el => {
-        el.classList.remove('ad-element-highlight');
-    });
-    
-    showNotification('选择模式已关闭', 'info');
-}
-
-function handleElementHover(event) {
-    if (!isSelectingAd) return;
-    event.target.classList.add('ad-element-highlight');
-    event.stopPropagation();
-}
-
-function handleElementUnhover(event) {
-    if (!isSelectingAd) return;
-    event.target.classList.remove('ad-element-highlight');
-    event.stopPropagation();
-}
-
-function handleElementSelection(event) {
-    if (!isSelectingAd) return;
-    
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const element = event.target;
-    const selector = generateCSSSelector(element);
-    
-    // 添加到自定义规则
-    const customRules = document.getElementById('custom-rules');
+function confirmBlockElement() {
+  if(!window.selectedElement) {
+    alert('请先选择一个元素');
+    return;
+  }
+  
+  const element = window.selectedElement;
+  let selector = generateCSSSelector(element);
+  
+  // 添加到规则
+  if(selector) {
     const newRule = \`##\${selector}\`;
+    const textarea = document.getElementById('customRules');
+    const currentRules = textarea.value;
+    textarea.value = currentRules + (currentRules ? '\\n' : '') + newRule;
     
-    if (!customRules.value.includes(newRule)) {
-        customRules.value += (customRules.value ? '\\n' : '') + newRule;
-        saveCustomRules();
-        
-        // 立即隐藏元素
-        element.style.display = 'none';
-        
-        showNotification(\`已标记并隐藏元素: \${selector}\`, 'success');
-        
-        // 更新选中元素列表
-        updateSelectedElementsList(selector);
-    }
-    
-    return false;
+    // 保存并应用
+    saveAdBlockRules();
+    alert('已添加规则: ' + newRule);
+  }
+  
+  cancelElementPicker();
+}
+
+function cancelElementPicker() {
+  elementPickerActive = false;
+  window.selectedElement = null;
+  
+  // 移除样式
+  const style = document.getElementById('__ELEMENT_PICKER_STYLE__');
+  if(style) style.remove();
+  
+  // 移除面板
+  const panel = document.getElementById('__ELEMENT_PICKER_PANEL__');
+  if(panel) panel.remove();
+  
+  // 移除事件监听
+  document.removeEventListener('mouseover', handleElementHover, true);
+  document.removeEventListener('click', handleElementClick, true);
+  
+  // 移除高亮
+  document.querySelectorAll('.__adblock_hover__, .__adblock_selected__').forEach(el => {
+    el.classList.remove('__adblock_hover__', '__adblock_selected__');
+  });
 }
 
 function generateCSSSelector(element) {
-    if (element.id) {
-        return \`#\${element.id}\`;
-    }
-    
-    let selector = element.tagName.toLowerCase();
-    if (element.className) {
-        selector += '.' + element.className.split(' ').join('.');
-    }
-    
-    return selector;
+  if(element.id) {
+    return '#' + element.id;
+  }
+  
+  let selector = element.tagName.toLowerCase();
+  if(element.className) {
+    selector += '.' + element.className.split(' ').join('.');
+  }
+  
+  return selector;
 }
 
-function updateSelectedElementsList(selector) {
-    const container = document.getElementById('selected-elements');
-    const item = document.createElement('div');
-    item.className = 'resource-item';
-    item.innerHTML = \`
-        <div class="resource-url">\${selector}</div>
-        <div class="resource-info">
-            <span>元素选择器</span>
-            <button onclick="removeElementRule('\${selector}')" style="background:#ff4757;color:white;border:none;padding:2px 8px;border-radius:3px;font-size:10px;cursor:pointer;">删除</button>
-        </div>
-    \`;
-    container.appendChild(item);
+function loadDefaultRules() {
+  const defaultRules = \`
+##.ad
+##.ads
+##.advertisement
+##[class*="ad-"]
+##[id*="ad-"]
+##iframe[src*="ads"]
+##iframe[src*="doubleclick"]
+##div[class*="banner"]
+##.google-ad
+##.ad-container
+##.ad-wrapper
+##.adbox
+##.ad-unit
+##.ad-placeholder
+##[data-ad]
+##[data-adunit]
+\`.trim();
+  
+  document.getElementById('customRules').value = defaultRules;
 }
 
-function removeElementRule(selector) {
-    const customRules = document.getElementById('custom-rules');
-    const rules = customRules.value.split('\\n').filter(rule => !rule.includes(selector));
-    customRules.value = rules.join('\\n');
-    saveCustomRules();
+function saveAdBlockRules() {
+  const customRules = document.getElementById('customRules').value;
+  const rules = customRules.split('\\n').filter(rule => rule.trim());
+  
+  adBlockRules = rules;
+  
+  const settings = {
+    enabled: adBlockEnabled,
+    rules: adBlockRules
+  };
+  
+  try {
+    localStorage.setItem('${adBlockDataName}', JSON.stringify(settings));
     
-    // 重新显示元素
-    document.querySelectorAll(selector).forEach(el => {
-        el.style.display = '';
-    });
-    
-    showNotification(\`已移除规则: \${selector}\`, 'success');
-}
-
-function applyAdBlockSettings() {
-    adBlockEnabled = document.getElementById('adblock-enabled').checked;
-    localStorage.setItem('${adBlockEnabledName}', adBlockEnabled.toString());
-    
-    if (adBlockEnabled) {
-        startAdBlocking();
-        showNotification('广告拦截已启用', 'success');
-    } else {
-        stopAdBlocking();
-        showNotification('广告拦截已禁用', 'info');
+    if(adBlockEnabled) {
+      applyAdBlockRules();
     }
     
+    alert('广告规则已保存！');
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+function loadAdBlockSettings() {
+  try {
+    const settings = JSON.parse(localStorage.getItem('${adBlockDataName}') || '{}');
+    adBlockEnabled = settings.enabled || false;
+    adBlockRules = settings.rules || [];
+    
+    const button = document.getElementById('toggleAdBlock');
+    if(adBlockEnabled) {
+      button.textContent = '禁用广告拦截';
+      button.style.background = 'linear-gradient(45deg,#90cdf4,#b7e4f4)';
+      applyAdBlockRules();
+    }
+    
+    if(document.getElementById('customRules')) {
+      document.getElementById('customRules').value = adBlockRules.join('\\n');
+    }
+  } catch(e) {
+    console.log('加载广告拦截设置失败:', e);
+  }
+}
+
+function applyAdBlockRules() {
+  // 这里应该实现广告拦截逻辑
+  // 由于复杂性，这里只做简单演示
+  console.log('应用广告拦截规则:', adBlockRules);
+}
+
+function removeAdBlockRules() {
+  console.log('移除广告拦截规则');
+}
+
+function closeAdBlockModal() {
+  const modal = document.getElementById('__ADBLOCK_MODAL__');
+  if(modal) {
+    modal.style.opacity = '0';
     setTimeout(() => {
-        closeAllModals();
-        window.location.reload();
-    }, 1000);
+      modal.remove();
+    }, 300);
+  }
 }
 
-function startAdBlocking() {
-    if (!adBlockEnabled) return;
-    
-    // 拦截网络请求
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-        const url = args[0];
-        if (shouldBlockRequest(url)) {
-            console.log('Blocked request:', url);
-            return Promise.reject(new Error('Blocked by ad blocker'));
-        }
-        return originalFetch.apply(this, args);
-    };
-    
-    // 拦截XMLHttpRequest
-    const originalOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(...args) {
-        const url = args[1];
-        if (shouldBlockRequest(url)) {
-            console.log('Blocked XHR:', url);
-            this.shouldBlock = true;
-            return;
-        }
-        return originalOpen.apply(this, args);
-    };
-    
-    // 隐藏广告元素
-    hideAdElements();
-}
-
-function shouldBlockRequest(url) {
-    if (!adBlockEnabled || !adBlockRules.length) return false;
-    
-    const urlStr = url.toString().toLowerCase();
-    return adBlockRules.some(rule => {
-        if (!rule || rule.startsWith('!') || rule.startsWith('##')) return false;
-        
-        if (rule.startsWith('||')) {
-            const domain = rule.substring(2).replace('^', '');
-            return urlStr.includes(domain);
-        } else if (rule.startsWith('@@')) {
-            // 白名单规则，不拦截
-            return false;
-        } else {
-            return urlStr.includes(rule);
-        }
-    });
-}
-
-function hideAdElements() {
-    if (!adBlockEnabled || !adBlockRules.length) return;
-    
-    adBlockRules.forEach(rule => {
-        if (rule.startsWith('##')) {
-            const selector = rule.substring(2);
-            try {
-                document.querySelectorAll(selector).forEach(el => {
-                    el.style.display = 'none';
-                });
-            } catch (e) {
-                // 无效的选择器，忽略
-            }
-        }
-    });
-}
-
-function stopAdBlocking() {
-    // 恢复原始函数
-    if (window.originalFetch) {
-        window.fetch = window.originalFetch;
-    }
-    if (window.originalXHROpen) {
-        XMLHttpRequest.prototype.open = window.originalXHROpen;
-    }
-}
+// 初始化广告拦截
+setTimeout(loadAdBlockSettings, 2000);
 `;
 
 // =======================================================================================
-// 第七部分：资源嗅探系统
-// 功能：完整的资源请求监控和修改系统
+// 第七部分：资源嗅探功能脚本
+// 功能：拦截和显示网络请求
 // =======================================================================================
 
-const resourceSnifferSystem = `
-// 资源嗅探系统
-let resourceSnifferEnabled = false;
-let capturedResources = [];
-let requestModifiers = [];
+const resourceSnifferScript = `
+// 资源嗅探功能
+let snifferEnabled = false;
+let capturedRequests = [];
+let requestInterceptor = null;
 
-function showResourceSnifferModal() {
-    const modalHTML = \`
-    <div class="proxy-modal" id="sniffer-modal">
-        <div class="proxy-modal-content" style="max-width:900px;">
-            <div class="modal-header">
-                <h3 class="modal-title">🔍 资源嗅探</h3>
-                <button class="close-modal" onclick="closeAllModals()">×</button>
-            </div>
-            
-            <div class="form-group">
-                <label style="display:flex;align-items:center;justify-content:space-between;">
-                    <span style="color:#e0e0e0;font-size:16px;font-weight:500;">启用资源嗅探</span>
-                    <label class="switch">
-                        <input type="checkbox" id="sniffer-enabled" \${resourceSnifferEnabled ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                </label>
-            </div>
-            
-            <div class="tab-container">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="switchSnifferTab('captured')">捕获记录</button>
-                    <button class="tab-btn" onclick="switchSnifferTab('modifiers')">请求修改</button>
-                    <button class="tab-btn" onclick="switchSnifferTab('filters')">拦截设置</button>
-                </div>
-                
-                <div id="captured-tab" class="tab-content active">
-                    <div class="form-group">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                            <label class="form-label">捕获的资源请求</label>
-                            <div>
-                                <button class="btn btn-secondary" onclick="clearCapturedResources()" style="padding:6px 12px;font-size:12px;">清空记录</button>
-                                <button class="btn btn-secondary" onclick="exportResources()" style="padding:6px 12px;font-size:12px;">导出</button>
-                            </div>
-                        </div>
-                        <div id="resources-list" style="max-height:300px;overflow-y:auto;background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;">
-                            <div style="text-align:center;color:#b0b0b0;padding:40px;">暂无捕获记录</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="modifiers-tab" class="tab-content">
-                    <div class="form-group">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                            <label class="form-label">请求修改规则</label>
-                            <button class="btn btn-primary" onclick="addNewModifier()" style="padding:8px 15px;font-size:12px;">添加规则</button>
-                        </div>
-                        
-                        <div id="modifiers-list"></div>
-                    </div>
-                </div>
-                
-                <div id="filters-tab" class="tab-content">
-                    <div class="form-group">
-                        <label class="form-label">资源类型过滤</label>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px;margin-bottom:15px;">
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-html" checked>
-                                <span style="color:#e0e0e0;">HTML</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-css" checked>
-                                <span style="color:#e0e0e0;">CSS</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-js" checked>
-                                <span style="color:#e0e0e0;">JavaScript</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-image" checked>
-                                <span style="color:#e0e0e0;">图片</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-font">
-                                <span style="color:#e0e0e0;">字体</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-media">
-                                <span style="color:#e0e0e0;">媒体</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-xhr" checked>
-                                <span style="color:#e0e0e0;">XHR/Fetch</span>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="filter-websocket">
-                                <span style="color:#e0e0e0;">WebSocket</span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">URL过滤</label>
-                        <input type="text" id="url-filter" class="form-input" placeholder="过滤包含关键词的URL (可选)">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
-                <button class="btn btn-primary" onclick="applySnifferSettings()">应用设置</button>
-            </div>
+function showSnifferModal() {
+  if(document.getElementById('__SNIFFER_MODAL__')) return;
+  
+  const modalHTML = \`
+  <div id="__SNIFFER_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:95%;width:1200px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#2c5282;margin-bottom:20px;">🔍 资源嗅探</h3>
+        
+        <div style="display:flex;gap:15px;margin-bottom:20px;justify-content:center;">
+          <button id="toggleSniffer" onclick="toggleSniffer()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">启动嗅探</button>
+          <button onclick="clearSnifferData()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">清空记录</button>
+          <button onclick="exportSnifferData()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">导出数据</button>
         </div>
+        
+        <div style="text-align:left;margin-bottom:20px;">
+          <div style="background:rgba(255,255,255,0.5);border-radius:8px;padding:15px;max-height:400px;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead>
+                <tr style="background:rgba(160,174,192,0.2);">
+                  <th style="padding:8px;text-align:left;border-bottom:1px solid rgba(160,174,192,0.3);">方法</th>
+                  <th style="padding:8px;text-align:left;border-bottom:1px solid rgba(160,174,192,0.3);">URL</th>
+                  <th style="padding:8px;text-align:left;border-bottom:1px solid rgba(160,174,192,0.3);">类型</th>
+                  <th style="padding:8px;text-align:left;border-bottom:1px solid rgba(160,174,192,0.3);">状态</th>
+                  <th style="padding:8px;text-align:left;border-bottom:1px solid rgba(160,174,192,0.3);">大小</th>
+                  <th style="padding:8px;text-align:left;border-bottom:1px solid rgba(160,174,192,0.3);">操作</th>
+                </tr>
+              </thead>
+              <tbody id="snifferTableBody">
+                <tr><td colspan="6" style="padding:20px;text-align:center;color:#666;">暂无数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button onclick="closeSnifferModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">关闭</button>
+        </div>
+      </div>
     </div>
-    \`;
+  </div>
+  \`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  setTimeout(() => {
+    const modal = document.getElementById('__SNIFFER_MODAL__');
+    const content = modal.querySelector('div > div');
+    modal.style.opacity = '1';
+    content.style.transform = 'scale(1)';
     
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    setTimeout(() => {
-        const modal = document.getElementById('sniffer-modal');
-        const content = modal.querySelector('.proxy-modal-content');
-        modal.classList.add('show');
-        content.classList.add('show');
-        
-        loadSnifferSettings();
-        updateResourcesList();
-        updateModifiersList();
-    }, 50);
+    updateSnifferTable();
+  }, 100);
 }
 
-function switchSnifferTab(tabName) {
-    // 更新标签按钮
-    document.querySelectorAll('#sniffer-modal .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-    
-    // 更新标签内容
-    document.querySelectorAll('#sniffer-modal .tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(tabName + '-tab').classList.add('active');
+function toggleSniffer() {
+  snifferEnabled = !snifferEnabled;
+  const button = document.getElementById('toggleSniffer');
+  
+  if(snifferEnabled) {
+    button.textContent = '停止嗅探';
+    button.style.background = 'linear-gradient(45deg,#90cdf4,#b7e4f4)';
+    startSniffer();
+  } else {
+    button.textContent = '启动嗅探';
+    button.style.background = 'rgba(160,174,192,0.3)';
+    stopSniffer();
+  }
+  
+  saveSnifferSettings();
 }
 
-function loadSnifferSettings() {
-    try {
-        // 加载开关状态
-        const enabled = localStorage.getItem('${resourceSnifferName}') === 'true';
-        document.getElementById('sniffer-enabled').checked = enabled;
-        resourceSnifferEnabled = enabled;
-        
-        // 加载过滤设置
-        const filterSettings = JSON.parse(localStorage.getItem('sniffer_filters') || '{"html":true,"css":true,"js":true,"image":true,"xhr":true}');
-        document.getElementById('filter-html').checked = filterSettings.html || false;
-        document.getElementById('filter-css').checked = filterSettings.css || false;
-        document.getElementById('filter-js').checked = filterSettings.js || false;
-        document.getElementById('filter-image').checked = filterSettings.image || false;
-        document.getElementById('filter-font').checked = filterSettings.font || false;
-        document.getElementById('filter-media').checked = filterSettings.media || false;
-        document.getElementById('filter-xhr').checked = filterSettings.xhr || false;
-        document.getElementById('filter-websocket').checked = filterSettings.websocket || false;
-        
-        document.getElementById('url-filter').value = localStorage.getItem('sniffer_url_filter') || '';
-        
-        // 加载捕获的资源
-        capturedResources = JSON.parse(localStorage.getItem('sniffer_captured') || '[]');
-        
-        // 加载修改器规则
-        requestModifiers = JSON.parse(localStorage.getItem('sniffer_modifiers') || '[]');
-        
-    } catch (e) {
-        console.error('加载资源嗅探设置失败:', e);
-    }
-}
-
-function updateResourcesList() {
-    const container = document.getElementById('resources-list');
+function startSniffer() {
+  // 拦截fetch请求
+  const originalFetch = window.fetch;
+  window.fetch = function(...args) {
+    const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    const method = args[1]?.method || 'GET';
     
-    if (capturedResources.length === 0) {
-        container.innerHTML = '<div style="text-align:center;color:#b0b0b0;padding:40px;">暂无捕获记录</div>';
-        return;
-    }
+    const requestInfo = {
+      id: Date.now() + Math.random(),
+      method: method,
+      url: url,
+      type: getResourceType(url),
+      timestamp: new Date().toLocaleTimeString(),
+      status: 'pending',
+      size: '0 B'
+    };
     
-    let html = '';
-    capturedResources.slice().reverse().forEach((resource, index) => {
-        const time = new Date(resource.timestamp).toLocaleTimeString();
-        const method = resource.method || 'GET';
-        const status = resource.status || 'Pending';
-        const type = resource.type || 'unknown';
-        
-        html += \`
-        <div class="resource-item">
-            <div class="resource-url" title="\${resource.url}">\${method} \${resource.url}</div>
-            <div class="resource-info">
-                <span>状态: \${status}</span>
-                <span>类型: \${type}</span>
-                <span>时间: \${time}</span>
-                <span>大小: \${formatBytes(resource.size)}</span>
-                <button onclick="inspectResource(\${capturedResources.length - 1 - index})" style="background:#4fc3f7;color:white;border:none;padding:2px 8px;border-radius:3px;font-size:10px;cursor:pointer;">详情</button>
-            </div>
-        </div>
-        \`;
+    capturedRequests.unshift(requestInfo);
+    updateSnifferTable();
+    
+    return originalFetch.apply(this, args).then(response => {
+      requestInfo.status = response.status;
+      requestInfo.size = formatBytes(response.headers.get('content-length') || 0);
+      updateSnifferTable();
+      return response;
+    }).catch(error => {
+      requestInfo.status = 'error';
+      requestInfo.size = '0 B';
+      updateSnifferTable();
+      throw error;
+    });
+  };
+  
+  // 拦截XMLHttpRequest
+  const originalOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    this._snifferInfo = {
+      id: Date.now() + Math.random(),
+      method: method,
+      url: url,
+      type: getResourceType(url),
+      timestamp: new Date().toLocaleTimeString(),
+      status: 'pending',
+      size: '0 B'
+    };
+    
+    capturedRequests.unshift(this._snifferInfo);
+    updateSnifferTable();
+    
+    this.addEventListener('load', function() {
+      this._snifferInfo.status = this.status;
+      this._snifferInfo.size = formatBytes(this.response ? new Blob([this.response]).size : 0);
+      updateSnifferTable();
     });
     
-    container.innerHTML = html;
+    this.addEventListener('error', function() {
+      this._snifferInfo.status = 'error';
+      updateSnifferTable();
+    });
+    
+    return originalOpen.apply(this, arguments);
+  };
+}
+
+function stopSniffer() {
+  // 恢复原始方法
+  // 注意：在实际应用中需要更复杂的恢复逻辑
+  location.reload();
+}
+
+function getResourceType(url) {
+  const ext = url.split('.').pop().toLowerCase();
+  const types = {
+    'js': 'JavaScript',
+    'css': 'CSS',
+    'png': 'Image',
+    'jpg': 'Image',
+    'jpeg': 'Image',
+    'gif': 'Image',
+    'svg': 'Image',
+    'webp': 'Image',
+    'html': 'HTML',
+    'json': 'JSON',
+    'xml': 'XML'
+  };
+  return types[ext] || 'Other';
 }
 
 function formatBytes(bytes) {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  if(bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-function updateModifiersList() {
-    const container = document.getElementById('modifiers-list');
+function updateSnifferTable() {
+  const tbody = document.getElementById('snifferTableBody');
+  if(!tbody) return;
+  
+  if(capturedRequests.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#666;">暂无数据</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = capturedRequests.map(req => \`
+    <tr style="border-bottom:1px solid rgba(160,174,192,0.1);">
+      <td style="padding:8px;"><code>\${req.method}</code></td>
+      <td style="padding:8px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="\${req.url}">\${req.url}</td>
+      <td style="padding:8px;">\${req.type}</td>
+      <td style="padding:8px;">
+        <span style="padding:2px 6px;border-radius:4px;background:\${getStatusColor(req.status)};color:white;font-size:10px;">
+          \${req.status}
+        </span>
+      </td>
+      <td style="padding:8px;">\${req.size}</td>
+      <td style="padding:8px;">
+        <button onclick="inspectRequest('\${req.id}')" style="padding:4px 8px;background:rgba(160,174,192,0.3);border:none;border-radius:4px;color:#2d3748;cursor:pointer;font-size:10px;">详情</button>
+      </td>
+    </tr>
+  \`).join('');
+}
+
+function getStatusColor(status) {
+  if(status === 200 || status === 'pending') return '#38a169';
+  if(status >= 400 || status === 'error') return '#e53e3e';
+  return '#d69e2e';
+}
+
+function inspectRequest(id) {
+  const request = capturedRequests.find(req => req.id === id);
+  if(request) {
+    alert(\`请求详情:
+方法: \${request.method}
+URL: \${request.url}
+类型: \${request.type}
+状态: \${request.status}
+大小: \${request.size}
+时间: \${request.timestamp}\`);
+  }
+}
+
+function clearSnifferData() {
+  capturedRequests = [];
+  updateSnifferTable();
+}
+
+function exportSnifferData() {
+  const data = JSON.stringify(capturedRequests, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sniffer_data.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function saveSnifferSettings() {
+  const settings = {
+    enabled: snifferEnabled
+  };
+  try {
+    localStorage.setItem('${resourceSnifferDataName}', JSON.stringify(settings));
+  } catch(e) {
+    console.log('保存嗅探设置失败:', e);
+  }
+}
+
+function loadSnifferSettings() {
+  try {
+    const settings = JSON.parse(localStorage.getItem('${resourceSnifferDataName}') || '{}');
+    snifferEnabled = settings.enabled || false;
     
-    if (requestModifiers.length === 0) {
-        container.innerHTML = '<div style="text-align:center;color:#b0b0b0;padding:20px;">暂无修改规则</div>';
-        return;
+    if(snifferEnabled) {
+      startSniffer();
     }
-    
-    let html = '';
-    requestModifiers.forEach((modifier, index) => {
-        html += \`
-        <div class="resource-item">
-            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
-                <div style="flex:1;">
-                    <div class="resource-url">\${modifier.pattern}</div>
-                    <div class="resource-info">
-                        <span>动作: \${modifier.action}</span>
-                        <span>目标: \${modifier.target}</span>
-                        \${modifier.value ? \`<span>值: \${modifier.value}</span>\` : ''}
-                    </div>
-                </div>
-                <div style="display:flex;gap:5px;">
-                    <button onclick="editModifier(\${index})" style="background:#4caf50;color:white;border:none;padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer;">编辑</button>
-                    <button onclick="removeModifier(\${index})" style="background:#ff4757;color:white;border:none;padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer;">删除</button>
-                </div>
-            </div>
-        </div>
-        \`;
-    });
-    
-    container.innerHTML = html;
+  } catch(e) {
+    console.log('加载嗅探设置失败:', e);
+  }
 }
 
-function addNewModifier() {
-    const modifier = {
-        pattern: '',
-        action: 'block', // block, redirect, modify
-        target: 'url', // url, header, cookie
-        value: '',
-        enabled: true
-    };
-    
-    requestModifiers.push(modifier);
-    updateModifiersList();
-    showModifierEditor(requestModifiers.length - 1);
+function closeSnifferModal() {
+  const modal = document.getElementById('__SNIFFER_MODAL__');
+  if(modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => {
+      modal.remove();
+    }, 300);
+  }
 }
 
-function showModifierEditor(index) {
-    const modifier = requestModifiers[index];
-    
-    const editorHTML = \`
-    <div class="proxy-modal" id="modifier-editor">
-        <div class="proxy-modal-content" style="max-width:600px;">
-            <div class="modal-header">
-                <h3 class="modal-title">编辑修改规则</h3>
-                <button class="close-modal" onclick="closeModifierEditor()">×</button>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">URL模式 (支持通配符 *)</label>
-                <input type="text" id="modifier-pattern" class="form-input" value="\${modifier.pattern}" placeholder="例如: *://*.ads.com/*">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">动作</label>
-                <select id="modifier-action" class="form-select">
-                    <option value="block" \${modifier.action === 'block' ? 'selected' : ''}>拦截请求</option>
-                    <option value="redirect" \${modifier.action === 'redirect' ? 'selected' : ''}>重定向到</option>
-                    <option value="modify" \${modifier.action === 'modify' ? 'selected' : ''}>修改</option>
-                </select>
-            </div>
-            
-            <div class="form-group" id="modify-target-group" \${modifier.action !== 'modify' ? 'style="display:none;"' : ''}>
-                <label class="form-label">修改目标</label>
-                <select id="modifier-target" class="form-select">
-                    <option value="url" \${modifier.target === 'url' ? 'selected' : ''}>URL</option>
-                    <option value="header" \${modifier.target === 'header' ? 'selected' : ''}>请求头</option>
-                    <option value="cookie" \${modifier.target === 'cookie' ? 'selected' : ''}>Cookie</option>
-                </select>
-            </div>
-            
-            <div class="form-group" id="modifier-value-group" \${!modifier.value && modifier.action !== 'redirect' ? 'style="display:none;"' : ''}>
-                <label class="form-label" id="modifier-value-label">
-                    \${modifier.action === 'redirect' ? '重定向到URL' : modifier.target === 'header' ? '请求头名称=值' : modifier.target === 'cookie' ? 'Cookie名称=值' : '修改值'}
-                </label>
-                <input type="text" id="modifier-value" class="form-input" value="\${modifier.value || ''}">
-            </div>
-            
-            <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeModifierEditor()">取消</button>
-                <button class="btn btn-primary" onclick="saveModifier(\${index})">保存</button>
-            </div>
-        </div>
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', editorHTML);
-    
-    // 添加事件监听
-    document.getElementById('modifier-action').addEventListener('change', function() {
-        const action = this.value;
-        const targetGroup = document.getElementById('modify-target-group');
-        const valueGroup = document.getElementById('modifier-value-group');
-        const valueLabel = document.getElementById('modifier-value-label');
-        
-        if (action === 'modify') {
-            targetGroup.style.display = 'block';
-            valueGroup.style.display = 'block';
-            updateValueLabel();
-        } else if (action === 'redirect') {
-            targetGroup.style.display = 'none';
-            valueGroup.style.display = 'block';
-            valueLabel.textContent = '重定向到URL';
-        } else {
-            targetGroup.style.display = 'none';
-            valueGroup.style.display = 'none';
-        }
-    });
-    
-    document.getElementById('modifier-target').addEventListener('change', updateValueLabel);
-    
-    function updateValueLabel() {
-        const target = document.getElementById('modifier-target').value;
-        const label = document.getElementById('modifier-value-label');
-        
-        if (target === 'header') {
-            label.textContent = '请求头名称=值';
-        } else if (target === 'cookie') {
-            label.textContent = 'Cookie名称=值';
-        } else {
-            label.textContent = '修改值';
-        }
-    }
-}
-
-function closeModifierEditor() {
-    const editor = document.getElementById('modifier-editor');
-    if (editor) editor.remove();
-}
-
-function saveModifier(index) {
-    const pattern = document.getElementById('modifier-pattern').value.trim();
-    const action = document.getElementById('modifier-action').value;
-    const target = document.getElementById('modifier-target').value;
-    const value = document.getElementById('modifier-value').value.trim();
-    
-    if (!pattern) {
-        showNotification('请输入URL模式', 'error');
-        return;
-    }
-    
-    requestModifiers[index] = {
-        pattern,
-        action,
-        target,
-        value,
-        enabled: true
-    };
-    
-    localStorage.setItem('sniffer_modifiers', JSON.stringify(requestModifiers));
-    updateModifiersList();
-    closeModifierEditor();
-    showNotification('修改规则已保存', 'success');
-}
-
-function removeModifier(index) {
-    requestModifiers.splice(index, 1);
-    localStorage.setItem('sniffer_modifiers', JSON.stringify(requestModifiers));
-    updateModifiersList();
-    showNotification('修改规则已删除', 'success');
-}
-
-function inspectResource(index) {
-    const resource = capturedResources[index];
-    
-    const detailHTML = \`
-    <div class="proxy-modal" id="resource-detail">
-        <div class="proxy-modal-content" style="max-width:800px;">
-            <div class="modal-header">
-                <h3 class="modal-title">资源详情</h3>
-                <button class="close-modal" onclick="closeResourceDetail()">×</button>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">URL</label>
-                <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;word-break:break-all;font-size:13px;color:#e0e0e0;">\${resource.url}</div>
-            </div>
-            
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
-                <div>
-                    <label class="form-label">方法</label>
-                    <div style="background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;font-size:13px;color:#e0e0e0;">\${resource.method || 'GET'}</div>
-                </div>
-                <div>
-                    <label class="form-label">状态</label>
-                    <div style="background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;font-size:13px;color:#e0e0e0;">\${resource.status || 'Pending'}</div>
-                </div>
-            </div>
-            
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
-                <div>
-                    <label class="form-label">类型</label>
-                    <div style="background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;font-size:13px;color:#e0e0e0;">\${resource.type || 'unknown'}</div>
-                </div>
-                <div>
-                    <label class="form-label">大小</label>
-                    <div style="background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;font-size:13px;color:#e0e0e0;">\${formatBytes(resource.size)}</div>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">时间</label>
-                <div style="background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;font-size:13px;color:#e0e0e0;">\${new Date(resource.timestamp).toLocaleString()}</div>
-            </div>
-            
-            \${resource.headers ? \`
-            <div class="form-group">
-                <label class="form-label">请求头</label>
-                <textarea class="form-textarea" style="height:120px;font-size:12px;" readonly>\${JSON.stringify(resource.headers, null, 2)}</textarea>
-            </div>
-            \` : ''}
-            
-            <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeResourceDetail()">关闭</button>
-                <button class="btn btn-primary" onclick="createModifierFromResource('\${resource.url}')">创建修改规则</button>
-            </div>
-        </div>
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', detailHTML);
-}
-
-function closeResourceDetail() {
-    const detail = document.getElementById('resource-detail');
-    if (detail) detail.remove();
-}
-
-function createModifierFromResource(url) {
-    closeResourceDetail();
-    
-    const modifier = {
-        pattern: url.replace(/https?:\\/\\/[^\\/]+/, '*://*'),
-        action: 'block',
-        target: 'url',
-        value: '',
-        enabled: true
-    };
-    
-    requestModifiers.push(modifier);
-    updateModifiersList();
-    showNotification('已基于资源创建修改规则', 'success');
-}
-
-function clearCapturedResources() {
-    capturedResources = [];
-    localStorage.setItem('sniffer_captured', JSON.stringify(capturedResources));
-    updateResourcesList();
-    showNotification('已清空捕获记录', 'success');
-}
-
-function exportResources() {
-    const data = JSON.stringify(capturedResources, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'resources.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    showNotification('资源记录已导出', 'success');
-}
-
-function applySnifferSettings() {
-    resourceSnifferEnabled = document.getElementById('sniffer-enabled').checked;
-    localStorage.setItem('${resourceSnifferName}', resourceSnifferEnabled.toString());
-    
-    // 保存过滤设置
-    const filterSettings = {
-        html: document.getElementById('filter-html').checked,
-        css: document.getElementById('filter-css').checked,
-        js: document.getElementById('filter-js').checked,
-        image: document.getElementById('filter-image').checked,
-        font: document.getElementById('filter-font').checked,
-        media: document.getElementById('filter-media').checked,
-        xhr: document.getElementById('filter-xhr').checked,
-        websocket: document.getElementById('filter-websocket').checked
-    };
-    localStorage.setItem('sniffer_filters', JSON.stringify(filterSettings));
-    
-    localStorage.setItem('sniffer_url_filter', document.getElementById('url-filter').value);
-    
-    if (resourceSnifferEnabled) {
-        startResourceSniffing();
-        showNotification('资源嗅探已启用', 'success');
-    } else {
-        stopResourceSniffing();
-        showNotification('资源嗅探已禁用', 'info');
-    }
-    
-    setTimeout(closeAllModals, 500);
-}
-
-function startResourceSniffing() {
-    if (!resourceSnifferEnabled) return;
-    
-    // 保存原始方法
-    window.originalFetch = window.fetch;
-    window.originalXHROpen = XMLHttpRequest.prototype.open;
-    window.originalXHRSend = XMLHttpRequest.prototype.send;
-    
-    // 拦截fetch
-    window.fetch = async function(...args) {
-        const url = args[0];
-        const options = args[1] || {};
-        
-        captureResource({
-            url: url,
-            method: options.method || 'GET',
-            type: 'fetch',
-            timestamp: Date.now(),
-            headers: options.headers
-        });
-        
-        // 应用修改规则
-        const modified = applyRequestModifiers(url, options);
-        if (modified.blocked) {
-            return Promise.reject(new Error('Request blocked by resource sniffer'));
-        }
-        
-        if (modified.redirected) {
-            args[0] = modified.newUrl;
-        }
-        
-        if (modified.modified) {
-            args[1] = modified.newOptions;
-        }
-        
-        try {
-            const response = await window.originalFetch.apply(this, args);
-            
-            // 捕获响应
-            captureResource({
-                url: url,
-                method: options.method || 'GET',
-                type: 'fetch',
-                status: response.status,
-                size: 0, // 需要克隆响应才能获取大小
-                timestamp: Date.now()
-            });
-            
-            return response;
-        } catch (error) {
-            captureResource({
-                url: url,
-                method: options.method || 'GET',
-                type: 'fetch',
-                status: 'Error',
-                error: error.message,
-                timestamp: Date.now()
-            });
-            throw error;
-        }
-    };
-    
-    // 拦截XMLHttpRequest
-    XMLHttpRequest.prototype.open = function(...args) {
-        this._url = args[1];
-        this._method = args[0];
-        return window.originalXHROpen.apply(this, args);
-    };
-    
-    XMLHttpRequest.prototype.send = function(...args) {
-        captureResource({
-            url: this._url,
-            method: this._method,
-            type: 'xhr',
-            timestamp: Date.now()
-        });
-        
-        this.addEventListener('load', function() {
-            captureResource({
-                url: this._url,
-                method: this._method,
-                type: 'xhr',
-                status: this.status,
-                size: this.response ? new Blob([this.response]).size : 0,
-                timestamp: Date.now()
-            });
-        });
-        
-        this.addEventListener('error', function() {
-            captureResource({
-                url: this._url,
-                method: this._method,
-                type: 'xhr',
-                status: 'Error',
-                timestamp: Date.now()
-            });
-        });
-        
-        return window.originalXHRSend.apply(this, args);
-    };
-}
-
-function stopResourceSniffing() {
-    // 恢复原始方法
-    if (window.originalFetch) {
-        window.fetch = window.originalFetch;
-    }
-    if (window.originalXHROpen) {
-        XMLHttpRequest.prototype.open = window.originalXHROpen;
-    }
-    if (window.originalXHRSend) {
-        XMLHttpRequest.prototype.send = window.originalXHRSend;
-    }
-}
-
-function captureResource(resource) {
-    // 应用过滤器
-    if (!shouldCaptureResource(resource)) return;
-    
-    capturedResources.push(resource);
-    
-    // 限制记录数量
-    if (capturedResources.length > 1000) {
-        capturedResources = capturedResources.slice(-500);
-    }
-    
-    // 保存到localStorage
-    localStorage.setItem('sniffer_captured', JSON.stringify(capturedResources));
-    
-    // 更新UI（如果打开着）
-    if (document.getElementById('resources-list')) {
-        updateResourcesList();
-    }
-}
-
-function shouldCaptureResource(resource) {
-    const filterSettings = JSON.parse(localStorage.getItem('sniffer_filters') || '{}');
-    const urlFilter = localStorage.getItem('sniffer_url_filter') || '';
-    
-    // URL过滤
-    if (urlFilter && !resource.url.includes(urlFilter)) {
-        return false;
-    }
-    
-    // 类型过滤
-    const url = resource.url.toLowerCase();
-    if (url.endsWith('.html') && !filterSettings.html) return false;
-    if (url.endsWith('.css') && !filterSettings.css) return false;
-    if (url.endsWith('.js') && !filterSettings.js) return false;
-    if (url.match(/\\.(jpg|jpeg|png|gif|webp|svg)$/i) && !filterSettings.image) return false;
-    if (url.match(/\\.(woff|woff2|ttf|eot)$/i) && !filterSettings.font) return false;
-    if (url.match(/\\.(mp4|webm|mp3|wav)$/i) && !filterSettings.media) return false;
-    if (resource.type === 'xhr' && !filterSettings.xhr) return false;
-    
-    return true;
-}
-
-function applyRequestModifiers(url, options) {
-    const result = {
-        blocked: false,
-        redirected: false,
-        modified: false,
-        newUrl: url,
-        newOptions: { ...options }
-    };
-    
-    requestModifiers.forEach(modifier => {
-        if (!modifier.enabled) return;
-        
-        if (url.match(new RegExp(modifier.pattern.replace(/\\*/g, '.*')))) {
-            switch (modifier.action) {
-                case 'block':
-                    result.blocked = true;
-                    break;
-                case 'redirect':
-                    result.redirected = true;
-                    result.newUrl = modifier.value;
-                    break;
-                case 'modify':
-                    result.modified = true;
-                    if (modifier.target === 'url') {
-                        result.newUrl = modifier.value;
-                    } else if (modifier.target === 'header' && options.headers) {
-                        const [name, value] = modifier.value.split('=');
-                        result.newOptions.headers[name] = value;
-                    } else if (modifier.target === 'cookie') {
-                        document.cookie = modifier.value;
-                    }
-                    break;
-            }
-        }
-    });
-    
-    return result;
-}
+// 初始化资源嗅探
+setTimeout(loadSnifferSettings, 2000);
 `;
 
 // =======================================================================================
-// 第八部分：设置系统
-// 功能：用户代理、语言设置和其他配置
+// 第八部分：请求修改功能脚本
+// 功能：修改请求头和浏览器标识
 // =======================================================================================
 
-const settingsSystem = `
-// 设置系统
-function showSettingsModal() {
-    const modalHTML = \`
-    <div class="proxy-modal" id="settings-modal">
-        <div class="proxy-modal-content" style="max-width:700px;">
-            <div class="modal-header">
-                <h3 class="modal-title">⚙️ 代理设置</h3>
-                <button class="close-modal" onclick="closeAllModals()">×</button>
-            </div>
-            
-            <div class="tab-container">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="switchSettingsTab('browser')">浏览器设置</button>
-                    <button class="tab-btn" onclick="switchSettingsTab('content')">内容设置</button>
-                    <button class="tab-btn" onclick="switchSettingsTab('advanced')">高级设置</button>
-                </div>
-                
-                <div id="browser-tab" class="tab-content active">
-                    <div class="form-group">
-                        <label class="form-label">用户代理 (User Agent)</label>
-                        <select id="user-agent" class="form-select">
-                            <option value="default">默认浏览器</option>
-                            <option value="chrome">Chrome (Windows)</option>
-                            <option value="chrome-mac">Chrome (Mac)</option>
-                            <option value="firefox">Firefox</option>
-                            <option value="safari">Safari</option>
-                            <option value="edge">Edge</option>
-                            <option value="mobile">移动端 Chrome</option>
-                            <option value="custom">自定义</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group" id="custom-ua-group" style="display:none;">
-                        <label class="form-label">自定义用户代理</label>
-                        <input type="text" id="custom-user-agent" class="form-input" placeholder="输入自定义User Agent字符串">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">语言偏好</label>
-                        <select id="browser-language" class="form-select">
-                            <option value="zh-CN">简体中文</option>
-                            <option value="zh-TW">繁体中文</option>
-                            <option value="en-US">English (US)</option>
-                            <option value="en-GB">English (UK)</option>
-                            <option value="ja-JP">日本語</option>
-                            <option value="ko-KR">한국어</option>
-                            <option value="fr-FR">Français</option>
-                            <option value="de-DE">Deutsch</option>
-                            <option value="es-ES">Español</option>
-                            <option value="ru-RU">Русский</option>
-                            <option value="custom">自定义</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group" id="custom-lang-group" style="display:none;">
-                        <label class="form-label">自定义语言</label>
-                        <input type="text" id="custom-language" class="form-input" placeholder="例如: en-US, zh-CN">
-                    </div>
-                </div>
-                
-                <div id="content-tab" class="tab-content">
-                    <div class="form-group">
-                        <label style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="color:#e0e0e0;font-size:16px;font-weight:500;">图片加载模式</span>
-                            <select id="image-mode" class="form-select" style="width:auto;">
-                                <option value="all">加载所有图片</option>
-                                <option value="none">不加载图片</option>
-                                <option value="webp">仅加载WebP</option>
-                                <option value="lazy">懒加载</option>
-                            </select>
-                        </label>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">自定义拦截后缀</label>
-                        <textarea id="blocked-extensions" class="form-textarea" placeholder="每行一个后缀，例如: .mp4 .avi .exe" style="height:100px;"></textarea>
-                        <div style="font-size:12px;color:#b0b0b0;margin-top:5px;">设置需要拦截的文件类型后缀</div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">自定义拦截域名</label>
-                        <textarea id="blocked-domains" class="form-textarea" placeholder="每行一个域名，例如: ads.com tracker.org" style="height:100px;"></textarea>
-                        <div style="font-size:12px;color:#b0b0b0;margin-top:5px;">设置需要拦截的域名</div>
-                    </div>
-                </div>
-                
-                <div id="advanced-tab" class="tab-content">
-                    <div class="form-group">
-                        <label style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="color:#e0e0e0;font-size:16px;font-weight:500;">启用所有功能</span>
-                            <label class="switch">
-                                <input type="checkbox" id="enable-all-features">
-                                <span class="slider"></span>
-                            </label>
-                        </label>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">功能状态</label>
-                        <div style="display:grid;gap:10px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <span style="color:#e0e0e0;">广告拦截</span>
-                                <span id="adblock-status" class="status-badge status-off">关闭</span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <span style="color:#e0e0e0;">资源嗅探</span>
-                                <span id="sniffer-status" class="status-badge status-off">关闭</span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                <span style="color:#e0e0e0;">无图模式</span>
-                                <span id="image-mode-status" class="status-badge status-off">关闭</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <button class="btn btn-secondary" onclick="resetAllSettings()" style="width:100%;">恢复默认设置</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
-                <button class="btn btn-primary" onclick="saveAllSettings()">保存所有设置</button>
-            </div>
-        </div>
-    </div>
-    \`;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    setTimeout(() => {
-        const modal = document.getElementById('settings-modal');
-        const content = modal.querySelector('.proxy-modal-content');
-        modal.classList.add('show');
-        content.classList.add('show');
-        
-        loadSettings();
-        updateStatusBadges();
-    }, 50);
-}
-
-function switchSettingsTab(tabName) {
-    // 更新标签按钮
-    document.querySelectorAll('#settings-modal .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-    
-    // 更新标签内容
-    document.querySelectorAll('#settings-modal .tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(tabName + '-tab').classList.add('active');
-}
-
-function loadSettings() {
-    try {
-        // 用户代理设置
-        const uaSetting = localStorage.getItem('${userAgentName}') || 'default';
-        document.getElementById('user-agent').value = uaSetting;
-        
-        const customUA = localStorage.getItem('custom_user_agent') || '';
-        document.getElementById('custom-user-agent').value = customUA;
-        
-        if (uaSetting === 'custom') {
-            document.getElementById('custom-ua-group').style.display = 'block';
-        }
-        
-        // 语言设置
-        const langSetting = localStorage.getItem('${languageName}') || 'zh-CN';
-        document.getElementById('browser-language').value = langSetting;
-        
-        const customLang = localStorage.getItem('custom_language') || '';
-        document.getElementById('custom-language').value = customLang;
-        
-        if (langSetting === 'custom') {
-            document.getElementById('custom-lang-group').style.display = 'block';
-        }
-        
-        // 图片模式
-        const imageMode = localStorage.getItem('${imageModeName}') || 'all';
-        document.getElementById('image-mode').value = imageMode;
-        
-        // 拦截设置
-        const blockedExtensions = localStorage.getItem('blocked_extensions') || '';
-        document.getElementById('blocked-extensions').value = blockedExtensions;
-        
-        const blockedDomains = localStorage.getItem('blocked_domains') || '';
-        document.getElementById('blocked-domains').value = blockedDomains;
-        
-        // 高级设置
-        const enableAll = localStorage.getItem('enable_all_features') === 'true';
-        document.getElementById('enable-all-features').checked = enableAll;
-        
-    } catch (e) {
-        console.error('加载设置失败:', e);
-    }
-}
-
-function updateStatusBadges() {
-    const adblockEnabled = localStorage.getItem('${adBlockEnabledName}') === 'true';
-    const snifferEnabled = localStorage.getItem('${resourceSnifferName}') === 'true';
-    const imageMode = localStorage.getItem('${imageModeName}') || 'all';
-    
-    document.getElementById('adblock-status').textContent = adblockEnabled ? '开启' : '关闭';
-    document.getElementById('adblock-status').className = adblockEnabled ? 'status-badge status-on' : 'status-badge status-off';
-    
-    document.getElementById('sniffer-status').textContent = snifferEnabled ? '开启' : '关闭';
-    document.getElementById('sniffer-status').className = snifferEnabled ? 'status-badge status-on' : 'status-badge status-off';
-    
-    document.getElementById('image-mode-status').textContent = imageMode === 'none' ? '开启' : '关闭';
-    document.getElementById('image-mode-status').className = imageMode === 'none' ? 'status-badge status-on' : 'status-badge status-off';
-}
-
-function saveAllSettings() {
-    try {
-        // 保存用户代理设置
-        const uaSetting = document.getElementById('user-agent').value;
-        localStorage.setItem('${userAgentName}', uaSetting);
-        
-        if (uaSetting === 'custom') {
-            const customUA = document.getElementById('custom-user-agent').value;
-            localStorage.setItem('custom_user_agent', customUA);
-        }
-        
-        // 保存语言设置
-        const langSetting = document.getElementById('browser-language').value;
-        localStorage.setItem('${languageName}', langSetting);
-        
-        if (langSetting === 'custom') {
-            const customLang = document.getElementById('custom-language').value;
-            localStorage.setItem('custom_language', customLang);
-        }
-        
-        // 保存图片模式
-        const imageMode = document.getElementById('image-mode').value;
-        localStorage.setItem('${imageModeName}', imageMode);
-        applyImageMode(imageMode);
-        
-        // 保存拦截设置
-        const blockedExtensions = document.getElementById('blocked-extensions').value;
-        localStorage.setItem('blocked_extensions', blockedExtensions);
-        
-        const blockedDomains = document.getElementById('blocked-domains').value;
-        localStorage.setItem('blocked_domains', blockedDomains);
-        
-        // 保存高级设置
-        const enableAll = document.getElementById('enable-all-features').checked;
-        localStorage.setItem('enable_all_features', enableAll.toString());
-        
-        if (enableAll) {
-            enableAllFeatures();
-        }
-        
-        showNotification('所有设置已保存', 'success');
-        setTimeout(closeAllModals, 1000);
-        
-    } catch (e) {
-        showNotification('保存设置失败: ' + e.message, 'error');
-    }
-}
-
-function applyImageMode(mode) {
-    const images = document.querySelectorAll('img');
-    
-    switch (mode) {
-        case 'none':
-            images.forEach(img => {
-                img.style.display = 'none';
-            });
-            break;
-        case 'webp':
-            images.forEach(img => {
-                if (!img.src.toLowerCase().endsWith('.webp')) {
-                    img.style.display = 'none';
-                }
-            });
-            break;
-        case 'lazy':
-            images.forEach(img => {
-                img.loading = 'lazy';
-            });
-            break;
-        default:
-            images.forEach(img => {
-                img.style.display = '';
-                img.loading = 'eager';
-            });
-    }
-}
-
-function enableAllFeatures() {
-    localStorage.setItem('${adBlockEnabledName}', 'true');
-    localStorage.setItem('${resourceSnifferName}', 'true');
-    
-    // 加载默认广告规则
-    const defaultRules = [
-        '||ads.example.com^',
-        '||doubleclick.net^',
-        '||googleadservices.com^',
-        '||googlesyndication.com^',
-        '##.ad-container',
-        '##.ad-banner',
-        '##[class*="advertisement"]'
-    ];
-    localStorage.setItem('adblock_custom_rules', defaultRules.join('\\n'));
-    
-    showNotification('已启用所有功能', 'success');
-}
-
-function resetAllSettings() {
-    if (confirm('确定要恢复所有默认设置吗？这将清除所有自定义配置。')) {
-        localStorage.removeItem('${userAgentName}');
-        localStorage.removeItem('${languageName}');
-        localStorage.removeItem('${imageModeName}');
-        localStorage.removeItem('${adBlockEnabledName}');
-        localStorage.removeItem('${resourceSnifferName}');
-        localStorage.removeItem('${cookieInjectionDataName}');
-        localStorage.removeItem('adblock_rules');
-        localStorage.removeItem('adblock_custom_rules');
-        localStorage.removeItem('sniffer_captured');
-        localStorage.removeItem('sniffer_modifiers');
-        localStorage.removeItem('blocked_extensions');
-        localStorage.removeItem('blocked_domains');
-        localStorage.removeItem('enable_all_features');
-        
-        showNotification('已恢复默认设置', 'success');
-        setTimeout(() => window.location.reload(), 1000);
-    }
-}
-
-// 用户代理字符串映射
-const userAgentMap = {
-    'default': navigator.userAgent,
-    'chrome': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'chrome-mac': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'firefox': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-    'safari': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
-    'edge': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59',
-    'mobile': 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36'
+const requestModScript = `
+// 请求修改功能
+let requestModEnabled = false;
+let customHeaders = [];
+let userAgents = {
+  'chrome': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  'firefox': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+  'safari': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+  'edge': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59'
+};
+let languages = {
+  'zh-CN': '中文(简体)',
+  'zh-TW': '中文(繁体)',
+  'en-US': 'English (US)',
+  'en-GB': 'English (UK)',
+  'ja-JP': '日本語',
+  'ko-KR': '한국어',
+  'fr-FR': 'Français',
+  'de-DE': 'Deutsch',
+  'es-ES': 'Español',
+  'ru-RU': 'Русский'
 };
 
-function getCustomUserAgent() {
-    const uaSetting = localStorage.getItem('${userAgentName}') || 'default';
+function showRequestModModal() {
+  if(document.getElementById('__REQUEST_MOD_MODAL__')) return;
+  
+  const modalHTML = \`
+  <div id="__REQUEST_MOD_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:900px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#2c5282;margin-bottom:20px;">🔧 请求修改设置</h3>
+        
+        <div style="display:flex;gap:15px;margin-bottom:20px;justify-content:center;">
+          <button id="toggleRequestMod" onclick="toggleRequestMod()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">启用修改</button>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;text-align:left;">
+          <div>
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">用户代理 (User Agent):</label>
+            <select id="userAgent" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              <option value="">保持原样</option>
+              \${Object.entries(userAgents).map(([key, value]) => \`
+                <option value="\${value}">\${key.charAt(0).toUpperCase() + key.slice(1)}</option>
+              \`).join('')}
+            </select>
+            <textarea id="customUserAgent" placeholder="或输入自定义User Agent" style="width:100%;height:60px;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;margin-top:8px;display:none;"></textarea>
+            <button onclick="toggleCustomUA()" style="padding:4px 8px;background:rgba(160,174,192,0.3);border:none;border-radius:4px;color:#2d3748;cursor:pointer;font-size:10px;margin-top:5px;">自定义UA</button>
+          </div>
+          
+          <div>
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">接受语言 (Accept-Language):</label>
+            <select id="acceptLanguage" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              <option value="">保持原样</option>
+              \${Object.entries(languages).map(([code, name]) => \`
+                <option value="\${code}">\${name}</option>
+              \`).join('')}
+            </select>
+            <input type="text" id="customLanguage" placeholder="或输入自定义语言" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);margin-top:8px;display:none;">
+            <button onclick="toggleCustomLang()" style="padding:4px 8px;background:rgba(160,174,192,0.3);border:none;border-radius:4px;color:#2d3748;cursor:pointer;font-size:10px;margin-top:5px;">自定义语言</button>
+          </div>
+        </div>
+        
+        <div style="text-align:left;margin-bottom:20px;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">自定义请求头:</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <input type="text" id="headerName" placeholder="Header名称" style="padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            <input type="text" id="headerValue" placeholder="Header值" style="padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+          </div>
+          <button onclick="addCustomHeader()" style="padding:8px 16px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">添加Header</button>
+          <div id="headerList" style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);"></div>
+        </div>
+        
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button onclick="saveRequestModSettings()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存设置</button>
+          <button onclick="closeRequestModModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  \`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  setTimeout(() => {
+    const modal = document.getElementById('__REQUEST_MOD_MODAL__');
+    const content = modal.querySelector('div > div');
+    modal.style.opacity = '1';
+    content.style.transform = 'scale(1)';
     
-    if (uaSetting === 'custom') {
-        return localStorage.getItem('custom_user_agent') || navigator.userAgent;
-    }
-    
-    return userAgentMap[uaSetting] || navigator.userAgent;
+    loadRequestModSettings();
+  }, 100);
 }
 
-function getCustomLanguage() {
-    const langSetting = localStorage.getItem('${languageName}') || 'zh-CN';
+function toggleRequestMod() {
+  requestModEnabled = !requestModEnabled;
+  const button = document.getElementById('toggleRequestMod');
+  if(requestModEnabled) {
+    button.textContent = '禁用修改';
+    button.style.background = 'linear-gradient(45deg,#90cdf4,#b7e4f4)';
+  } else {
+    button.textContent = '启用修改';
+    button.style.background = 'rgba(160,174,192,0.3)';
+  }
+}
+
+function toggleCustomUA() {
+  const customUA = document.getElementById('customUserAgent');
+  const selectUA = document.getElementById('userAgent');
+  
+  if(customUA.style.display === 'none') {
+    customUA.style.display = 'block';
+    selectUA.style.display = 'none';
+  } else {
+    customUA.style.display = 'none';
+    selectUA.style.display = 'block';
+  }
+}
+
+function toggleCustomLang() {
+  const customLang = document.getElementById('customLanguage');
+  const selectLang = document.getElementById('acceptLanguage');
+  
+  if(customLang.style.display === 'none') {
+    customLang.style.display = 'block';
+    selectLang.style.display = 'none';
+  } else {
+    customLang.style.display = 'none';
+    selectLang.style.display = 'block';
+  }
+}
+
+function addCustomHeader() {
+  const name = document.getElementById('headerName').value.trim();
+  const value = document.getElementById('headerValue').value.trim();
+  
+  if(!name || !value) {
+    alert('请填写Header名称和值');
+    return;
+  }
+  
+  customHeaders.push({ name, value });
+  updateHeaderList();
+  
+  // 清空输入框
+  document.getElementById('headerName').value = '';
+  document.getElementById('headerValue').value = '';
+}
+
+function updateHeaderList() {
+  const list = document.getElementById('headerList');
+  list.innerHTML = '';
+  
+  if(customHeaders.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#666;padding:10px;">暂无自定义Header</div>';
+    return;
+  }
+  
+  customHeaders.forEach((header, index) => {
+    const item = document.createElement('div');
+    item.style.display = 'flex';
+    item.style.justifyContent = 'space-between';
+    item.style.alignItems = 'center';
+    item.style.padding = '8px';
+    item.style.marginBottom = '5px';
+    item.style.background = 'rgba(255,255,255,0.2)';
+    item.style.borderRadius = '6px';
+    item.style.fontSize = '12px';
     
-    if (langSetting === 'custom') {
-        return localStorage.getItem('custom_language') || 'zh-CN';
+    item.innerHTML = \`
+      <div style="flex:1;">
+        <strong>\${header.name}</strong>: \${header.value}
+      </div>
+      <button onclick="removeCustomHeader(\${index})" style="background:none;border:none;color:#c53030;cursor:pointer;font-size:16px;padding:0 5px;">×</button>
+    \`;
+    
+    list.appendChild(item);
+  });
+}
+
+function removeCustomHeader(index) {
+  customHeaders.splice(index, 1);
+  updateHeaderList();
+}
+
+function saveRequestModSettings() {
+  const userAgentSelect = document.getElementById('userAgent');
+  const customUserAgent = document.getElementById('customUserAgent');
+  const acceptLanguageSelect = document.getElementById('acceptLanguage');
+  const customLanguage = document.getElementById('customLanguage');
+  
+  const userAgent = customUserAgent.style.display !== 'none' ? customUserAgent.value : userAgentSelect.value;
+  const acceptLanguage = customLanguage.style.display !== 'none' ? customLanguage.value : acceptLanguageSelect.value;
+  
+  const settings = {
+    enabled: requestModEnabled,
+    userAgent: userAgent,
+    acceptLanguage: acceptLanguage,
+    customHeaders: customHeaders
+  };
+  
+  try {
+    localStorage.setItem('${requestModDataName}', JSON.stringify(settings));
+    
+    if(requestModEnabled) {
+      applyRequestModifications();
     }
     
-    return langSetting;
+    alert('请求修改设置已保存！');
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+function loadRequestModSettings() {
+  try {
+    const settings = JSON.parse(localStorage.getItem('${requestModDataName}') || '{}');
+    requestModEnabled = settings.enabled || false;
+    customHeaders = settings.customHeaders || [];
+    
+    const button = document.getElementById('toggleRequestMod');
+    if(requestModEnabled) {
+      button.textContent = '禁用修改';
+      button.style.background = 'linear-gradient(45deg,#90cdf4,#b7e4f4)';
+    }
+    
+    // 加载用户代理设置
+    if(settings.userAgent) {
+      const isCustom = !Object.values(userAgents).includes(settings.userAgent);
+      if(isCustom) {
+        document.getElementById('customUserAgent').value = settings.userAgent;
+        toggleCustomUA();
+      } else {
+        document.getElementById('userAgent').value = settings.userAgent;
+      }
+    }
+    
+    // 加载语言设置
+    if(settings.acceptLanguage) {
+      const isCustom = !Object.keys(languages).includes(settings.acceptLanguage);
+      if(isCustom) {
+        document.getElementById('customLanguage').value = settings.acceptLanguage;
+        toggleCustomLang();
+      } else {
+        document.getElementById('acceptLanguage').value = settings.acceptLanguage;
+      }
+    }
+    
+    updateHeaderList();
+  } catch(e) {
+    console.log('加载请求修改设置失败:', e);
+  }
+}
+
+function applyRequestModifications() {
+  // 在实际应用中，这里应该修改请求头
+  // 由于Worker环境限制，这里只做演示
+  console.log('应用请求修改:', {
+    userAgent: document.getElementById('userAgent').value || document.getElementById('customUserAgent').value,
+    acceptLanguage: document.getElementById('acceptLanguage').value || document.getElementById('customLanguage').value,
+    customHeaders: customHeaders
+  });
+}
+
+function closeRequestModModal() {
+  const modal = document.getElementById('__REQUEST_MOD_MODAL__');
+  if(modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => {
+      modal.remove();
+    }, 300);
+  }
 }
 `;
 
 // =======================================================================================
-// 第九部分：初始化系统
-// 功能：加载所有设置并初始化各个系统
+// 第九部分：无图模式功能脚本
+// 功能：控制图片加载
 // =======================================================================================
 
-const initializationSystem = `
-// 初始化系统
-function loadAllSettings() {
-    loadAdBlockSettings();
-    loadSnifferSettings();
-    loadImageMode();
-    initializeSystems();
+const imageBlockScript = `
+// 无图模式功能
+let imageBlockEnabled = false;
+
+function toggleImageBlock() {
+  imageBlockEnabled = !imageBlockEnabled;
+  
+  if(imageBlockEnabled) {
+    blockImages();
+  } else {
+    unblockImages();
+  }
+  
+  saveImageBlockSettings();
+  updateImageBlockButton();
 }
 
-function loadImageMode() {
-    const imageMode = localStorage.getItem('${imageModeName}') || 'all';
-    applyImageMode(imageMode);
-}
-
-function initializeSystems() {
-    // 初始化广告拦截
-    if (localStorage.getItem('${adBlockEnabledName}') === 'true') {
-        adBlockEnabled = true;
-        startAdBlocking();
+function blockImages() {
+  // 阻止图片加载
+  const images = document.querySelectorAll('img, picture, source[type^="image"], [style*="background-image"]');
+  images.forEach(img => {
+    img.style.filter = 'blur(5px) grayscale(100%)';
+    img.style.opacity = '0.3';
+    img.setAttribute('data-original-src', img.src || '');
+    if(img.tagName === 'IMG') {
+      img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTBBMEFDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zNWVtIj7lm77niYc8L3RleHQ+Cjwvc3ZnPgo=';
     }
+  });
+  
+  // 阻止新的图片加载
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if(node.nodeType === 1) {
+          if(node.tagName === 'IMG') {
+            node.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTBBMEFDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zNWVtIj7lm77niYc8L3RleHQ+Cjwvc3ZnPgo=';
+          }
+          const images = node.querySelectorAll && node.querySelectorAll('img');
+          if(images) {
+            images.forEach(img => {
+              img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTBBMEFDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zNWVtIj7lm77niYc8L3RleHQ+Cjwvc3ZnPgo=';
+            });
+          }
+        }
+      });
+    });
+  });
+  
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  window.imageBlockObserver = observer;
+}
+
+function unblockImages() {
+  // 恢复图片加载
+  const images = document.querySelectorAll('img, picture, source[type^="image"], [style*="background-image"]');
+  images.forEach(img => {
+    img.style.filter = '';
+    img.style.opacity = '';
+    const originalSrc = img.getAttribute('data-original-src');
+    if(originalSrc && img.tagName === 'IMG') {
+      img.src = originalSrc;
+    }
+    img.removeAttribute('data-original-src');
+  });
+  
+  // 停止观察
+  if(window.imageBlockObserver) {
+    window.imageBlockObserver.disconnect();
+  }
+}
+
+function updateImageBlockButton() {
+  // 在实际界面中更新按钮状态
+  console.log('无图模式:', imageBlockEnabled ? '开启' : '关闭');
+}
+
+function saveImageBlockSettings() {
+  const settings = {
+    enabled: imageBlockEnabled
+  };
+  try {
+    localStorage.setItem('${imageBlockDataName}', JSON.stringify(settings));
+  } catch(e) {
+    console.log('保存无图模式设置失败:', e);
+  }
+}
+
+function loadImageBlockState() {
+  try {
+    const settings = JSON.parse(localStorage.getItem('${imageBlockDataName}') || '{}');
+    imageBlockEnabled = settings.enabled || false;
     
-    // 初始化资源嗅探
-    if (localStorage.getItem('${resourceSnifferName}') === 'true') {
-        resourceSnifferEnabled = true;
-        startResourceSniffing();
+    if(imageBlockEnabled) {
+      blockImages();
     }
-    
-    // 应用用户代理和语言设置
-    applyBrowserSettings();
-}
-
-function applyBrowserSettings() {
-    // 用户代理设置会在请求级别应用，这里主要处理语言
-    const language = getCustomLanguage();
-    if (language && document.documentElement) {
-        document.documentElement.lang = language;
-    }
-}
-
-// 页面加载完成后初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initToolbarSystem);
-} else {
-    initToolbarSystem();
+  } catch(e) {
+    console.log('加载无图模式设置失败:', e);
+  }
 }
 `;
 
@@ -2471,7 +1443,6 @@ if (document.readyState === 'loading') {
 // =======================================================================================
 
 const httpRequestInjection = `
-
 
 //---***========================================***---information---***========================================***---
 var nowURL = new URL(window.location.href);
@@ -3405,7 +2376,7 @@ const mainPage = `
             }
             
             .description {
-                font-size: 0.9rem;
+                fontSize: 0.9rem;
             }
         }
         
@@ -3659,220 +2630,506 @@ async function handleRequest(request) {
 
     // 克隆请求，因为 body 只能读取一次
     const [body1, body2] = request.body.tee();
-    request = new Request(request.url, {
-      method: request.method,
-      headers: request.headers,
-      body: body1,
-    });
+    try {
+      // 尝试作为文本读取
+      const bodyText = await new Response(body1).text();
 
-    // 读取 body2 的内容
-    const reader = body2.getReader();
-    let bodyContent = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bodyContent += new TextDecoder().decode(value);
-    }
-
-    // 替换 body 中的内容
-    bodyContent = bodyContent.replaceAll(thisProxyServerUrlHttps, `${actualUrl.protocol}//${actualUrl.hostname}/`);
-    bodyContent = bodyContent.replaceAll(thisProxyServerUrlHttps.substring(0, thisProxyServerUrlHttps.length - 1), `${actualUrl.protocol}//${actualUrl.hostname}`);
-    bodyContent = bodyContent.replaceAll(thisProxyServerUrl_hostOnly, actualUrl.host);
-
-    clientRequestBodyWithChange = bodyContent;
-  }
-
-  // =======================================================================================
-  // 子部分15.7：发送请求到目标服务器
-  // 功能：使用修改后的header和body发送请求到目标网站
-  // =======================================================================================
-
-  //***发送请求到目标服务器
-  let response;
-  try {
-    var req;
-    if (request.body) {
-      req = new Request(actualUrl, {
-        method: request.method,
-        headers: clientHeaderWithChange,
-        body: clientRequestBodyWithChange,
-        redirect: "manual"
-      });
-    } else {
-      req = new Request(actualUrl, {
-        method: request.method,
-        headers: clientHeaderWithChange,
-        redirect: "manual"
-      });
-    }
-
-    response = await fetch(req);
-  } catch (e) {
-    return getHTMLResponse("Something went wrong while trying to fetch the page: " + e.message);
-  }
-
-  // =======================================================================================
-  // 子部分15.8：处理响应
-  // 功能：修改响应内容，注入代理脚本和功能
-  // =======================================================================================
-
-  //***处理响应
-  if (response.status == 301 || response.status == 302) {
-    var location = response.headers.get('Location');
-    if (location != null) {
-      location = location.replaceAll("http://", thisProxyServerUrlHttps + "http://");
-      location = location.replaceAll("https://", thisProxyServerUrlHttps + "https://");
-      if (!location.startsWith(thisProxyServerUrlHttps)) location = thisProxyServerUrlHttps + location;
-      response.headers.set('Location', location);
-    }
-    return response;
-  }
-
-  if (response.status != 200) {
-    return response;
-  }
-
-
-  // =======================================================================================
-  // 子部分15.9：处理不同类型的响应内容
-  // 功能：根据Content-Type处理HTML、JavaScript等不同类型的内容
-  // =======================================================================================
-
-  var contentType = response.headers.get("Content-Type");
-  if (contentType == null) {
-    contentType = "";
-  }
-
-  var responseText = await response.text();
-  if (contentType.includes("text/html")) { //HTML
-    //***注入脚本
-    responseText = responseText.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}/`, thisProxyServerUrlHttps);
-    responseText = responseText.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}`, thisProxyServerUrlHttps.substring(0, thisProxyServerUrlHttps.length - 1));
-    responseText = responseText.replaceAll(actualUrl.host, thisProxyServerUrl_hostOnly);
-
-    // 注入Cookie注入脚本
-    responseText = responseText.replace("</head>", "<script>" + httpRequestInjection + htmlCovPathInject + proxyHintInjection + toolbarSystem + cookieInjectionSystem + adBlockSystem + resourceSnifferSystem + settingsSystem + initializationSystem + "</script></head>");
-
-    // 添加代理提示cookie设置
-    if (siteCookie != null && siteCookie != "") {
-      var noHint = getCook(noHintCookieName, siteCookie);
-      if (noHint == null || noHint == "") {
-        responseText = responseText.replace("</body>", "<script>setTimeout(showProxyHintModal, 1000);</script></body>");
+      // 检查是否包含需要替换的内容
+      if (bodyText.includes(thisProxyServerUrlHttps) ||
+        bodyText.includes(thisProxyServerUrl_hostOnly)) {
+        // 包含需要替换的内容，进行替换
+        clientRequestBodyWithChange = bodyText
+          .replaceAll(thisProxyServerUrlHttps, actualUrlStr)
+          .replaceAll(thisProxyServerUrl_hostOnly, actualUrl.host);
+      } else {
+        // 不包含需要替换的内容，使用原始 body
+        clientRequestBodyWithChange = body2;
       }
-    } else {
-      responseText = responseText.replace("</body>", "<script>setTimeout(showProxyHintModal, 1000);</script></body>");
+    } catch (e) {
+      // 读取失败，可能是二进制数据
+      clientRequestBodyWithChange = body2;
     }
 
-  } else if (contentType.includes("text/javascript") || contentType.includes("application/javascript")) { //JS
-    responseText = responseText.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}/`, thisProxyServerUrlHttps);
-    responseText = responseText.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}`, thisProxyServerUrlHttps.substring(0, thisProxyServerUrlHttps.length - 1));
-    responseText = responseText.replaceAll(actualUrl.host, thisProxyServerUrl_hostOnly);
-  } else if (contentType.includes("text/css")) { //CSS
-    responseText = responseText.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}/`, thisProxyServerUrlHttps);
-    responseText = responseText.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}`, thisProxyServerUrlHttps.substring(0, thisProxyServerUrlHttps.length - 1));
-    responseText = responseText.replaceAll(actualUrl.host, thisProxyServerUrl_hostOnly);
-  } else {
-    return response;
   }
 
   // =======================================================================================
-  // 子部分15.10：构建最终响应
-  // 功能：设置响应header，返回修改后的内容
+  // 子部分15.7：构造代理请求
+  // 功能：创建新的请求对象，指向目标网站
   // =======================================================================================
 
-  //***构建最终响应
-  let responseHeaders = new Headers(response.headers);
-  responseHeaders.set('Content-Type', contentType);
-
-  // 设置Cookie，记录最后访问的网站
-  responseHeaders.append('Set-Cookie', `${lastVisitProxyCookie}=${actualUrl.href}; Path=/; SameSite=None; Secure; Max-Age=604800`);
-
-  // 添加CORS头
-  responseHeaders.set('Access-Control-Allow-Origin', '*');
-  responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type');
-
-  return new Response(responseText, {
-    status: response.status,
-    headers: responseHeaders
+  const modifiedRequest = new Request(actualUrl, {
+    headers: clientHeaderWithChange,
+    method: request.method,
+    body: (request.body) ? clientRequestBodyWithChange : request.body,
+    //redirect: 'follow'
+    redirect: "manual"
+    //因为有时候会
+    //https://www.jyshare.com/front-end/61   重定向到
+    //https://www.jyshare.com/front-end/61/
+    //但是相对目录就变了
   });
+
+  //console.log(actualUrl);
+
+  // =======================================================================================
+  // 子部分15.8：Fetch结果
+  // 功能：向目标网站发送请求并获取响应
+  // =======================================================================================
+
+  const response = await fetch(modifiedRequest);
+  if (response.status.toString().startsWith("3") && response.headers.get("Location") != null) {
+    //console.log(base_url + response.headers.get("Location"))
+    try {
+      return getRedirect(thisProxyServerUrlHttps + new URL(response.headers.get("Location"), actualUrlStr).href);
+    } catch {
+      getHTMLResponse(redirectError + "<br>the redirect url:" + response.headers.get("Location") + ";the url you are now at:" + actualUrlStr);
+    }
+  }
+
+  // =======================================================================================
+  // 子部分15.9：处理获取的结果
+  // 功能：处理响应内容，注入代理脚本
+  // =======================================================================================
+
+  var modifiedResponse;
+  var bd;
+  var hasProxyHintCook = (getCook(proxyHintCookieName, siteCookie) != "");
+  var hasNoHintCookie = (getCook(noHintCookieName, siteCookie) != "");
+  const contentType = response.headers.get("Content-Type");
+
+
+  var isHTML = false;
+
+  // =======================================================================================
+  // 子部分15.9.1：如果有Body就处理
+  // =======================================================================================
+  if (response.body) {
+
+    // =======================================================================================
+    // 子部分15.9.2：如果Body是Text
+    // =======================================================================================
+    if (contentType && contentType.startsWith("text/")) {
+      bd = await response.text();
+
+
+      isHTML = (contentType && contentType.includes("text/html") && bd.includes("<html"));
+
+
+
+      // =======================================================================================
+      // 子部分15.9.3：如果是HTML或者JS，替换掉转跳的Class
+      // =======================================================================================
+      if (contentType && (contentType.includes("html") || contentType.includes("javascript"))) {
+        bd = bd.replaceAll("window.location", "window." + replaceUrlObj);
+        bd = bd.replaceAll("document.location", "document." + replaceUrlObj);
+      }
+
+      // =======================================================================================
+      // 子部分15.9.4：如果是HTML，注入代理脚本
+      // 一定放在最后，要注入模板，注入的模板不能被替换关键词
+      // 注入模板，在客户端进行操作（防止资源超载）
+      // =======================================================================================
+      //bd.includes("<html")  //不加>因为html标签上可能加属性         这个方法不好用因为一些JS中竟然也会出现这个字符串
+      //也需要加上这个方法因为有时候server返回json也是html
+      if (isHTML) {
+        //console.log("STR" + actualUrlStr)
+
+        // 这里就可以删除了，全部在客户端进行替换（以后）
+        // bd = covToAbs_ServerSide(bd, actualUrlStr);
+        // bd = removeIntegrityAttributes(bd);
+
+
+        //https://en.wikipedia.org/wiki/Byte_order_mark
+        var hasBom = false;
+        if (bd.charCodeAt(0) === 0xFEFF) {
+          bd = bd.substring(1); // 移除 BOM
+          hasBom = true;
+        }
+
+        var inject =
+          `
+        <!DOCTYPE html>
+        <script>
+        
+
+
+
+        // the proxy hint must be written as a single IIFE, or it will show error in example.com   idk what's wrong
+        ${((!hasProxyHintCook && !hasNoHintCookie) ? proxyHintInjection : "")}
+
+
+        // 工具栏功能
+        ${toolbarInjection}
+
+        // Cookie注入功能
+        ${cookieInjectionScript}
+
+        // 广告拦截功能
+        ${adBlockScript}
+
+        // 资源嗅探功能
+        ${resourceSnifferScript}
+
+        // 请求修改功能
+        ${requestModScript}
+
+        // 无图模式功能
+        ${imageBlockScript}
+
+        (function () {
+          // hooks stuff - Must before convert path functions
+          // it defines all necessary variables
+          ${httpRequestInjection}
+
+
+          // Convert path functions
+          ${htmlCovPathInject}
+
+          // Invoke the functioon
+
+
+          // ****************************************************************************
+          // it HAVE to be encoded because html will parse the </scri... tag inside script
+          
+          
+          const originalBodyBase64Encoded = "${new TextEncoder().encode(bd)}";
+
+
+          const bytes = new Uint8Array(originalBodyBase64Encoded.split(',').map(Number));
+
+
+
+          // help me debug
+          console.log(
+            '%c' + 'Debug code start',
+            'color: blue; font-size: 15px;'
+          );
+          console.log(
+            '%c' + new TextDecoder().decode(bytes),
+            'color: green; font-size: 10px; padding:5px;'
+          );
+          console.log(
+            '%c' + 'Debug code end',
+            'color: blue; font-size: 15px;'
+          );
+
+
+          ${htmlCovPathInjectFuncName}(new TextDecoder().decode(bytes));
+        
+        
+
+
+        })();
+          </script>
+        `;
+
+        // <script id="inj">document.getElementById("inj").remove();</script>
+
+
+
+
+        bd = (hasBom ? "\uFEFF" : "") + //第一个是零宽度不间断空格，第二个是空
+          inject
+          // + bd
+          ;
+      }
+      // =======================================================================================
+      // 子部分15.9.5：如果不是HTML，就Regex替换掉链接
+      // =======================================================================================
+      else {
+        //ChatGPT 替换里面的链接
+        let regex = new RegExp(`(?<!src="|href=")(https?:\\/\\/[^\s'"]+)`, 'g');
+        bd = bd.replaceAll(regex, (match) => {
+          if (match.startsWith("http")) {
+            return thisProxyServerUrlHttps + match;
+          } else {
+            return thisProxyServerUrl_hostOnly + "/" + match;
+          }
+        });
+      }
+
+      // ***************************************************
+      // ***************************************************
+      // ***************************************************
+      // 问题:在设置css background image 的时候可以使用相对目录 
+      // ***************************************************
+
+
+      modifiedResponse = new Response(bd, response);
+    }
+
+    // =======================================================================================
+    // 子部分15.9.6：如果Body不是Text（i.g. Binary）
+    // =======================================================================================
+    else {
+      modifiedResponse = new Response(response.body, response);
+    }
+  }
+
+  // =======================================================================================
+  // 子部分15.9.7：如果没有Body
+  // =======================================================================================
+  else {
+    modifiedResponse = new Response(response.body, response);
+  }
+
+
+
+  // =======================================================================================
+  // 子部分15.10：处理要返回的Cookie Header
+  // 功能：修改Set-Cookie头，确保cookie在代理域名下生效
+  // =======================================================================================
+  let headers = modifiedResponse.headers;
+  let cookieHeaders = [];
+
+  // Collect all 'Set-Cookie' headers regardless of case
+  for (let [key, value] of headers.entries()) {
+    if (key.toLowerCase() == 'set-cookie') {
+      cookieHeaders.push({ headerName: key, headerValue: value });
+    }
+  }
+
+
+  if (cookieHeaders.length > 0) {
+    cookieHeaders.forEach(cookieHeader => {
+      let cookies = cookieHeader.headerValue.split(',').map(cookie => cookie.trim());
+
+      for (let i = 0; i < cookies.length; i++) {
+        let parts = cookies[i].split(';').map(part => part.trim());
+        //console.log(parts);
+
+        // Modify Path
+        let pathIndex = parts.findIndex(part => part.toLowerCase().startsWith('path='));
+        let originalPath;
+        if (pathIndex !== -1) {
+          originalPath = parts[pathIndex].substring("path=".length);
+        }
+        let absolutePath = "/" + new URL(originalPath, actualUrlStr).href;;
+
+        if (pathIndex !== -1) {
+          parts[pathIndex] = `Path=${absolutePath}`;
+        } else {
+          parts.push(`Path=${absolutePath}`);
+        }
+
+        // Modify Domain
+        let domainIndex = parts.findIndex(part => part.toLowerCase().startsWith('domain='));
+
+        if (domainIndex !== -1) {
+          parts[domainIndex] = `domain=${thisProxyServerUrl_hostOnly}`;
+        } else {
+          parts.push(`domain=${thisProxyServerUrl_hostOnly}`);
+        }
+
+        cookies[i] = parts.join('; ');
+      }
+
+      // Re-join cookies and set the header
+      headers.set(cookieHeader.headerName, cookies.join(', '));
+    });
+  }
+  //bd != null && bd.includes("<html")
+  if (isHTML && response.status == 200) { //如果是HTML再加cookie，因为有些网址会通过不同的链接添加CSS等文件
+    let cookieValue = lastVisitProxyCookie + "=" + actualUrl.origin + "; Path=/; Domain=" + thisProxyServerUrl_hostOnly;
+    //origin末尾不带/
+    //例如：console.log(new URL("https://www.baidu.com/w/s?q=2#e"));
+    //origin: "https://www.baidu.com"
+    headers.append("Set-Cookie", cookieValue);
+
+    if (response.body && !hasProxyHintCook && !hasNoHintCookie) { //response.body 确保是正常网页再设置cookie
+      //添加代理提示
+      const expiryDate = new Date();
+      expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000); // 24小时
+      var hintCookie = `${proxyHintCookieName}=1; expires=${expiryDate.toUTCString()}; path=/`;
+      headers.append("Set-Cookie", hintCookie);
+    }
+
+  }
+
+  // =======================================================================================
+  // 子部分15.11：删除部分限制性的Header
+  // 功能：移除安全策略header，确保代理正常工作
+  // =======================================================================================
+
+  // 添加允许跨域访问的响应头
+  //modifiedResponse.headers.set("Content-Security-Policy", "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data:; media-src *; frame-src *; font-src *; connect-src *; base-uri *; form-action *;");
+
+  modifiedResponse.headers.set('Access-Control-Allow-Origin', '*');
+  modifiedResponse.headers.set("X-Frame-Options", "ALLOWALL");
+
+
+  /* 
+  Cross-Origin-Opener-Policy感觉不需要
+  
+  Claude: 如果设置了 COOP: same-origin
+  const popup = window.open('https://different-origin.com'); 
+  popup 将会是 null
+  同时之前打开的窗口也无法通过 window.opener 访问当前窗口 */
+
+
+  /*Claude:
+  
+  如果设置了 Cross-Origin-Embedder-Policy: require-corp
+  <img src="https://other-domain.com/image.jpg"> 
+  这个图片默认将无法加载，除非服务器响应带有适当的 CORS 头部
+
+  Cross-Origin-Resource-Policy
+  允许服务器声明谁可以加载此资源
+  比 CORS 更严格，因为它甚至可以限制【无需凭证的】请求
+  可以防止资源被跨源加载，即使是简单的 GET 请求
+  */
+  var listHeaderDel = ["Content-Security-Policy", "Permissions-Policy", "Cross-Origin-Embedder-Policy", "Cross-Origin-Resource-Policy"];
+  listHeaderDel.forEach(element => {
+    modifiedResponse.headers.delete(element);
+    modifiedResponse.headers.delete(element + "-Report-Only");
+  });
+
+
+  //************************************************************************************************
+  // ******************************************This need to be thouoght more carefully**************
+  //************************************ Now it will make google map not work if it's activated ****
+  //************************************************************************************************
+  // modifiedResponse.headers.forEach((value, key) => {
+  //   var newValue = value.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}/`, thisProxyServerUrlHttps); // 这是最后带 / 的
+  //   var newValue = newValue.replaceAll(`${actualUrl.protocol}//${actualUrl.hostname}`, thisProxyServerUrlHttps.substring(0, thisProxyServerUrlHttps.length - 1)); // 这是最后不带 / 的
+  //   modifiedResponse.headers.set(key, newValue); //.replaceAll(thisProxyServerUrl_hostOnly, actualUrl.host)
+  // });
+
+
+
+
+
+  if (!hasProxyHintCook && !hasNoHintCookie) {
+    //设置content立刻过期，防止多次弹代理警告（但是如果是Content-no-change还是会弹出）
+    modifiedResponse.headers.set("Cache-Control", "max-age=0");
+  }
+
+  return modifiedResponse;
 }
 
 // =======================================================================================
 // 第十六部分：辅助函数
-// 功能：各种工具函数，包括Cookie处理、响应生成等
+// 功能：各种工具函数，支持主逻辑运行
 // =======================================================================================
 
-function getCook(cookiename, cookie) {
-  // 从 cookie 字符串中获取指定名称的 cookie 值
-  var cookiestring = cookie;
-  var res = cookiestring.split(cookiename + "=");
-  if (res.length == 1) return null;
-  var output = res[1].split(";")[0];
-  return output;
+//https://stackoverflow.com/questions/5142337/read-a-javascript-cookie-by-name
+function getCook(cookiename, cookies) {
+  // Get name followed by anything except a semicolon
+  var cookiestring = RegExp(cookiename + "=[^;]+").exec(cookies);
+  // Return everything after the equal sign, or an empty string if the cookie name not found
+
+  // 这个正则表达式中的 ^ 表示字符串开头，一个字符串只有一个开头，所以这个正则最多只能匹配一次。因此 replace() 和 replaceAll() 的效果完全相同。
+  return decodeURIComponent(!!cookiestring ? cookiestring.toString().replace(/^[^=]+./, "") : "");
 }
 
-function getRedirect(url) {
-  return new Response("", {
-    status: 302,
-    headers: {
-      'Location': url,
+const matchList = [[/href=("|')([^"']*)("|')/g, `href="`], [/src=("|')([^"']*)("|')/g, `src="`]];
+function covToAbs_ServerSide(body, requestPathNow) {
+  var original = [];
+  var target = [];
+
+  for (var match of matchList) {
+    var setAttr = body.matchAll(match[0]);
+    if (setAttr != null) {
+      for (var replace of setAttr) {
+        if (replace.length == 0) continue;
+        var strReplace = replace[0];
+        if (!strReplace.includes(thisProxyServerUrl_hostOnly)) {
+          if (!isPosEmbed(body, replace.index)) {
+            var relativePath = strReplace.substring(match[1].toString().length, strReplace.length - 1);
+            if (!relativePath.startsWith("data:") && !relativePath.startsWith("mailto:") && !relativePath.startsWith("javascript:") && !relativePath.startsWith("chrome") && !relativePath.startsWith("edge")) {
+              try {
+                var absolutePath = thisProxyServerUrlHttps + new URL(relativePath, requestPathNow).href;
+                //body = body.replace(strReplace, match[1].toString() + absolutePath + `"`);
+                original.push(strReplace);
+                target.push(match[1].toString() + absolutePath + `"`);
+              } catch {
+                // 无视
+              }
+            }
+          }
+        }
+      }
     }
-  });
+  }
+  for (var i = 0; i < original.length; i++) {
+    body = body.replaceAll(original[i], target[i]);
+  }
+  return body;
 }
 
-function getHTMLResponse(content) {
-  return new Response(content, {
-    headers: { "Content-Type": "text/html" },
-  });
-}
+// console.log(isPosEmbed("<script src='https://www.google.com/'>uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu</script>",2));
+// VM195:1 false
+// console.log(isPosEmbed("<script src='https://www.google.com/'>uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu</script>",10));
+// VM207:1 false
+// console.log(isPosEmbed("<script src='https://www.google.com/'>uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu</script>",50));
+// VM222:1 true
+function isPosEmbed(html, pos) {
+  if (pos > html.length || pos < 0) return false;
+  //取从前面`<`开始后面`>`结束，如果中间有任何`<`或者`>`的话，就是content
+  //<xx></xx><script>XXXXX[T]XXXXXXX</script><tt>XXXXX</tt>
+  //         |-------------X--------------|
+  //                !               !
+  //         conclusion: in content
 
-function handleWrongPwd() {
-  return getHTMLResponse(pwdPage);
+  // Find the position of the previous '<'
+  let start = html.lastIndexOf('<', pos);
+  if (start === -1) start = 0;
+
+  // Find the position of the next '>'
+  let end = html.indexOf('>', pos);
+  if (end === -1) end = html.length;
+
+  // Extract the substring between start and end
+  let content = html.slice(start + 1, end);
+  // Check if there are any '<' or '>' within the substring (excluding the outer ones)
+  if (content.includes(">") || content.includes("<")) {
+    return true; // in content
+  }
+  return false;
+
 }
 
 // =======================================================================================
 // 第十七部分：错误处理函数
-// 功能：处理各种异常情况和错误
+// 功能：处理密码错误和其他异常情况
 // =======================================================================================
 
-function handleError(e) {
-  return new Response(e.message, {
-    status: 500,
-  });
+function handleWrongPwd() {
+  if (showPasswordPage) {
+    return getHTMLResponse(pwdPage);
+  } else {
+    return getHTMLResponse("<h1>403 Forbidden</h1><br>You do not have access to view this webpage.");
+  }
 }
 
 // =======================================================================================
 // 第十八部分：响应生成函数
-// 功能：生成不同类型的HTTP响应
+// 功能：生成HTML响应和重定向响应
 // =======================================================================================
 
-function generateResponse(content, contentType = "text/html") {
-  return new Response(content, {
-    headers: { "Content-Type": contentType },
+function getHTMLResponse(html) {
+  return new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8"
+    }
   });
+}
+
+function getRedirect(url) {
+  return Response.redirect(url, 301);
 }
 
 // =======================================================================================
 // 第十九部分：字符串处理函数
-// 功能：处理字符串相关的操作
+// 功能：字符串操作工具函数
 // =======================================================================================
 
-function replaceAll(str, find, replace) {
-  return str.split(find).join(replace);
+// https://stackoverflow.com/questions/14480345/how-to-get-the-nth-occurrence-in-a-string
+function nthIndex(str, pat, n) {
+  var L = str.length, i = -1;
+  while (n-- && i++ < L) {
+    i = str.indexOf(pat, i);
+    if (i < 0) break;
+  }
+  return i;
 }
-
-// =======================================================================================
-// 第二十部分：导出处理函数
-// 功能：导出主处理函数供外部使用
-// =======================================================================================
-
-export default {
-  async fetch(request, env, ctx) {
-    try {
-      return await handleRequest(request);
-    } catch (e) {
-      return handleError(e);
-    }
-  },
-};
