@@ -2549,21 +2549,28 @@ const mainPage = `
     el('pt-sniffer-state').innerText = (sn.state && sn.state.enabled)? '已开启':'已关闭';
   }
 
-  async function listCookies(){
-    const site = el('pt-cookie-site').value || 'global';
-    const r = await api('/cookie?site=' + encodeURIComponent(site));
-    const container = el('pt-cookie-list');
-    container.innerHTML = '';
-    Object.keys(r).forEach(name=>{
-      const c = r[name];
-      const div = document.createElement('div'); div.className='item';
-      div.innerHTML = `<div><b>${name}</b>=${c.value} <div class="muted">${c.path||'/'} ${c.expires||''}</div></div>
-                       <div>
-                          <button data-name="${name}" class="pt-edit">编辑</button>
-                          <button data-name="${name}" class="pt-del">删除</button>
-                       </div>`;
-      container.appendChild(div);
-    });
+async function listCookies(){
+  const site = el('pt-cookie-site').value || 'global';
+  const r = await api('/cookie?site=' + encodeURIComponent(site));
+  const container = el('pt-cookie-list');
+  container.innerHTML = '';
+  Object.keys(r).forEach(name=>{
+    const c = r[name];
+    const div = document.createElement('div'); 
+    div.className = 'item';
+    div.innerHTML = `
+      <div>
+        <b>${name}</b>=${c.value} 
+        <div class="muted">${c.path || '/'} ${c.expires || ''}</div>
+      </div>
+      <div>
+        <button data-name="${name}" class="pt-edit">编辑</button>
+        <button data-name="${name}" class="pt-del">删除</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
     container.querySelectorAll('.pt-edit').forEach(btn=>{
       btn.onclick = async (e)=>{
         const name = e.target.getAttribute('data-name');
