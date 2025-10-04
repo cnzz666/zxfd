@@ -2676,178 +2676,7 @@ async function handleRequest(request) {
   // 功能：向目标网站发送请求并获取响应
   // =======================================================================================
 
-
-  // ==================== BEGIN __PROXY_TOOLS_INJECTION ====================
-  // Internal tools router: handle admin APIs under /__proxy_tools
-  try {
-    const toolsPrefix = '/__proxy_tools';
-    if (url.pathname && url.pathname.startsWith(toolsPrefix)) {
-      const path = url.pathname.slice(toolsPrefix.length) || '/';
-      const method = request.method.toUpperCase();
-      // storage helpers: prefer PROXY_STORE KV binding, fallback to in-memory
-      const _inmem = (globalThis.__PROXY_INMEM__ = globalThis.__PROXY_INMEM__ || {});
-      const getKV = async (k) => {
-        try {
-          if (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) {
-            const v = await PROXY_STORE.get(k);
-            return v ? JSON.parse(v) : null;
-          } else {
-            return _inmem[k] || null;
-          }
-        } catch (e) { return null; }
-      };
-      const putKV = async (k, v) => {
-        try {
-          if (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) {
-            await PROXY_STORE.put(k, JSON.stringify(v));
-          } else {
-            _inmem[k] = v;
-          }
-          return true;
-        } catch (e) { return false; }
-      };
-      const appendKVList = async (k, item, maxLen=500) => {
-        const arr = (await getKV(k)) || [];
-        arr.push(item);
-        if (arr.length>maxLen) arr.splice(0, arr.length-maxLen);
-        await putKV(k, arr);
-        return true;
-      };
-
-      // simple router
-      if (path === '/cookies/list' && method === 'GET') {
-        const all = await getKV('cookies') || {};
-        return new Response(JSON.stringify(all), {status:200, headers: {'Content-Type':'application/json'}});
-      }
-      if (path === '/cookies/save' && method === 'POST') {
-        const j = await request.json();
-        const store = (await getKV('cookies')) || {};
-        store[j.site] = j.cookies;
-        await putKV('cookies', store);
-        return new Response(JSON.stringify({ok: true}), {status:200});
-      }
-      if (path === '/subs/list' && method === 'GET') {
-        const list = await getKV('subs') || {};
-        return new Response(JSON.stringify(list), {status:200, headers: {'Content-Type':'application/json'}});
-      }
-      if (path === '/subs/add' && method === 'POST') {
-        const j = await request.json();
-        // j.url is subscription URL
-        try {
-          const fetchResp = await fetch(j.url);
-          const text = await fetchResp.text();
-          const subs = (await getKV('subs')) || {};
-          const id = 'sub_' + (new Date()).getTime();
-          subs[id] = {url: j.url, content: text, fetchedAt: Date.now()};
-          await putKV('subs', subs);
-          return new Response(JSON.stringify({ok:true,id}), {status:200, headers:{'Content-Type':'application/json'}});
-        } catch (e) {
-          return new Response(JSON.stringify({ok:false, error: String(e)}), {status:500});
-        }
-      }
-      if (path === '/sniffing/toggle' && method === 'POST') {
-        const j = await request.json();
-        // j.host, j.enabled
-        await putKV('sniffing:'+j.host, {enabled: !!j.enabled, updatedAt: Date.now()});
-        return new Response(JSON.stringify({ok:true}), {status:200});
-      }
-      if (path === '/sniffing/export' && method === 'GET') {
-        const host = (new URL(request.url)).searchParams.get('host');
-        const data = await getKV('sniff:'+host) || [];
-        return new Response(JSON.stringify(data), {status:200, headers:{'Content-Type':'application/json'}});
-      }
-      if (path === '/checks/cookie' && method === 'GET') {
-        const site = (new URL(request.url)).searchParams.get('site');
-        const cookies = (await getKV('cookies')) || {};
-        const has = !!cookies[site];
-        return new Response(JSON.stringify({site, has}), {status:200, headers:{'Content-Type':'application/json'}});
-      }
-      if (path === '/mods/list' && method === 'GET') {
-        const mods = (await getKV('modRules')) || [];
-        return new Response(JSON.stringify(mods), {status:200, headers:{'Content-Type':'application/json'}});
-      }
-      if (path === '/mods/add' && method === 'POST') {
-        const j = await request.json();
-        const mods = (await getKV('modRules')) || [];
-        mods.push(j);
-        await putKV('modRules', mods);
-        return new Response(JSON.stringify({ok:true}), {status:200});
-      }
-      return new Response('Not Found', {status:404});
-    }
-  } catch (e) {
-    // tools router failing should not break proxy
-    console.error('proxy_tools_error', e && e.message);
-  }
-
-  // Apply subscription-based blocking (if any)
-  try {
-    const subs = (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) ? JSON.parse(await PROXY_STORE.get('subs')||'null') : (globalThis.__PROXY_INMEM__ && globalThis.__PROXY_INMEM__.subs) || null;
-    if (subs) {
-      // flatten patterns from subs contents (simple approach: look for lines with || or simple substrings)
-      for (const k of Object.keys(subs)) {
-        const text = subs[k].content || '';
-        if (text && text.indexOf(actualUrl) !== -1) {
-          return new Response('', {status:204});
-        }
-      }
-    }
-  } catch (e) { /* ignore */ }
-
-  // Apply request/response modification rules (modRules)
-  let _responseHeaderMods = null;
-  let _requestHeaderMods = null;
-  try {
-    const mods = (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) ? JSON.parse(await PROXY_STORE.get('modRules')||'null') : (globalThis.__PROXY_INMEM__ && globalThis.__PROXY_INMEM__.modRules) || [];
-    if (mods && mods.length) {
-      for (const r of mods) {
-        try {
-          const re = new RegExp(r.matcher);
-          if (re.test(actualUrl)) {
-            _requestHeaderMods = r.requestHeaders || null;
-            _responseHeaderMods = r.responseHeaders || null;
-            break;
-          }
-        } catch(e){}
-      }
-    }
-  } catch(e){}
-
-  // Prepare request to fetch (apply request header mods if any)
-  let reqToFetch = modifiedRequest;
-  if (_requestHeaderMods) {
-    const newHeaders = new Headers(modifiedRequest.headers);
-    for (const hk in _requestHeaderMods) {
-      try { newHeaders.set(hk, _requestHeaderMods[hk]); } catch(e){}
-    }
-    reqToFetch = new Request(modifiedRequest, { headers: newHeaders });
-  }
-
-  // Sniffing: record request info to KV list if sniffing enabled for host
-  try {
-    const sniffing = (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) ? JSON.parse(await PROXY_STORE.get('sniffing:'+url.host)||'null') : (globalThis.__PROXY_INMEM__ && globalThis.__PROXY_INMEM__['sniffing:'+url.host]) || null;
-    if (sniffing && sniffing.enabled) {
-      const rec = {time: Date.now(), url: actualUrl, method: request.method, headers: Object.fromEntries(request.headers), cf: request.headers.get('cf-connecting-ip') || null};
-      const key = 'sniff:'+url.host;
-      try {
-        if (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) {
-          const cur = JSON.parse(await PROXY_STORE.get(key) || '[]');
-          cur.push(rec);
-          if (cur.length>500) cur.splice(0, cur.length-500);
-          await PROXY_STORE.put(key, JSON.stringify(cur));
-        } else {
-          const im = (globalThis.__PROXY_INMEM__ = globalThis.__PROXY_INMEM__ || {});
-          im[key] = im[key] || [];
-          im[key].push(rec);
-          if (im[key].length>500) im[key].splice(0, im[key].length-500);
-        }
-      } catch(e){}
-    }
-  } catch(e){}
-  // ==================== END __PROXY_TOOLS_INJECTION ====================
-
-  let response = await fetch(reqToFetch);
-
+  const response = await fetch(modifiedRequest);
   if (response.status.toString().startsWith("3") && response.headers.get("Location") != null) {
     //console.log(base_url + response.headers.get("Location"))
     try {
@@ -3304,3 +3133,177 @@ function nthIndex(str, pat, n) {
   }
   return i;
 }
+
+
+/* ---------- BEGIN ADMIN PATCH ----------
+   Admin endpoints for cookie/subscription/sniffing/mods management.
+   NOTE: Set a binding variable PROXY_TOKEN in Worker environment for admin access.
+   This patch uses PROXY_STORE KV if bound; otherwise falls back to in-memory storage.
+*/
+
+const PROXY_TOKEN = typeof PROXY_TOKEN !== 'undefined' ? PROXY_TOKEN : "REPLACE_WITH_TOKEN";
+
+async function _kv_get(key){
+  if (typeof PROXY_STORE !== 'undefined') return await PROXY_STORE.get(key);
+  globalThis._TMP_STORE = globalThis._TMP_STORE || {};
+  return globalThis._TMP_STORE[key] || null;
+}
+async function _kv_put(key, value){
+  if (typeof PROXY_STORE !== 'undefined') return await PROXY_STORE.put(key, value);
+  globalThis._TMP_STORE = globalThis._TMP_STORE || {};
+  globalThis._TMP_STORE[key] = value;
+}
+async function _kv_list(prefix){
+  if (typeof PROXY_STORE !== 'undefined'){
+    const list = await PROXY_STORE.list({prefix});
+    return list.keys.map(k=>k.name);
+  } else {
+    globalThis._TMP_STORE = globalThis._TMP_STORE || {};
+    return Object.keys(globalThis._TMP_STORE).filter(k=>k.startsWith(prefix));
+  }
+}
+
+function authOk(request){
+  const hdr = request.headers.get('x-proxy-token') || '';
+  return hdr === PROXY_TOKEN;
+}
+
+async function handleAdmin(request){
+  if(!authOk(request)) return new Response('Unauthorized', {status:401});
+  const url = new URL(request.url);
+  const path = url.pathname;
+  // cookies save/list
+  if(path === '/__proxy_tools/cookies/save' && request.method === 'POST'){
+    const j = await request.json();
+    if(!j.site) return new Response('missing site', {status:400});
+    await _kv_put('cookies:'+j.site, JSON.stringify({site:j.site,cookies:j.cookies||'', savedAt:Date.now()}));
+    return new Response(JSON.stringify({ok:true}), {headers:{'Content-Type':'application/json'}});
+  }
+  if(path === '/__proxy_tools/cookies/list'){
+    const q = url.searchParams.get('site');
+    if(q){
+      const v = await _kv_get('cookies:'+q);
+      return new Response(JSON.stringify(v?JSON.parse(v):null), {headers:{'Content-Type':'application/json'}});
+    } else {
+      const keys = await _kv_list('cookies:');
+      const out = [];
+      for(const k of keys){
+        const v = await _kv_get(k);
+        out.push(JSON.parse(v));
+      }
+      return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
+    }
+  }
+  // subs add/list
+  if(path === '/__proxy_tools/subs/add' && request.method === 'POST'){
+    const j = await request.json();
+    if(!j.url) return new Response('missing url', {status:400});
+    try{
+      const r = await fetch(j.url);
+      const txt = await r.text();
+      const id = 'subs:'+Date.now().toString(36);
+      await _kv_put(id, JSON.stringify({id, url:j.url, content:txt, fetchedAt:Date.now()}));
+      return new Response(JSON.stringify({id}), {headers:{'Content-Type':'application/json'}});
+    }catch(e){
+      return new Response('fetch error: '+String(e), {status:502});
+    }
+  }
+  if(path === '/__proxy_tools/subs/list'){
+    const keys = await _kv_list('subs:');
+    const out = [];
+    for(const k of keys){
+      const v = await _kv_get(k);
+      out.push(JSON.parse(v));
+    }
+    return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
+  }
+  // mods add/list
+  if(path === '/__proxy_tools/mods/add' && request.method === 'POST'){
+    const j = await request.json();
+    const id = 'mods:'+Date.now().toString(36);
+    await _kv_put(id, JSON.stringify(Object.assign({id}, j)));
+    return new Response(JSON.stringify({id}), {headers:{'Content-Type':'application/json'}});
+  }
+  if(path === '/__proxy_tools/mods/list'){
+    const keys = await _kv_list('mods:');
+    const out = [];
+    for(const k of keys){
+      const v = await _kv_get(k);
+      out.push(JSON.parse(v));
+    }
+    return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
+  }
+  // sniffing toggle/export
+  if(path === '/__proxy_tools/sniffing/toggle' && request.method === 'POST'){
+    const j = await request.json();
+    if(!j.host) return new Response('missing host', {status:400});
+    await _kv_put('sniff:'+j.host, JSON.stringify({host:j.host, enabled:!!j.enabled, updatedAt:Date.now()}));
+    return new Response(JSON.stringify({ok:true}), {headers:{'Content-Type':'application/json'}});
+  }
+  if(path === '/__proxy_tools/sniffing/export'){
+    const host = url.searchParams.get('host');
+    if(!host) return new Response('missing host', {status:400});
+    const keys = await _kv_list('sniffrec:'+host+':');
+    const out = [];
+    for(const k of keys){
+      const v = await _kv_get(k);
+      out.push(JSON.parse(v));
+    }
+    return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
+  }
+  // checks
+  if(path === '/__proxy_tools/checks/cookie'){
+    const site = url.searchParams.get('site');
+    if(!site) return new Response('missing site', {status:400});
+    const v = await _kv_get('cookies:'+site);
+    return new Response(JSON.stringify({site, has: !!v}), {headers:{'Content-Type':'application/json'}});
+  }
+
+  return new Response('admin: unknown route', {status:404});
+}
+
+/* Helper used by proxy logic to consult subs and mods */
+async function _shouldBlock(urlString){
+  // check subs: simple substring matching against saved subscription contents
+  const subsKeys = await _kv_list('subs:');
+  for(const k of subsKeys){
+    const v = await _kv_get(k);
+    const obj = JSON.parse(v);
+    const content = obj.content || '';
+    // simple line by line substring match
+    const lines = content.split('\n');
+    for(const line of lines){
+      const t = line.trim();
+      if(!t || t.startsWith('!')) continue;
+      if(t.length>3 && urlString.indexOf(t) !== -1) return true;
+    }
+  }
+  // check mods for explicit block patterns (regex)
+  const modKeys = await _kv_list('mods:');
+  for(const k of modKeys){
+    const v = await _kv_get(k);
+    const obj = JSON.parse(v);
+    if(obj.matcher){
+      try{
+        const re = new RegExp(obj.matcher);
+        if(re.test(urlString)) return true;
+      }catch(e){}
+    }
+  }
+  return false;
+}
+
+/* Helper to record sniffing entries */
+async function _recordSniff(host, record){
+  const cfg = await _kv_get('sniff:'+host);
+  if(!cfg) return;
+  const cfgObj = JSON.parse(cfg);
+  if(!cfgObj.enabled) return;
+  const id = 'sniffrec:'+host+':'+Date.now().toString(36)+':'+Math.floor(Math.random()*10000);
+  await _kv_put(id, JSON.stringify(record));
+}
+
+/* ---------- END ADMIN PATCH ---------- */
+
+
+/* Admin helpers appended - you may integrate handleAdmin into your main fetch listener. */
