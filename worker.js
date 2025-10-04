@@ -2676,7 +2676,178 @@ async function handleRequest(request) {
   // 功能：向目标网站发送请求并获取响应
   // =======================================================================================
 
-  const response = await fetch(modifiedRequest);
+
+  // ==================== BEGIN __PROXY_TOOLS_INJECTION ====================
+  // Internal tools router: handle admin APIs under /__proxy_tools
+  try {
+    const toolsPrefix = '/__proxy_tools';
+    if (url.pathname && url.pathname.startsWith(toolsPrefix)) {
+      const path = url.pathname.slice(toolsPrefix.length) || '/';
+      const method = request.method.toUpperCase();
+      // storage helpers: prefer PROXY_STORE KV binding, fallback to in-memory
+      const _inmem = (globalThis.__PROXY_INMEM__ = globalThis.__PROXY_INMEM__ || {});
+      const getKV = async (k) => {
+        try {
+          if (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) {
+            const v = await PROXY_STORE.get(k);
+            return v ? JSON.parse(v) : null;
+          } else {
+            return _inmem[k] || null;
+          }
+        } catch (e) { return null; }
+      };
+      const putKV = async (k, v) => {
+        try {
+          if (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) {
+            await PROXY_STORE.put(k, JSON.stringify(v));
+          } else {
+            _inmem[k] = v;
+          }
+          return true;
+        } catch (e) { return false; }
+      };
+      const appendKVList = async (k, item, maxLen=500) => {
+        const arr = (await getKV(k)) || [];
+        arr.push(item);
+        if (arr.length>maxLen) arr.splice(0, arr.length-maxLen);
+        await putKV(k, arr);
+        return true;
+      };
+
+      // simple router
+      if (path === '/cookies/list' && method === 'GET') {
+        const all = await getKV('cookies') || {};
+        return new Response(JSON.stringify(all), {status:200, headers: {'Content-Type':'application/json'}});
+      }
+      if (path === '/cookies/save' && method === 'POST') {
+        const j = await request.json();
+        const store = (await getKV('cookies')) || {};
+        store[j.site] = j.cookies;
+        await putKV('cookies', store);
+        return new Response(JSON.stringify({ok: true}), {status:200});
+      }
+      if (path === '/subs/list' && method === 'GET') {
+        const list = await getKV('subs') || {};
+        return new Response(JSON.stringify(list), {status:200, headers: {'Content-Type':'application/json'}});
+      }
+      if (path === '/subs/add' && method === 'POST') {
+        const j = await request.json();
+        // j.url is subscription URL
+        try {
+          const fetchResp = await fetch(j.url);
+          const text = await fetchResp.text();
+          const subs = (await getKV('subs')) || {};
+          const id = 'sub_' + (new Date()).getTime();
+          subs[id] = {url: j.url, content: text, fetchedAt: Date.now()};
+          await putKV('subs', subs);
+          return new Response(JSON.stringify({ok:true,id}), {status:200, headers:{'Content-Type':'application/json'}});
+        } catch (e) {
+          return new Response(JSON.stringify({ok:false, error: String(e)}), {status:500});
+        }
+      }
+      if (path === '/sniffing/toggle' && method === 'POST') {
+        const j = await request.json();
+        // j.host, j.enabled
+        await putKV('sniffing:'+j.host, {enabled: !!j.enabled, updatedAt: Date.now()});
+        return new Response(JSON.stringify({ok:true}), {status:200});
+      }
+      if (path === '/sniffing/export' && method === 'GET') {
+        const host = (new URL(request.url)).searchParams.get('host');
+        const data = await getKV('sniff:'+host) || [];
+        return new Response(JSON.stringify(data), {status:200, headers:{'Content-Type':'application/json'}});
+      }
+      if (path === '/checks/cookie' && method === 'GET') {
+        const site = (new URL(request.url)).searchParams.get('site');
+        const cookies = (await getKV('cookies')) || {};
+        const has = !!cookies[site];
+        return new Response(JSON.stringify({site, has}), {status:200, headers:{'Content-Type':'application/json'}});
+      }
+      if (path === '/mods/list' && method === 'GET') {
+        const mods = (await getKV('modRules')) || [];
+        return new Response(JSON.stringify(mods), {status:200, headers:{'Content-Type':'application/json'}});
+      }
+      if (path === '/mods/add' && method === 'POST') {
+        const j = await request.json();
+        const mods = (await getKV('modRules')) || [];
+        mods.push(j);
+        await putKV('modRules', mods);
+        return new Response(JSON.stringify({ok:true}), {status:200});
+      }
+      return new Response('Not Found', {status:404});
+    }
+  } catch (e) {
+    // tools router failing should not break proxy
+    console.error('proxy_tools_error', e && e.message);
+  }
+
+  // Apply subscription-based blocking (if any)
+  try {
+    const subs = (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) ? JSON.parse(await PROXY_STORE.get('subs')||'null') : (globalThis.__PROXY_INMEM__ && globalThis.__PROXY_INMEM__.subs) || null;
+    if (subs) {
+      // flatten patterns from subs contents (simple approach: look for lines with || or simple substrings)
+      for (const k of Object.keys(subs)) {
+        const text = subs[k].content || '';
+        if (text && text.indexOf(actualUrl) !== -1) {
+          return new Response('', {status:204});
+        }
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // Apply request/response modification rules (modRules)
+  let _responseHeaderMods = null;
+  let _requestHeaderMods = null;
+  try {
+    const mods = (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) ? JSON.parse(await PROXY_STORE.get('modRules')||'null') : (globalThis.__PROXY_INMEM__ && globalThis.__PROXY_INMEM__.modRules) || [];
+    if (mods && mods.length) {
+      for (const r of mods) {
+        try {
+          const re = new RegExp(r.matcher);
+          if (re.test(actualUrl)) {
+            _requestHeaderMods = r.requestHeaders || null;
+            _responseHeaderMods = r.responseHeaders || null;
+            break;
+          }
+        } catch(e){}
+      }
+    }
+  } catch(e){}
+
+  // Prepare request to fetch (apply request header mods if any)
+  let reqToFetch = modifiedRequest;
+  if (_requestHeaderMods) {
+    const newHeaders = new Headers(modifiedRequest.headers);
+    for (const hk in _requestHeaderMods) {
+      try { newHeaders.set(hk, _requestHeaderMods[hk]); } catch(e){}
+    }
+    reqToFetch = new Request(modifiedRequest, { headers: newHeaders });
+  }
+
+  // Sniffing: record request info to KV list if sniffing enabled for host
+  try {
+    const sniffing = (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) ? JSON.parse(await PROXY_STORE.get('sniffing:'+url.host)||'null') : (globalThis.__PROXY_INMEM__ && globalThis.__PROXY_INMEM__['sniffing:'+url.host]) || null;
+    if (sniffing && sniffing.enabled) {
+      const rec = {time: Date.now(), url: actualUrl, method: request.method, headers: Object.fromEntries(request.headers), cf: request.headers.get('cf-connecting-ip') || null};
+      const key = 'sniff:'+url.host;
+      try {
+        if (typeof PROXY_STORE !== 'undefined' && PROXY_STORE) {
+          const cur = JSON.parse(await PROXY_STORE.get(key) || '[]');
+          cur.push(rec);
+          if (cur.length>500) cur.splice(0, cur.length-500);
+          await PROXY_STORE.put(key, JSON.stringify(cur));
+        } else {
+          const im = (globalThis.__PROXY_INMEM__ = globalThis.__PROXY_INMEM__ || {});
+          im[key] = im[key] || [];
+          im[key].push(rec);
+          if (im[key].length>500) im[key].splice(0, im[key].length-500);
+        }
+      } catch(e){}
+    }
+  } catch(e){}
+  // ==================== END __PROXY_TOOLS_INJECTION ====================
+
+  let response = await fetch(reqToFetch);
+
   if (response.status.toString().startsWith("3") && response.headers.get("Location") != null) {
     //console.log(base_url + response.headers.get("Location"))
     try {
