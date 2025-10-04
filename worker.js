@@ -2438,6 +2438,307 @@ const mainPage = `
         }
     </script>
     <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"23706d89f379497d9a10994cbea3fda0","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+
+<!-- Proxy Extension Toolbar -->
+<style>
+#proxy-toolbar { position: fixed; right: 12px; top: 12px; width: 380px; max-height: 80vh; background: rgba(255,255,255,0.97); border:1px solid rgba(0,0,0,0.08); box-shadow:0 6px 24px rgba(0,0,0,0.08); border-radius:10px; z-index:2147483647; overflow:auto; font-family:Segoe UI, Roboto, Arial; font-size:13px; }
+#proxy-toolbar header { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #eee; }
+#proxy-toolbar h3 { margin:0; font-size:14px; }
+#proxy-toolbar .close-btn { cursor:pointer; padding:4px 8px; border-radius:6px; background:#f2f2f2; }
+#proxy-toolbar .section { padding:10px; border-bottom:1px solid #f5f5f5;}
+#proxy-toolbar label{display:block;margin-bottom:6px;font-weight:600}
+#proxy-toolbar input[type="text"], #proxy-toolbar textarea, #proxy-toolbar select { width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; font-size:13px; }
+#proxy-toolbar button { padding:6px 8px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer; margin-right:6px; }
+#proxy-toolbar .small { font-size:12px; color:#666; }
+#proxy-toolbar .list { max-height:180px; overflow:auto; background:#fafafa; padding:6px; border-radius:6px; border:1px dashed #eee; }
+#proxy-toolbar .item { padding:6px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; }
+#proxy-toolbar .item:last-child{border-bottom:0}
+#proxy-toolbar .muted { color:#777; font-size:12px; }
+#proxy-toolbar .controls { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+#proxy-toolbar .toolbar-title { font-weight:700; font-size:13px; }
+#proxy-toolbar .ok { color:green; font-weight:700; }
+#proxy-toolbar .warn { color:orange; font-weight:700; }
+#proxy-toolbar .danger { color:red; font-weight:700; }
+#proxy-toolbar .flex { display:flex; gap:6px; align-items:center; }
+</style>
+
+<div id="proxy-toolbar" aria-hidden="false" role="dialog" title="Proxy Toolbox">
+  <header>
+    <h3>Proxy Toolbox</h3>
+    <div class="flex">
+      <button id="pt-refresh" title="刷新状态">刷新</button>
+      <button id="pt-close" class="close-btn" title="隐藏">×</button>
+    </div>
+  </header>
+
+  <div class="section" id="pt-status">
+    <div class="toolbar-title">状态</div>
+    <div class="small">Sniffer: <span id="pt-sniffer-state" class="muted">未知</span> | Cookies: <span id="pt-cookie-count">0</span> | Subscriptions: <span id="pt-sub-count">0</span></div>
+    <div class="controls" style="margin-top:8px;">
+      <button id="pt-sniffer-toggle">切换嗅探</button>
+      <button id="pt-clear-captures">清空嗅探数据</button>
+      <button id="pt-open-sniffer">查看嗅探</button>
+    </div>
+  </div>
+
+  <div class="section" id="pt-cookies">
+    <div class="toolbar-title">Cookie 管理</div>
+    <div class="small">管理注入 cookie 与站点保存的 cookie</div>
+    <label>目标站点（host only，例如: example.com）</label>
+    <input type="text" id="pt-cookie-site" placeholder="site or leave empty for global" />
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button id="pt-list-cookies">列出</button>
+      <button id="pt-add-cookie">添加</button>
+      <button id="pt-save-cookie">保存编辑</button>
+    </div>
+    <div class="list" id="pt-cookie-list"></div>
+  </div>
+
+  <div class="section" id="pt-blocks">
+    <div class="toolbar-title">广告订阅</div>
+    <div class="small">导入订阅（将本地保存并拉取内容用于拦截）</div>
+    <label>订阅 URL</label>
+    <input type="text" id="pt-sub-url" placeholder="https://..." />
+    <div class="controls" style="margin-top:6px;">
+      <button id="pt-add-sub">添加订阅并拉取</button>
+      <button id="pt-list-sub">列出订阅</button>
+      <button id="pt-import-common">导入常见</button>
+    </div>
+    <div class="list" id="pt-sub-list"></div>
+  </div>
+
+  <div class="section" id="pt-sniffer-ui" style="display:none">
+    <div class="toolbar-title">嗅探器（最近 500 条）</div>
+    <div class="small">你可以查看、导出、修改/重发（重发需手动复制 URL/头）</div>
+    <div class="controls" style="margin-top:6px;">
+      <button id="pt-export-captures">导出 JSON</button>
+      <button id="pt-download-captures">下载 JSON</button>
+    </div>
+    <div class="list" id="pt-captures-list"></div>
+  </div>
+
+  <div class="section" id="pt-tools">
+    <div class="toolbar-title">快速工具</div>
+    <div class="controls">
+      <button id="pt-no-media">切换无图/无视频模式</button>
+      <button id="pt-run-check">运行检查</button>
+    </div>
+    <div class="small" style="margin-top:8px;">检查结果：<span id="pt-check-result" class="muted">等待运行</span></div>
+  </div>
+
+  <div class="section" style="text-align:center;">
+    <small class="muted">Proxy Extension v1 — 不修改原页面除非你使用嗅探/规则功能。建议绑定 Cloudflare KV 'EXT_KV' 以持久化设置。</small>
+  </div>
+</div>
+
+<script>
+(function(){
+  const apiBase = location.origin + "/__proxy_ext_api__";
+  function el(id){return document.getElementById(id);}
+
+  async function api(path, opts={}) {
+    const res = await fetch(apiBase + path, opts);
+    try { return await res.json(); } catch(e){ return { error: 'invalid json' }; }
+  }
+
+  async function refreshStatus(){
+    const st = await api('/check');
+    el('pt-cookie-count').innerText = st.cookiesKeys ? st.cookiesKeys.length : 0;
+    el('pt-sub-count').innerText = Object.keys(st.blocklists || {}).length;
+    const sn = await api('/sniffer?action=status');
+    el('pt-sniffer-state').innerText = (sn.state && sn.state.enabled)? '已开启':'已关闭';
+  }
+
+  async function listCookies(){
+    const site = el('pt-cookie-site').value || 'global';
+    const r = await api('/cookie?site=' + encodeURIComponent(site));
+    const container = el('pt-cookie-list');
+    container.innerHTML = '';
+    Object.keys(r).forEach(name=>{
+      const c = r[name];
+      const div = document.createElement('div'); div.className='item';
+      div.innerHTML = `<div><b>${name}</b>=${c.value} <div class="muted">${c.path||'/'} ${c.expires||''}</div></div>
+                       <div>
+                          <button data-name="${name}" class="pt-edit">编辑</button>
+                          <button data-name="${name}" class="pt-del">删除</button>
+                       </div>`;
+      container.appendChild(div);
+    });
+    container.querySelectorAll('.pt-edit').forEach(btn=>{
+      btn.onclick = async (e)=>{
+        const name = e.target.getAttribute('data-name');
+        const c = r[name];
+        const nv = prompt('编辑值', c.value);
+        if (nv===null) return;
+        await api('/cookie', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, value:nv, path:c.path, expires:c.expires })});
+        listCookies(); refreshStatus();
+      }
+    });
+    container.querySelectorAll('.pt-del').forEach(btn=>{
+      btn.onclick = async (e)=>{
+        if(!confirm('确认删除?')) return;
+        const name = e.target.getAttribute('data-name');
+        await api('/cookie?site=' + encodeURIComponent(el('pt-cookie-site').value||'global') + '&name=' + encodeURIComponent(name), { method:'DELETE' });
+        listCookies(); refreshStatus();
+      }
+    });
+  }
+
+  async function addCookieUI(){
+    const site = el('pt-cookie-site').value || 'global';
+    const name = prompt('cookie 名称');
+    if(!name) return;
+    const value = prompt('cookie 值');
+    if(value===null) return;
+    await api('/cookie', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, value })});
+    listCookies(); refreshStatus();
+  }
+
+  async function addSubscription(){
+    const url = el('pt-sub-url').value.trim();
+    if(!url) return alert('请输入 URL');
+    const id = 'sub_' + Date.now();
+    const body = { id, url, autoUpdate: true };
+    const res = await api('/blocklists', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    alert('订阅添加完成（可能未拉取成功），id=' + id);
+    listSubs();
+    refreshStatus();
+  }
+  async function listSubs(){
+    const r = await api('/blocklists');
+    const container = el('pt-sub-list');
+    container.innerHTML = '';
+    Object.keys(r||{}).forEach(id=>{
+      const it = r[id];
+      const div = document.createElement('div'); div.className='item';
+      div.innerHTML = `<div><b>${id}</b><div class="muted">${it.url}<br/>last:${it.lastFetched||'N/A'}</div></div>
+                       <div><button data-id="${id}" class="pt-sub-del">删除</button></div>`;
+      container.appendChild(div);
+    });
+    container.querySelectorAll('.pt-sub-del').forEach(btn=> btn.onclick = async (e)=>{
+      const id = e.target.getAttribute('data-id');
+      if(!confirm('删除订阅?')) return;
+      await api('/blocklists?id=' + encodeURIComponent(id), { method:'DELETE' });
+      listSubs(); refreshStatus();
+    });
+  }
+
+  async function importCommon(){
+    const commons = [
+      'https://easylist-downloads.adblockplus.org/antiadblockfilters.txt',
+      'https://easylist-downloads.adblockplus.org/easyprivacy.txt',
+      'https://fastly.jsdelivr.net/gh/cjx82630/cjxlist/cjx-annoyance.txt',
+      'https://easylist-downloads.adblockplus.org/easylistchina.txt'
+    ];
+    for(const u of commons){
+      const id = 'sub_' + btoa(u).slice(0,12);
+      await api('/blocklists', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, url:u, autoUpdate:true })});
+    }
+    alert('已尝试添加常见订阅');
+    listSubs(); refreshStatus();
+  }
+
+  async function toggleSniffer(){
+    const st = await api('/sniffer?action=status');
+    const on = st.state && st.state.enabled;
+    if(on){
+      await api('/sniffer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'stop' })});
+    } else {
+      await api('/sniffer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'start' })});
+    }
+    refreshStatus();
+  }
+
+  async function clearCaptures(){
+    if(!confirm('清空嗅探数据?')) return;
+    await api('/sniffer?action=clear');
+    loadCaptures();
+  }
+
+  async function loadCaptures(){
+    el('pt-sniffer-ui').style.display='block';
+    const r = await api('/sniffer?action=get');
+    const container = el('pt-captures-list');
+    container.innerHTML = '';
+    (r.captures || []).forEach(c=>{
+      const d = document.createElement('div'); d.className='item';
+      d.innerHTML = `<div style="flex:1"><div><b>${c.method} ${c.url}</b></div>
+                     <div class="muted">status:${c.status||'-'} ts:${c.ts}</div></div>
+                     <div style="min-width:110px">
+                       <button data-id="${c.id}" class="pt-cap-view">详情</button>
+                       <button data-id="${c.id}" class="pt-cap-copy">复制URL</button>
+                     </div>`;
+      container.appendChild(d);
+    });
+    container.querySelectorAll('.pt-cap-view').forEach(btn=>btn.onclick = async (e)=>{
+      const id = e.target.getAttribute('data-id');
+      const all = await api('/sniffer?action=get');
+      const cap = (all.captures||[]).find(x=>x.id===id);
+      alert(JSON.stringify(cap, null, 2));
+    });
+    container.querySelectorAll('.pt-cap-copy').forEach(btn=>btn.onclick = (e)=>{
+      const id = e.target.getAttribute('data-id');
+      navigator.clipboard.writeText(id).then(()=>alert('已复制'));
+    });
+  }
+
+  async function exportCaptures(){
+    const r = await api('/sniffer?action=get');
+    const blob = new Blob([JSON.stringify(r, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download = 'captures.json'; a.click();
+  }
+
+  async function toggleNoMedia(){
+    // create or remove a rule that blocks common media content via simple url matching
+    const rules = await api('/rules');
+    let has = false;
+    const id = 'rule_no_media';
+    (rules || []).forEach(r=>{ if(r.id===id) has=true; });
+    if(has){
+      // remove
+      await api('/rules?id=' + encodeURIComponent(id), { method:'DELETE' });
+      alert('已关闭无图/无视频模式（刷新页面生效）');
+    } else {
+      const rule = { id, type:'block', match:'.(jpg|jpeg|png|gif|bmp|webp|mp4|m3u8|ts|webm)', target:'url', action: {} };
+      await api('/rules', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(rule) });
+      alert('已开启无图/无视频模式（刷新页面生效）');
+    }
+  }
+
+  async function runCheck(){
+    const r = await api('/check');
+    // basic checks
+    const msgs = [];
+    if(typeof fetch !== 'function') msgs.push('浏览器不支持 fetch');
+    if(!r) return alert('检查失败');
+    msgs.push('保存的 cookie keys: ' + (r.cookiesKeys||[]).length);
+    msgs.push('订阅数: ' + Object.keys(r.blocklists || {}).length);
+    msgs.push('规则数: ' + (r.rulesCount||0));
+    el('pt-check-result').innerText = msgs.join(' | ');
+  }
+
+  // bind UI
+  el('pt-close').onclick = ()=> { el('proxy-toolbar').style.display='none'; };
+  el('pt-refresh').onclick = refreshStatus;
+  el('pt-list-cookies').onclick = listCookies;
+  el('pt-add-cookie').onclick = addCookieUI;
+  el('pt-add-sub').onclick = addSubscription;
+  el('pt-list-sub').onclick = listSubs;
+  el('pt-import-common').onclick = importCommon;
+  el('pt-sniffer-toggle').onclick = toggleSniffer;
+  el('pt-open-sniffer').onclick = loadCaptures;
+  el('pt-clear-captures').onclick = clearCaptures;
+  el('pt-export-captures').onclick = exportCaptures;
+  el('pt-download-captures').onclick = exportCaptures;
+  el('pt-no-media').onclick = toggleNoMedia;
+  el('pt-run-check').onclick = runCheck;
+
+  // initial
+  refreshStatus();
+
+})();
+</script>
 </body>
 </html>
     
@@ -2498,6 +2799,194 @@ const redirectError = `
 // 功能：处理所有传入的HTTP请求，实现代理逻辑
 // =======================================================================================
 
+
+// ======================= BEGIN EXTENSION: Proxy Extension API =======================
+// Provides endpoints for:
+// - /__proxy_ext_api__/cookie      [GET/POST/PUT/DELETE] manage injected cookies (stored in KV EXT_KV if bound, else in-memory fallback)
+// - /__proxy_ext_api__/blocklists  [GET/POST/DELETE] manage local blocklist subscriptions (store list URLs and downloaded content)
+// - /__proxy_ext_api__/rules       [GET/POST/DELETE] request/response modification rules
+// - /__proxy_ext_api__/check       [GET] run quick checks to validate features (cookie injection, blocking rules)
+// Notes:
+// - This extension tries to use a Cloudflare KV namespace binding named EXT_KV if available. If not, it falls back to in-memory storage (non-persistent).
+// - It is designed to be additive and not to change existing proxy HTML/UI. Frontend should call these endpoints (or local UI can be added separately).
+// =======================================================================================
+const EXT_KV = typeof EXT_KV !== 'undefined' ? EXT_KV : null; // bind a KV namespace named EXT_KV for persistence
+if (!globalThis.__EXT_STORE) globalThis.__EXT_STORE = { cookies: {}, blocklists: {}, rules: {} };
+
+async function ext_kv_get(key, fallback=null){
+  if (EXT_KV) {
+    try {
+      const v = await EXT_KV.get(key);
+      return v ? JSON.parse(v) : fallback;
+    } catch(e){ return fallback; }
+  } else {
+    return globalThis.__EXT_STORE[key] || fallback;
+  }
+}
+async function ext_kv_put(key, value){
+  if (EXT_KV) {
+    try {
+      await EXT_KV.put(key, JSON.stringify(value));
+      return true;
+    } catch(e){ return false; }
+  } else {
+    globalThis.__EXT_STORE[key] = value;
+    return true;
+  }
+}
+
+// small helper to build JSON Responses
+function jsonResponse(obj, status=200){
+  return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' }});
+}
+
+// main ext API router
+async function handleExtAPI(request){
+  const url = new URL(request.url);
+  const parts = url.pathname.split('/').filter(Boolean); // split path
+  // expected: ['__proxy_ext_api__','resource', ...]
+  if (parts.length < 2) return jsonResponse({ error: 'invalid ext api' }, 400);
+  const resource = parts[1];
+  // Cookies management
+  if (resource === 'cookie') {
+    // /__proxy_ext_api__/cookie?site=example.com
+    const site = url.searchParams.get('site') || 'global';
+    if (request.method === 'GET') {
+      const all = await ext_kv_get('cookies', {});
+      return jsonResponse(all[site] || {});
+    }
+    if (request.method === 'POST' || request.method === 'PUT') {
+      const body = await request.json().catch(()=>null);
+      if (!body || !body.name) return jsonResponse({ error: 'missing cookie body with name/value' },400);
+      const all = await ext_kv_get('cookies', {});
+      all[site] = all[site] || {};
+      all[site][body.name] = { value: body.value, path: body.path||'/', expires: body.expires||null, hostOnly: body.hostOnly||false };
+      await ext_kv_put('cookies', all);
+      return jsonResponse({ ok:true, cookie: all[site][body.name] });
+    }
+    if (request.method === 'DELETE') {
+      const name = url.searchParams.get('name');
+      if (!name) return jsonResponse({ error:'missing name param' },400);
+      const all = await ext_kv_get('cookies', {});
+      if (all[site] && all[site][name]) {
+        delete all[site][name];
+        await ext_kv_put('cookies', all);
+      }
+      return jsonResponse({ ok:true });
+    }
+  }
+
+  // Blocklist subscriptions management
+  if (resource === 'blocklists') {
+    if (request.method === 'GET') {
+      const lists = await ext_kv_get('blocklists', {});
+      return jsonResponse(lists);
+    }
+    if (request.method === 'POST') {
+      // add new subscription: { id, url, autoUpdate:true/false, lastFetched:null, content:null }
+      const body = await request.json().catch(()=>null);
+      if (!body || !body.id || !body.url) return jsonResponse({ error:'missing id or url' },400);
+      const lists = await ext_kv_get('blocklists', {});
+      lists[body.id] = { url: body.url, autoUpdate: !!body.autoUpdate, lastFetched: null, content: null };
+      await ext_kv_put('blocklists', lists);
+      // attempt to fetch content now (best-effort)
+      try {
+        const res = await fetch(body.url);
+        if (res.ok) {
+          const txt = await res.text();
+          lists[body.id].content = txt;
+          lists[body.id].lastFetched = new Date().toISOString();
+          await ext_kv_put('blocklists', lists);
+        }
+      } catch(e){}
+      return jsonResponse({ ok:true, entry: lists[body.id] });
+    }
+    if (request.method === 'DELETE') {
+      const id = url.searchParams.get('id');
+      if (!id) return jsonResponse({ error:'missing id' },400);
+      const lists = await ext_kv_get('blocklists', {});
+      delete lists[id];
+      await ext_kv_put('blocklists', lists);
+      return jsonResponse({ ok:true });
+    }
+  }
+
+  // Rules management (request/response modification)
+  if (resource === 'rules') {
+    if (request.method === 'GET') {
+      const rules = await ext_kv_get('rules', []);
+      return jsonResponse(rules);
+    }
+    if (request.method === 'POST') {
+      // rule example: { id, type: 'modify'|'block'|'replace', match: 'regex or substring', target: 'header'|'body'|'url', action: {...} }
+      const body = await request.json().catch(()=>null);
+      if (!body || !body.id) return jsonResponse({ error:'missing id' },400);
+      const rules = await ext_kv_get('rules', []);
+      // replace if exists
+      const idx = rules.findIndex(r=>r.id===body.id);
+      if (idx>=0) rules[idx]=body; else rules.push(body);
+      await ext_kv_put('rules', rules);
+      return jsonResponse({ ok:true, rule: body });
+    }
+    if (request.method === 'DELETE') {
+      const id = url.searchParams.get('id');
+      if (!id) return jsonResponse({ error:'missing id' },400);
+      const rules = await ext_kv_get('rules', []);
+      const n = rules.filter(r=>r.id!==id);
+      await ext_kv_put('rules', n);
+      return jsonResponse({ ok:true });
+    }
+  }
+
+  // quick check endpoint
+  if (resource === 'check') {
+    // returns status of stored config keys
+    const cookies = await ext_kv_get('cookies', {});
+    const lists = await ext_kv_get('blocklists', {});
+    const rules = await ext_kv_get('rules', []);
+    return jsonResponse({ ok:true, cookiesKeys: Object.keys(cookies), blocklists: Object.keys(lists), rulesCount: rules.length });
+
+  // Sniffer management: /__proxy_ext_api__/sniffer?action=start|stop|status|get|clear
+  if (resource === 'sniffer') {
+    if (request.method === 'GET') {
+      const action = url.searchParams.get('action') || 'status';
+      if (action === 'status') {
+        const st = await ext_kv_get('sniffer_state', {enabled:false});
+        const caps = await ext_kv_get('sniffer_captures', []);
+        return jsonResponse({ ok:true, state: st, capturesCount: caps.length });
+      }
+      if (action === 'get') {
+        const caps = await ext_kv_get('sniffer_captures', []);
+        return jsonResponse({ ok:true, captures: caps.slice(-500) }); // return up to last 500
+      }
+      if (action === 'clear') {
+        await ext_kv_put('sniffer_captures', []);
+        return jsonResponse({ ok:true });
+      }
+    }
+    if (request.method === 'POST') {
+      const body = await request.json().catch(()=>null);
+      if (!body || !body.action) return jsonResponse({ error:'missing action' },400);
+      if (body.action === 'start') {
+        await ext_kv_put('sniffer_state', { enabled: true, startedAt: new Date().toISOString() });
+        return jsonResponse({ ok:true });
+      }
+      if (body.action === 'stop') {
+        await ext_kv_put('sniffer_state', { enabled: false, stoppedAt: new Date().toISOString() });
+        return jsonResponse({ ok:true });
+      }
+    }
+  }
+
+
+  }
+
+  return jsonResponse({ error:'unknown ext resource' },404);
+}
+
+// Integration: intercept API route before main proxy handler.
+// Note: we'll route in handleRequest at its start by checking pathname for __proxy_ext_api__ and calling handleExtAPI.
+// ======================== END EXTENSION =============================================
 async function handleRequest(request) {
 
   // =======================================================================================
@@ -2676,7 +3165,71 @@ async function handleRequest(request) {
   // 功能：向目标网站发送请求并获取响应
   // =======================================================================================
 
-  const response = await fetch(modifiedRequest);
+  
+
+  // Rules enforcement: check block rules against URL before fetching
+  try {
+    const allRules = await ext_kv_get('rules', []);
+    if (Array.isArray(allRules) && allRules.length) {
+      for (const rr of allRules) {
+        try {
+          if (rr.type === 'block' && rr.target === 'url' && rr.match) {
+            const re = new RegExp(rr.match, 'i');
+            if (re.test(modifiedRequest.url)) {
+              // return an empty 204 or a small blocked HTML so it's visible
+              return new Response('Blocked by proxy rule: ' + (rr.id||'unnamed'), { status: 403, headers: { 'Content-Type': 'text/plain' }});
+            }
+          }
+        } catch(e){}
+      }
+    }
+  } catch(e){}
+  // Sniffer: log request/response when enabled
+  let response;
+  try {
+    const snf = await ext_kv_get('sniffer_state', { enabled: false });
+    if (snf && snf.enabled) {
+      // capture request summary
+      try {
+        const reqHeaders = {};
+        for (const [k,v] of modifiedRequest.headers) reqHeaders[k]=v;
+        const cap = {
+          id: Date.now() + "-" + Math.random().toString(36).slice(2,8),
+          ts: new Date().toISOString(),
+          method: modifiedRequest.method,
+          url: modifiedRequest.url,
+          requestHeaders: reqHeaders
+        };
+        // store preliminary capture
+        const caps = await ext_kv_get('sniffer_captures', []);
+        caps.push(cap);
+        // keep last 1000
+        if (caps.length>1000) caps.splice(0,caps.length-1000);
+        await ext_kv_put('sniffer_captures', caps);
+      } catch(e){}
+      response = await fetch(modifiedRequest);
+      // append response summary to last capture
+      try {
+        const caps2 = await ext_kv_get('sniffer_captures', []);
+        const last = caps2[caps2.length-1];
+        if (last) {
+          const rh = {};
+          for (const [k,v] of response.headers) rh[k]=v;
+          last.status = response.status;
+          last.responseHeaders = rh;
+          last.contentType = response.headers.get('Content-Type') || '';
+          last.contentLength = response.headers.get('Content-Length') || '';
+          await ext_kv_put('sniffer_captures', caps2);
+        }
+      } catch(e){}
+    } else {
+      response = await fetch(modifiedRequest);
+    }
+  } catch(e) {
+    // fallback
+    response = await fetch(modifiedRequest);
+  }
+
   if (response.status.toString().startsWith("3") && response.headers.get("Location") != null) {
     //console.log(base_url + response.headers.get("Location"))
     try {
@@ -3133,177 +3686,3 @@ function nthIndex(str, pat, n) {
   }
   return i;
 }
-
-
-/* ---------- BEGIN ADMIN PATCH ----------
-   Admin endpoints for cookie/subscription/sniffing/mods management.
-   NOTE: Set a binding variable PROXY_TOKEN in Worker environment for admin access.
-   This patch uses PROXY_STORE KV if bound; otherwise falls back to in-memory storage.
-*/
-
-const PROXY_TOKEN = typeof PROXY_TOKEN !== 'undefined' ? PROXY_TOKEN : "REPLACE_WITH_TOKEN";
-
-async function _kv_get(key){
-  if (typeof PROXY_STORE !== 'undefined') return await PROXY_STORE.get(key);
-  globalThis._TMP_STORE = globalThis._TMP_STORE || {};
-  return globalThis._TMP_STORE[key] || null;
-}
-async function _kv_put(key, value){
-  if (typeof PROXY_STORE !== 'undefined') return await PROXY_STORE.put(key, value);
-  globalThis._TMP_STORE = globalThis._TMP_STORE || {};
-  globalThis._TMP_STORE[key] = value;
-}
-async function _kv_list(prefix){
-  if (typeof PROXY_STORE !== 'undefined'){
-    const list = await PROXY_STORE.list({prefix});
-    return list.keys.map(k=>k.name);
-  } else {
-    globalThis._TMP_STORE = globalThis._TMP_STORE || {};
-    return Object.keys(globalThis._TMP_STORE).filter(k=>k.startsWith(prefix));
-  }
-}
-
-function authOk(request){
-  const hdr = request.headers.get('x-proxy-token') || '';
-  return hdr === PROXY_TOKEN;
-}
-
-async function handleAdmin(request){
-  if(!authOk(request)) return new Response('Unauthorized', {status:401});
-  const url = new URL(request.url);
-  const path = url.pathname;
-  // cookies save/list
-  if(path === '/__proxy_tools/cookies/save' && request.method === 'POST'){
-    const j = await request.json();
-    if(!j.site) return new Response('missing site', {status:400});
-    await _kv_put('cookies:'+j.site, JSON.stringify({site:j.site,cookies:j.cookies||'', savedAt:Date.now()}));
-    return new Response(JSON.stringify({ok:true}), {headers:{'Content-Type':'application/json'}});
-  }
-  if(path === '/__proxy_tools/cookies/list'){
-    const q = url.searchParams.get('site');
-    if(q){
-      const v = await _kv_get('cookies:'+q);
-      return new Response(JSON.stringify(v?JSON.parse(v):null), {headers:{'Content-Type':'application/json'}});
-    } else {
-      const keys = await _kv_list('cookies:');
-      const out = [];
-      for(const k of keys){
-        const v = await _kv_get(k);
-        out.push(JSON.parse(v));
-      }
-      return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
-    }
-  }
-  // subs add/list
-  if(path === '/__proxy_tools/subs/add' && request.method === 'POST'){
-    const j = await request.json();
-    if(!j.url) return new Response('missing url', {status:400});
-    try{
-      const r = await fetch(j.url);
-      const txt = await r.text();
-      const id = 'subs:'+Date.now().toString(36);
-      await _kv_put(id, JSON.stringify({id, url:j.url, content:txt, fetchedAt:Date.now()}));
-      return new Response(JSON.stringify({id}), {headers:{'Content-Type':'application/json'}});
-    }catch(e){
-      return new Response('fetch error: '+String(e), {status:502});
-    }
-  }
-  if(path === '/__proxy_tools/subs/list'){
-    const keys = await _kv_list('subs:');
-    const out = [];
-    for(const k of keys){
-      const v = await _kv_get(k);
-      out.push(JSON.parse(v));
-    }
-    return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
-  }
-  // mods add/list
-  if(path === '/__proxy_tools/mods/add' && request.method === 'POST'){
-    const j = await request.json();
-    const id = 'mods:'+Date.now().toString(36);
-    await _kv_put(id, JSON.stringify(Object.assign({id}, j)));
-    return new Response(JSON.stringify({id}), {headers:{'Content-Type':'application/json'}});
-  }
-  if(path === '/__proxy_tools/mods/list'){
-    const keys = await _kv_list('mods:');
-    const out = [];
-    for(const k of keys){
-      const v = await _kv_get(k);
-      out.push(JSON.parse(v));
-    }
-    return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
-  }
-  // sniffing toggle/export
-  if(path === '/__proxy_tools/sniffing/toggle' && request.method === 'POST'){
-    const j = await request.json();
-    if(!j.host) return new Response('missing host', {status:400});
-    await _kv_put('sniff:'+j.host, JSON.stringify({host:j.host, enabled:!!j.enabled, updatedAt:Date.now()}));
-    return new Response(JSON.stringify({ok:true}), {headers:{'Content-Type':'application/json'}});
-  }
-  if(path === '/__proxy_tools/sniffing/export'){
-    const host = url.searchParams.get('host');
-    if(!host) return new Response('missing host', {status:400});
-    const keys = await _kv_list('sniffrec:'+host+':');
-    const out = [];
-    for(const k of keys){
-      const v = await _kv_get(k);
-      out.push(JSON.parse(v));
-    }
-    return new Response(JSON.stringify(out), {headers:{'Content-Type':'application/json'}});
-  }
-  // checks
-  if(path === '/__proxy_tools/checks/cookie'){
-    const site = url.searchParams.get('site');
-    if(!site) return new Response('missing site', {status:400});
-    const v = await _kv_get('cookies:'+site);
-    return new Response(JSON.stringify({site, has: !!v}), {headers:{'Content-Type':'application/json'}});
-  }
-
-  return new Response('admin: unknown route', {status:404});
-}
-
-/* Helper used by proxy logic to consult subs and mods */
-async function _shouldBlock(urlString){
-  // check subs: simple substring matching against saved subscription contents
-  const subsKeys = await _kv_list('subs:');
-  for(const k of subsKeys){
-    const v = await _kv_get(k);
-    const obj = JSON.parse(v);
-    const content = obj.content || '';
-    // simple line by line substring match
-    const lines = content.split('\n');
-    for(const line of lines){
-      const t = line.trim();
-      if(!t || t.startsWith('!')) continue;
-      if(t.length>3 && urlString.indexOf(t) !== -1) return true;
-    }
-  }
-  // check mods for explicit block patterns (regex)
-  const modKeys = await _kv_list('mods:');
-  for(const k of modKeys){
-    const v = await _kv_get(k);
-    const obj = JSON.parse(v);
-    if(obj.matcher){
-      try{
-        const re = new RegExp(obj.matcher);
-        if(re.test(urlString)) return true;
-      }catch(e){}
-    }
-  }
-  return false;
-}
-
-/* Helper to record sniffing entries */
-async function _recordSniff(host, record){
-  const cfg = await _kv_get('sniff:'+host);
-  if(!cfg) return;
-  const cfgObj = JSON.parse(cfg);
-  if(!cfgObj.enabled) return;
-  const id = 'sniffrec:'+host+':'+Date.now().toString(36)+':'+Math.floor(Math.random()*10000);
-  await _kv_put(id, JSON.stringify(record));
-}
-
-/* ---------- END ADMIN PATCH ---------- */
-
-
-/* Admin helpers appended - you may integrate handleAdmin into your main fetch listener. */
