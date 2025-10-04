@@ -2548,7 +2548,6 @@ const mainPage = `
     const sn = await api('/sniffer?action=status');
     el('pt-sniffer-state').innerText = (sn.state && sn.state.enabled)? '已开启':'已关闭';
   }
-
 async function listCookies(){
   const site = el('pt-cookie-site').value || 'global';
   const r = await api('/cookie?site=' + encodeURIComponent(site));
@@ -2571,6 +2570,7 @@ async function listCookies(){
     container.appendChild(div);
   });
 }
+
     container.querySelectorAll('.pt-edit').forEach(btn=>{
       btn.onclick = async (e)=>{
         const name = e.target.getAttribute('data-name');
