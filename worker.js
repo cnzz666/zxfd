@@ -237,37 +237,52 @@ function showCookieModal() {
   if(document.getElementById('__COOKIE_INJECTION_MODAL__')) return;
   
   // 获取当前网站信息
-  const currentSite = window.location.href;
+  const currentSite = original_website_url_str || window.location.href;
   
 const modalHTML = \`
   <div id="__COOKIE_INJECTION_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <!-- 精简的CSS样式 -->
     <style>
       .cookie-tab {
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
+        padding: 8px 12px !important;
+        font-size: 12px !important;
       }
       .cookie-tab:hover {
-        transform: translateY(-2px);
+        transform: translateY(-1px);
+      }
+      .cookie-tab.active {
+        background: linear-gradient(45deg,#90cdf4,#b7e4f4) !important;
       }
       .cookie-tab-content {
-        animation: fadeIn 0.3s ease;
+        animation: fadeIn 0.2s ease;
       }
       @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .cookie-btn {
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+        margin: 2px !important;
+      }
+      .cookie-input {
+        padding: 6px 8px !important;
+        font-size: 12px !important;
       }
     </style>
     
-    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:900px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:12px;padding:20px;max-width:800px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 4px 20px rgba(160,174,192,0.2);border:1px solid rgba(255,255,255,0.2);transform:scale(0.9);transition:transform 0.3s ease;">
       <div style="text-align:center;color:#2d3748;">
-        <h3 style="color:#2c5282;margin-bottom:20px;">🍪 Cookie管理工具</h3>
+        <h3 style="color:#2c5282;margin-bottom:15px;font-size:18px;">🍪 Cookie管理工具</h3>
         
-        <!-- 标签页导航 -->
-        <div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid rgba(160,174,192,0.3);">
-          <button id="tabInject" class="cookie-tab active" onclick="switchCookieTab('inject')" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">注入Cookie</button>
-          <button id="tabManage" class="cookie-tab" onclick="switchCookieTab('manage')" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">管理记录</button>
-          <button id="tabGlobal" class="cookie-tab" onclick="switchCookieTab('global')" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">全局注入</button>
-          <button id="tabHistory" class="cookie-tab" onclick="switchCookieTab('history')" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">网站Cookie</button>
-        </div>
+<!-- 标签页导航 -->
+<div style="display:flex;gap:5px;margin-bottom:15px;border-bottom:1px solid rgba(160,174,192,0.3);">
+  <button id="tabInject" class="cookie-tab active" onclick="switchCookieTab('inject')" style="padding:6px 12px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:6px 6px 0 0;color:#2d3748;cursor:pointer;flex:1;font-size:12px;">注入</button>
+  <button id="tabManage" class="cookie-tab" onclick="switchCookieTab('manage')" style="padding:6px 12px;background:rgba(160,174,192,0.3);border:none;border-radius:6px 6px 0 0;color:#2d3748;cursor:pointer;flex:1;font-size:12px;">管理</button>
+  <button id="tabGlobal" class="cookie-tab" onclick="switchCookieTab('global')" style="padding:6px 12px;background:rgba(160,174,192,0.3);border:none;border-radius:6px 6px 0 0;color:#2d3748;cursor:pointer;flex:1;font-size:12px;">全局</button>
+  <button id="tabHistory" class="cookie-tab" onclick="switchCookieTab('history')" style="padding:6px 12px;background:rgba(160,174,192,0.3);border:none;border-radius:6px 6px 0 0;color:#2d3748;cursor:pointer;flex:1;font-size:12px;">网站</button>
+</div>
         
         <!-- 注入标签页 -->
         <div id="tabContentInject" class="cookie-tab-content">
