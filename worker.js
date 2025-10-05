@@ -229,6 +229,9 @@ setTimeout(initToolbar, 1000);
 
 const cookieInjectionScript = `
 // Cookie注入功能
+let separateCookies = [];
+let cookieHistory = [];
+
 function showCookieModal() {
   // 检查是否已存在弹窗
   if(document.getElementById('__COOKIE_INJECTION_MODAL__')) return;
@@ -236,59 +239,139 @@ function showCookieModal() {
   // 获取当前网站信息
   const currentSite = window.location.href;
   
-  const modalHTML = \`
+const modalHTML = \`
   <div id="__COOKIE_INJECTION_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
-    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+    <style>
+      .cookie-tab {
+        transition: all 0.3s ease;
+      }
+      .cookie-tab:hover {
+        transform: translateY(-2px);
+      }
+      .cookie-tab-content {
+        animation: fadeIn 0.3s ease;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    </style>
+    
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:900px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
       <div style="text-align:center;color:#2d3748;">
-        <h3 style="color:#2c5282;margin-bottom:20px;">🍪 Cookie注入设置</h3>
+        <h3 style="color:#2c5282;margin-bottom:20px;">🍪 Cookie管理工具</h3>
         
-        <div style="margin-bottom:20px;text-align:left;">
-          <label style="display:block;margin-bottom:8px;font-weight:bold;">注入网站:</label>
-          <input type="text" id="targetSite" value="\${currentSite}" readonly style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.3);color:#666;">
+        <!-- 标签页导航 -->
+        <div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid rgba(160,174,192,0.3);">
+          <button id="tabInject" class="cookie-tab active" onclick="switchCookieTab('inject')" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">注入Cookie</button>
+          <button id="tabManage" class="cookie-tab" onclick="switchCookieTab('manage')" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">管理记录</button>
+          <button id="tabGlobal" class="cookie-tab" onclick="switchCookieTab('global')" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">全局注入</button>
+          <button id="tabHistory" class="cookie-tab" onclick="switchCookieTab('history')" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:10px 10px 0 0;color:#2d3748;cursor:pointer;flex:1;">网站Cookie</button>
         </div>
         
-        <div style="margin-bottom:20px;text-align:left;">
-          <label style="display:block;margin-bottom:8px;font-weight:bold;">输入方式:</label>
-          <select id="inputType" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
-            <option value="combined">合成Cookie输入</option>
-            <option value="separate">分别输入</option>
-          </select>
-        </div>
-        
-        <div id="combinedInput" style="margin-bottom:20px;text-align:left;">
-          <label style="display:block;margin-bottom:8px;font-weight:bold;">Cookie字符串:</label>
-          <textarea id="combinedCookie" placeholder="例如: name=value; name2=value2; path=/; domain=.example.com" style="width:100%;height:120px;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;"></textarea>
-          <div style="font-size:12px;color:#666;margin-top:5px;">提示：可以包含path、domain等属性</div>
-        </div>
-        
-        <div id="separateInput" style="display:none;text-align:left;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="display:block;margin-bottom:5px;font-size:12px;">名称:</label>
-              <input type="text" id="cookieName" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
-            </div>
-            <div>
-              <label style="display:block;margin-bottom:5px;font-size:12px;">值:</label>
-              <input type="text" id="cookieValue" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
-            </div>
+        <!-- 注入标签页 -->
+        <div id="tabContentInject" class="cookie-tab-content">
+          <div style="margin-bottom:20px;text-align:left;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">目标网站:</label>
+            <input type="text" id="targetSite" value="\${currentSite}" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.3);color:#666;">
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="display:block;margin-bottom:5px;font-size:12px;">域名:</label>
-              <input type="text" id="cookieDomain" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
-            </div>
-            <div>
-              <label style="display:block;margin-bottom:5px;font-size:12px;">路径:</label>
-              <input type="text" id="cookiePath" value="/" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
-            </div>
+          
+          <div style="margin-bottom:20px;text-align:left;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">输入方式:</label>
+            <select id="inputType" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              <option value="combined">合成Cookie输入</option>
+              <option value="separate">分别输入</option>
+            </select>
           </div>
-          <button onclick="addSeparateCookie()" style="padding:6px 12px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;font-size:12px;">添加Cookie</button>
-          <div id="cookieList" style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);"></div>
+          
+          <div id="combinedInput" style="margin-bottom:20px;text-align:left;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">Cookie字符串:</label>
+            <textarea id="combinedCookie" placeholder="例如: name=value; name2=value2; path=/; domain=.example.com" style="width:100%;height:120px;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;"></textarea>
+            <div style="font-size:12px;color:#666;margin-top:5px;">提示：可以包含path、domain等属性</div>
+          </div>
+          
+          <div id="separateInput" style="display:none;text-align:left;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+              <div>
+                <label style="display:block;margin-bottom:5px;font-size:12px;">名称:</label>
+                <input type="text" id="cookieName" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              </div>
+              <div>
+                <label style="display:block;margin-bottom:5px;font-size:12px;">值:</label>
+                <input type="text" id="cookieValue" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+              <div>
+                <label style="display:block;margin-bottom:5px;font-size:12px;">域名:</label>
+                <input type="text" id="cookieDomain" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              </div>
+              <div>
+                <label style="display:block;margin-bottom:5px;font-size:12px;">路径:</label>
+                <input type="text" id="cookiePath" value="/" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+              <div>
+                <label style="display:block;margin-bottom:5px;font-size:12px;">过期时间:</label>
+                <input type="datetime-local" id="cookieExpires" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+              </div>
+              <div>
+                <label style="display:block;margin-bottom:5px;font-size:12px;">安全设置:</label>
+                <select id="cookieSecure" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+                  <option value="">默认</option>
+                  <option value="Secure">Secure</option>
+                  <option value="HttpOnly">HttpOnly</option>
+                </select>
+              </div>
+            </div>
+            <button onclick="addSeparateCookie()" style="padding:6px 12px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;font-size:12px;">添加Cookie</button>
+            <div id="cookieList" style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);"></div>
+          </div>
+          
+          <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+            <button onclick="saveCookieSettings()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存设置</button>
+            <button onclick="testCookieInjection()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">测试注入</button>
+            <button onclick="closeCookieModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">取消</button>
+          </div>
         </div>
         
-        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
-          <button onclick="saveCookieSettings()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存并刷新</button>
-          <button onclick="closeCookieModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">取消</button>
+        <!-- 管理记录标签页 -->
+        <div id="tabContentManage" class="cookie-tab-content" style="display:none;">
+          <div style="margin-bottom:15px;display:flex;gap:10px;justify-content:center;">
+            <input type="text" id="searchRecords" placeholder="搜索网站..." style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
+            <button onclick="searchCookieRecords()" style="padding:8px 16px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">搜索</button>
+            <button onclick="clearAllCookieRecords()" style="padding:8px 16px;background:rgba(239,68,68,0.3);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">清空所有</button>
+          </div>
+          <div id="cookieRecordsList" style="max-height:400px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);">
+            <div style="text-align:center;color:#666;padding:20px;">加载中...</div>
+          </div>
+        </div>
+        
+        <!-- 全局注入标签页 -->
+        <div id="tabContentGlobal" class="cookie-tab-content" style="display:none;">
+          <div style="margin-bottom:15px;text-align:left;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">全局Cookie (对所有网站生效):</label>
+            <textarea id="globalCookies" placeholder="输入全局Cookie，每行一个，格式: name=value; domain=.example.com; path=/" style="width:100%;height:150px;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex;justify-content:center;gap:10px;">
+            <button onclick="saveGlobalCookies()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存全局Cookie</button>
+            <button onclick="enableGlobalCookies()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">启用全局注入</button>
+            <button onclick="disableGlobalCookies()" style="padding:10px 20px;background:rgba(239,68,68,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">禁用全局注入</button>
+          </div>
+          <div id="globalCookiesStatus" style="margin-top:15px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.2);text-align:center;"></div>
+        </div>
+        
+        <!-- 网站Cookie记录标签页 -->
+        <div id="tabContentHistory" class="cookie-tab-content" style="display:none;">
+          <div style="margin-bottom:15px;display:flex;gap:10px;justify-content:center;align-items:center;">
+            <button onclick="refreshWebsiteCookies()" style="padding:8px 16px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">刷新Cookie</button>
+            <button onclick="exportWebsiteCookies()" style="padding:8px 16px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">导出Cookie</button>
+            <button onclick="clearWebsiteCookies()" style="padding:8px 16px;background:rgba(239,68,68,0.3);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">清空当前</button>
+          </div>
+          <div id="websiteCookiesList" style="max-height:400px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);">
+            <div style="text-align:center;color:#666;padding:20px;">点击刷新按钮加载当前网站Cookie...</div>
+          </div>
         </div>
       </div>
     </div>
@@ -312,26 +395,66 @@ function showCookieModal() {
   }, 100);
 }
 
+// 标签页切换功能
+function switchCookieTab(tabName) {
+  // 隐藏所有标签页内容
+  document.querySelectorAll('.cookie-tab-content').forEach(tab => {
+    tab.style.display = 'none';
+  });
+  
+  // 移除所有标签页的激活状态
+  document.querySelectorAll('.cookie-tab').forEach(tab => {
+    tab.style.background = 'rgba(160,174,192,0.3)';
+  });
+  
+  // 显示选中的标签页
+  document.getElementById('tabContent' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).style.display = 'block';
+  
+  // 激活选中的标签
+  document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).style.background = 'linear-gradient(45deg,#90cdf4,#b7e4f4)';
+  
+  // 加载对应标签页的数据
+  switch(tabName) {
+    case 'manage':
+      loadCookieRecords();
+      break;
+    case 'global':
+      loadGlobalCookies();
+      break;
+    case 'history':
+      refreshWebsiteCookies();
+      break;
+  }
+}
+
+// 原有的Cookie注入功能保持不变
 function toggleInputType() {
   const type = document.getElementById('inputType').value;
   document.getElementById('combinedInput').style.display = type === 'combined' ? 'block' : 'none';
   document.getElementById('separateInput').style.display = type === 'separate' ? 'block' : 'none';
 }
 
-let separateCookies = [];
-
 function addSeparateCookie() {
   const name = document.getElementById('cookieName').value.trim();
   const value = document.getElementById('cookieValue').value.trim();
   const domain = document.getElementById('cookieDomain').value.trim();
   const path = document.getElementById('cookiePath').value.trim() || '/';
+  const expires = document.getElementById('cookieExpires').value;
+  const secure = document.getElementById('cookieSecure').value;
   
   if(!name || !value) {
     alert('请填写Cookie名称和值');
     return;
   }
   
-  const cookie = { name, value, domain, path };
+  const cookie = { 
+    name, 
+    value, 
+    domain, 
+    path,
+    expires: expires || '',
+    secure: secure || ''
+  };
   separateCookies.push(cookie);
   updateCookieList();
   
@@ -340,6 +463,8 @@ function addSeparateCookie() {
   document.getElementById('cookieValue').value = '';
   document.getElementById('cookieDomain').value = '';
   document.getElementById('cookiePath').value = '/';
+  document.getElementById('cookieExpires').value = '';
+  document.getElementById('cookieSecure').value = '';
 }
 
 function updateCookieList() {
@@ -362,23 +487,315 @@ function updateCookieList() {
     item.style.borderRadius = '6px';
     item.style.fontSize = '12px';
     
+    let cookieInfo = \`<strong>\${cookie.name}</strong>=\${cookie.value}\`;
+    if(cookie.domain) cookieInfo += \` | 域名: \${cookie.domain}\`;
+    if(cookie.path) cookieInfo += \` | 路径: \${cookie.path}\`;
+    if(cookie.expires) cookieInfo += \` | 过期: \${new Date(cookie.expires).toLocaleString()}\`;
+    if(cookie.secure) cookieInfo += \` | \${cookie.secure}\`;
+    
     item.innerHTML = \`
       <div style="flex:1;">
-        <strong>\${cookie.name}</strong>=\${cookie.value}<br>
-        <small style="color:#666;">\${cookie.domain || '当前域名'} | \${cookie.path}</small>
+        \${cookieInfo}
       </div>
-      <button onclick="removeCookie(\${index})" style="background:none;border:none;color:#c53030;cursor:pointer;font-size:16px;padding:0 5px;">×</button>
+      <div>
+        <button onclick="editCookie(\${index})" style="background:none;border:none;color:#2c5282;cursor:pointer;font-size:14px;padding:0 5px;" title="编辑">✏️</button>
+        <button onclick="removeCookie(\${index})" style="background:none;border:none;color:#c53030;cursor:pointer;font-size:16px;padding:0 5px;" title="删除">×</button>
+      </div>
     \`;
     
     list.appendChild(item);
   });
 }
 
-function removeCookie(index) {
+function editCookie(index) {
+  const cookie = separateCookies[index];
+  document.getElementById('cookieName').value = cookie.name;
+  document.getElementById('cookieValue').value = cookie.value;
+  document.getElementById('cookieDomain').value = cookie.domain || '';
+  document.getElementById('cookiePath').value = cookie.path || '/';
+  document.getElementById('cookieExpires').value = cookie.expires || '';
+  document.getElementById('cookieSecure').value = cookie.secure || '';
+  
+  // 移除当前cookie
   separateCookies.splice(index, 1);
   updateCookieList();
 }
 
+function removeCookie(index) {
+  if(confirm('确定要删除这个Cookie吗？')) {
+    separateCookies.splice(index, 1);
+    updateCookieList();
+  }
+}
+
+// 新增的Cookie管理功能
+function loadCookieRecords() {
+  try {
+    const allSettings = JSON.parse(localStorage.getItem('${cookieInjectionDataName}') || '{}');
+    const recordsList = document.getElementById('cookieRecordsList');
+    
+    if(Object.keys(allSettings).length === 0) {
+      recordsList.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">暂无保存的Cookie记录</div>';
+      return;
+    }
+    
+    let html = '';
+    Object.entries(allSettings).forEach(([site, settings]) => {
+      const cookieCount = settings.cookies ? settings.cookies.length : 0;
+      html += \`
+        <div style="border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:15px;margin-bottom:10px;background:rgba(255,255,255,0.2);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <strong style="color:#2c5282;word-break:break-all;">\${site}</strong>
+            <div>
+              <button onclick="editCookieRecord('\${site}')" style="padding:4px 8px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:4px;color:#2d3748;cursor:pointer;font-size:12px;margin-right:5px;">编辑</button>
+              <button onclick="deleteCookieRecord('\${site}')" style="padding:4px 8px;background:rgba(239,68,68,0.3);border:none;border-radius:4px;color:#2d3748;cursor:pointer;font-size:12px;">删除</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#666;">
+            输入方式: \${settings.inputType || 'combined'} | 
+            Cookie数量: \${cookieCount} | 
+            最后更新: \${new Date().toLocaleString()}
+          </div>
+          \${settings.cookies ? \`
+            <div style="margin-top:10px;font-size:11px;max-height:100px;overflow-y:auto;">
+              \${settings.cookies.map(cookie => \`
+                <div style="padding:2px 0;border-bottom:1px dashed rgba(160,174,192,0.2);">
+                  <strong>\${cookie.name}</strong>=\${cookie.value}
+                  \${cookie.domain ? \` | 域名: \${cookie.domain}\` : ''}
+                  \${cookie.path ? \` | 路径: \${cookie.path}\` : ''}
+                </div>
+              \`).join('')}
+            </div>
+          \` : ''}
+        </div>
+      \`;
+    });
+    
+    recordsList.innerHTML = html;
+  } catch(e) {
+    console.log('加载Cookie记录失败:', e);
+    document.getElementById('cookieRecordsList').innerHTML = '<div style="text-align:center;color:#c53030;padding:20px;">加载失败</div>';
+  }
+}
+
+function searchCookieRecords() {
+  const searchTerm = document.getElementById('searchRecords').value.toLowerCase();
+  loadCookieRecords(); // 重新加载并过滤
+  // 这里可以添加搜索过滤逻辑
+}
+
+function editCookieRecord(site) {
+  // 切换到注入标签页并加载该站点的设置
+  switchCookieTab('inject');
+  document.getElementById('targetSite').value = site;
+  loadCookieSettings();
+}
+
+function deleteCookieRecord(site) {
+  if(confirm(\`确定要删除网站 "\${site}" 的所有Cookie设置吗？\`)) {
+    try {
+      const allSettings = JSON.parse(localStorage.getItem('${cookieInjectionDataName}') || '{}');
+      delete allSettings[site];
+      localStorage.setItem('${cookieInjectionDataName}', JSON.stringify(allSettings));
+      loadCookieRecords();
+      alert('删除成功！');
+    } catch(e) {
+      alert('删除失败: ' + e.message);
+    }
+  }
+}
+
+function clearAllCookieRecords() {
+  if(confirm('确定要清空所有Cookie记录吗？此操作不可恢复！')) {
+    try {
+      localStorage.removeItem('${cookieInjectionDataName}');
+      loadCookieRecords();
+      alert('已清空所有Cookie记录！');
+    } catch(e) {
+      alert('清空失败: ' + e.message);
+    }
+  }
+}
+
+// 全局Cookie功能
+function loadGlobalCookies() {
+  try {
+    const globalSettings = JSON.parse(localStorage.getItem('__PROXY_GLOBAL_COOKIES__') || '{}');
+    document.getElementById('globalCookies').value = globalSettings.cookies || '';
+    
+    const statusDiv = document.getElementById('globalCookiesStatus');
+    if(globalSettings.enabled) {
+      statusDiv.innerHTML = '<span style="color:#38a169;">✅ 全局Cookie注入已启用</span>';
+    } else {
+      statusDiv.innerHTML = '<span style="color:#e53e3e;">❌ 全局Cookie注入已禁用</span>';
+    }
+  } catch(e) {
+    console.log('加载全局Cookie设置失败:', e);
+  }
+}
+
+function saveGlobalCookies() {
+  const globalCookies = document.getElementById('globalCookies').value;
+  try {
+    const globalSettings = JSON.parse(localStorage.getItem('__PROXY_GLOBAL_COOKIES__') || '{}');
+    globalSettings.cookies = globalCookies;
+    localStorage.setItem('__PROXY_GLOBAL_COOKIES__', JSON.stringify(globalSettings));
+    alert('全局Cookie已保存！');
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+function enableGlobalCookies() {
+  try {
+    const globalSettings = JSON.parse(localStorage.getItem('__PROXY_GLOBAL_COOKIES__') || '{}');
+    globalSettings.enabled = true;
+    localStorage.setItem('__PROXY_GLOBAL_COOKIES__', JSON.stringify(globalSettings));
+    loadGlobalCookies();
+    alert('全局Cookie注入已启用！');
+  } catch(e) {
+    alert('启用失败: ' + e.message);
+  }
+}
+
+function disableGlobalCookies() {
+  try {
+    const globalSettings = JSON.parse(localStorage.getItem('__PROXY_GLOBAL_COOKIES__') || '{}');
+    globalSettings.enabled = false;
+    localStorage.setItem('__PROXY_GLOBAL_COOKIES__', JSON.stringify(globalSettings));
+    loadGlobalCookies();
+    alert('全局Cookie注入已禁用！');
+  } catch(e) {
+    alert('禁用失败: ' + e.message);
+  }
+}
+
+// 网站Cookie记录功能
+function refreshWebsiteCookies() {
+  const currentDomain = window.location.hostname;
+  const cookies = document.cookie.split(';');
+  const cookiesList = document.getElementById('websiteCookiesList');
+  
+  if(cookies.length === 0 || (cookies.length === 1 && cookies[0] === '')) {
+    cookiesList.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">当前网站没有Cookie</div>';
+    return;
+  }
+  
+  let html = \`
+    <div style="margin-bottom:10px;font-size:12px;color:#666;">
+      当前域名: \${currentDomain} | 共 \${cookies.length} 个Cookie
+    </div>
+  \`;
+  
+  cookies.forEach(cookie => {
+    const [name, ...valueParts] = cookie.trim().split('=');
+    const value = valueParts.join('=');
+    
+    html += \`
+      <div style="border:1px solid rgba(160,174,192,0.3);border-radius:6px;padding:10px;margin-bottom:8px;background:rgba(255,255,255,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;">
+            <strong style="color:#2c5282;">\${name}</strong>
+            <div style="font-size:11px;color:#666;word-break:break-all;margin-top:2px;">\${value}</div>
+          </div>
+          <div>
+            <button onclick="copyCookieValue('\${name}', '\${value}')" style="padding:2px 6px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:3px;color:#2d3748;cursor:pointer;font-size:10px;margin-left:5px;">复制</button>
+            <button onclick="deleteWebsiteCookie('\${name}')" style="padding:2px 6px;background:rgba(239,68,68,0.3);border:none;border-radius:3px;color:#2d3748;cursor:pointer;font-size:10px;margin-left:5px;">删除</button>
+          </div>
+        </div>
+      </div>
+    \`;
+  });
+  
+  cookiesList.innerHTML = html;
+}
+
+function copyCookieValue(name, value) {
+  navigator.clipboard.writeText(\`\${name}=\${value}\`).then(() => {
+    alert(\`已复制Cookie: \${name}\`);
+  }).catch(err => {
+    console.error('复制失败:', err);
+  });
+}
+
+function deleteWebsiteCookie(name) {
+  if(confirm(\`确定要删除Cookie "\${name}" 吗？\`)) {
+    document.cookie = \`\${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;\`;
+    refreshWebsiteCookies();
+    alert(\`Cookie "\${name}" 已删除\`);
+  }
+}
+
+function exportWebsiteCookies() {
+  const cookies = document.cookie.split(';');
+  const cookieData = cookies.map(cookie => cookie.trim()).join('\\n');
+  
+  const blob = new Blob([cookieData], {type: 'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = \`cookies-\${window.location.hostname}-\${new Date().getTime()}.txt\`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearWebsiteCookies() {
+  if(confirm('确定要清空当前网站的所有Cookie吗？此操作不可恢复！')) {
+    const cookies = document.cookie.split(';');
+    cookies.forEach(cookie => {
+      const name = cookie.split('=')[0].trim();
+      document.cookie = \`\${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;\`;
+    });
+    refreshWebsiteCookies();
+    alert('已清空当前网站所有Cookie！');
+  }
+}
+
+// 测试Cookie注入功能
+function testCookieInjection() {
+  const targetSite = document.getElementById('targetSite').value;
+  const inputType = document.getElementById('inputType').value;
+  
+  let cookies = [];
+  
+  if(inputType === 'combined') {
+    const cookieStr = document.getElementById('combinedCookie').value.trim();
+    if(cookieStr) {
+      const cookiePairs = cookieStr.split(';').map(pair => pair.trim()).filter(pair => pair);
+      cookiePairs.forEach(pair => {
+        const [name, ...valueParts] = pair.split('=');
+        if(name && valueParts.length > 0) {
+          const value = valueParts.join('=').trim();
+          cookies.push({
+            name: name.trim(),
+            value: value,
+            domain: '',
+            path: '/'
+          });
+        }
+      });
+    }
+  } else {
+    cookies = separateCookies;
+  }
+  
+  if(cookies.length === 0) {
+    alert('没有要测试的Cookie！');
+    return;
+  }
+  
+  // 注入Cookie但不保存设置
+  injectCookies(cookies);
+  
+  let testResults = \`已注入 \${cookies.length} 个Cookie:\\\\n\\\\n\`;
+  cookies.forEach(cookie => {
+    testResults += \`\${cookie.name}=\${cookie.value}\\\\n\`;
+  });
+  
+  alert(testResults + \`\\\\n请检查网站功能是否正常，然后点击"保存设置"来永久保存。\`);
+}
+
+// 修改原有的保存函数，添加记录功能
 function saveCookieSettings() {
   const targetSite = document.getElementById('targetSite').value;
   const inputType = document.getElementById('inputType').value;
@@ -388,7 +805,6 @@ function saveCookieSettings() {
   if(inputType === 'combined') {
     const cookieStr = document.getElementById('combinedCookie').value.trim();
     if(cookieStr) {
-      // 解析合成Cookie字符串
       const cookiePairs = cookieStr.split(';').map(pair => pair.trim()).filter(pair => pair);
       cookiePairs.forEach(pair => {
         const [name, ...valueParts] = pair.split('=');
@@ -409,7 +825,8 @@ function saveCookieSettings() {
   
   const settings = {
     inputType,
-    cookies
+    cookies,
+    lastUpdated: new Date().toISOString()
   };
   
   // 保存到localStorage
@@ -421,6 +838,9 @@ function saveCookieSettings() {
     // 实际注入Cookie
     injectCookies(cookies);
     
+    // 注入全局Cookie
+    injectGlobalCookies();
+    
     alert('Cookie设置已保存！页面将刷新以应用更改。');
     setTimeout(() => {
       location.reload();
@@ -430,17 +850,37 @@ function saveCookieSettings() {
   }
 }
 
+// 全局Cookie注入函数
+function injectGlobalCookies() {
+  try {
+    const globalSettings = JSON.parse(localStorage.getItem('__PROXY_GLOBAL_COOKIES__') || '{}');
+    if(globalSettings.enabled && globalSettings.cookies) {
+      const cookieLines = globalSettings.cookies.split('\\n').filter(line => line.trim());
+      cookieLines.forEach(line => {
+        document.cookie = line.trim();
+      });
+      console.log('已注入全局Cookie:', cookieLines.length);
+    }
+  } catch(e) {
+    console.log('注入全局Cookie失败:', e);
+  }
+}
+
+// 修改原有的injectCookies函数
 function injectCookies(cookies) {
   cookies.forEach(cookie => {
     let cookieStr = \`\${cookie.name}=\${cookie.value}\`;
     if(cookie.domain) cookieStr += \`; domain=\${cookie.domain}\`;
     if(cookie.path) cookieStr += \`; path=\${cookie.path}\`;
+    if(cookie.expires) cookieStr += \`; expires=\${new Date(cookie.expires).toUTCString()}\`;
+    if(cookie.secure) cookieStr += \`; \${cookie.secure}\`;
     cookieStr += '; samesite=lax';
     
     document.cookie = cookieStr;
   });
 }
 
+// 修改原有的loadCookieSettings函数
 function loadCookieSettings() {
   try {
     const targetSite = document.getElementById('targetSite').value;
@@ -476,7 +916,13 @@ function closeCookieModal() {
     }, 300);
   }
 }
+
+// 页面加载时注入全局Cookie
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(injectGlobalCookies, 1000);
+});
 `;
+
 
 // =======================================================================================
 // 第六部分：广告拦截功能脚本
@@ -2385,6 +2831,7 @@ const mainPage = `
                 background-size: cover;
             }
         }
+        
     </style>
 </head>
 <body>
@@ -2437,7 +2884,6 @@ const mainPage = `
             }
         }
     </script>
-    <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"23706d89f379497d9a10994cbea3fda0","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
     
@@ -2723,6 +3169,33 @@ async function handleRequest(request) {
         bd = bd.replaceAll("window.location", "window." + replaceUrlObj);
         bd = bd.replaceAll("document.location", "document." + replaceUrlObj);
       }
+
+// =======================================================================================
+// 子部分15.9.3.5：处理全局Cookie注入
+// =======================================================================================
+if (isHTML) {
+  // 注入全局Cookie设置
+  const globalCookieSettings = `
+    <script>
+      // 全局Cookie设置
+      window.__PROXY_GLOBAL_COOKIES__ = ${JSON.stringify({
+        enabled: false,
+        cookies: ""
+      })};
+      
+      // 尝试从localStorage加载全局设置
+      try {
+        const saved = localStorage.getItem('__PROXY_GLOBAL_COOKIES__');
+        if (saved) {
+          window.__PROXY_GLOBAL_COOKIES__ = JSON.parse(saved);
+        }
+      } catch(e) {
+        console.log('加载全局Cookie设置失败:', e);
+      }
+    </script>
+  `;
+  bd = globalCookieSettings + bd;
+}
 
       // =======================================================================================
       // 子部分15.9.4：如果是HTML，注入代理脚本
