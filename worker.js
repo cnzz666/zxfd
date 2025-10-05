@@ -239,7 +239,7 @@ function showCookieModal() {
   // 获取当前网站信息
   const currentSite = original_website_url_str || window.location.href;
   
-const modalHTML = \`
+ const modalHTML = \`
   <div id="__COOKIE_INJECTION_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
     <!-- 精简的CSS样式 -->
     <style>
