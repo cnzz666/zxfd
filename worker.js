@@ -162,7 +162,7 @@ function initToolbar() {
   const requestModBtn = createToolButton('🔧', '请求修改', showRequestModModal);
   
   // 无图模式按钮
-  const imageBlockBtn = createToolButton('🖼️', '无图模式', toggleImageBlock);
+  const imageBlockBtn = createToolButton('🖼️', '无图模式', showImageBlockModal); // 改为模态
   
   // 添加按钮到容器
   toolsContainer.appendChild(cookieBtn);
@@ -174,7 +174,7 @@ function initToolbar() {
   // 主按钮点击事件
   let toolsVisible = false;
   mainToolBtn.onclick = (e) => {
-    e.stopPropagation(); // 防止点击工具栏导致页面跳转
+    e.stopPropagation(); // 防止页面跳转
     toolsVisible = !toolsVisible;
     if (toolsVisible) {
       toolsContainer.style.display = 'flex';
@@ -216,7 +216,7 @@ function createToolButton(emoji, title, onClick) {
   };
   
   btn.onclick = (e) => {
-    e.stopPropagation(); // 防止点击工具按钮导致页面跳转
+    e.stopPropagation(); // 防止页面跳转
     onClick();
   };
   return btn;
@@ -261,7 +261,7 @@ function showCookieModal() {
   if(document.getElementById('__PROXY_TOOL_COOKIE_INJECTION_MODAL__')) return;
   
   // 获取当前网站信息
-  const currentSite = window.location.origin; // 使用origin作为key，避免完整URL
+  const currentSite = original_website_url.origin; // 使用目标网站origin
   
   const modalHTML = \`
   <div id="__PROXY_TOOL_COOKIE_INJECTION_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
@@ -319,6 +319,11 @@ function showCookieModal() {
         <div style="margin-bottom:20px;text-align:left;">
           <label style="display:block;margin-bottom:8px;font-weight:bold;">历史注入记录:</label>
           <div id="__PROXY_TOOL_HISTORY_LIST__" style="max-height:200px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);"></div>
+        </div>
+        
+        <div style="margin-bottom:20px;text-align:left;">
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">当前网站Cookie记录:</label>
+          <div id="__PROXY_TOOL_SITE_COOKIE_LIST__" style="max-height:200px;overflow-y:auto;border:1px solid rgba(160,174,192,0.3);border-radius:8px;padding:10px;background:rgba(255,255,255,0.2);">\${document.cookie}</div>
         </div>
         
         <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
@@ -733,10 +738,17 @@ let adBlockRules = { global: [], specific: {} }; // 全局和特定网站规则
 let elementPickerActive = false;
 let selectedElements = [];
 
+const defaultSubscriptions = [
+  {name: 'Anti-Adblock Filters', url: 'https://easylist-downloads.adblockplus.org/antiadblockfilters.txt'},
+  {name: 'EasyPrivacy', url: 'https://easylist-downloads.adblockplus.org/easyprivacy.txt'},
+  {name: 'CJX Annoyance', url: 'https://fastly.jsdelivr.net/gh/cjx82630/cjxlist/cjx-annoyance.txt'},
+  {name: 'EasyList China', url: 'https://easylist-downloads.adblockplus.org/easylistchina.txt'}
+];
+
 function showAdBlockModal() {
   if(document.getElementById('__PROXY_TOOL_ADBLOCK_MODAL__')) return;
   
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   
   const modalHTML = \`
   <div id="__PROXY_TOOL_ADBLOCK_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
@@ -751,8 +763,14 @@ function showAdBlockModal() {
         </div>
         
         <div style="text-align:left;margin-bottom:20px;">
-          <label style="display:block;margin-bottom:8px;font-weight:bold;">订阅规则URL (每行一个):</label>
-          <textarea id="__PROXY_TOOL_SUBSCRIPTION_URLS__" placeholder="https://easylist-downloads.adblockplus.org/antiadblockfilters.txt\\nhttps://easylist-downloads.adblockplus.org/easyprivacy.txt" style="width:100%;height:100px;padding:12px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);resize:vertical;font-family:monospace;"></textarea>
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">订阅规则 (选择订阅):</label>
+          <div style="margin-bottom:10px;">
+            \${defaultSubscriptions.map(sub => \`
+              <label><input type="checkbox" value="\${sub.url}" class="__PROXY_TOOL_SUB_CHECK__"> \${sub.name}</label><br>
+            \`).join('')}
+          </div>
+          <label style="display:block;margin-bottom:8px;font-weight:bold;">自定义订阅URL:</label>
+          <input type="text" id="__PROXY_TOOL_CUSTOM_SUB_URL__" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(160,174,192,0.5);background:rgba(255,255,255,0.5);">
           <button onclick="subscribeRules()" style="margin-top:10px;padding:8px 16px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:12px;color:#2d3748;cursor:pointer;">订阅并更新规则</button>
         </div>
         
@@ -808,8 +826,11 @@ function checkAdBlockApplied() {
 }
 
 async function subscribeRules() {
-  const urls = document.getElementById('__PROXY_TOOL_SUBSCRIPTION_URLS__').value.split('\\n').filter(url => url.trim());
-  const currentSite = window.location.origin;
+  const checks = document.querySelectorAll('.__PROXY_TOOL_SUB_CHECK__:checked');
+  const customUrl = document.getElementById('__PROXY_TOOL_CUSTOM_SUB_URL__').value.trim();
+  let urls = Array.from(checks).map(ch => ch.value);
+  if(customUrl) urls.push(customUrl);
+  const currentSite = original_website_url.origin;
   let newRules = [];
   
   for(let url of urls) {
@@ -825,6 +846,7 @@ async function subscribeRules() {
   adBlockRules.specific[currentSite] = (adBlockRules.specific[currentSite] || []).concat(newRules);
   document.getElementById('__PROXY_TOOL_CUSTOM_RULES__').value = adBlockRules.specific[currentSite].join('\\n');
   showToast('规则订阅成功');
+  applyAdBlockRules();
 }
 
 function startElementPicker() {
@@ -879,7 +901,7 @@ function handleElementHover(e) {
   
   // 移除之前的高亮
   const previous = document.querySelector('.__PROXY_TOOL_ADBLOCK_HOVER__');
-  if(previous) previous.classList.remove('__PROXY_TOOL_ADBLOCK_HOVER__');
+  if(previous) previous.classList.remove('.__PROXY_TOOL_ADBLOCK_HOVER__');
   
   // 高亮当前元素
   e.target.classList.add('__PROXY_TOOL_ADBLOCK_HOVER__');
@@ -914,7 +936,7 @@ function confirmBlockElement() {
     return;
   }
   
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   const newRules = selectedElements.map(el => '##' + generateCSSSelector(el)).filter(rule => rule);
   
   adBlockRules.specific[currentSite] = (adBlockRules.specific[currentSite] || []).concat(newRules);
@@ -981,7 +1003,7 @@ function loadDefaultRules() {
 }
 
 function saveAdBlockRules() {
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   const customRules = document.getElementById('__PROXY_TOOL_CUSTOM_RULES__').value;
   const rules = customRules.split('\\n').filter(rule => rule.trim());
   
@@ -1018,7 +1040,7 @@ function loadAdBlockSettings() {
       applyAdBlockRules();
     }
     
-    const currentSite = window.location.origin;
+    const currentSite = original_website_url.origin;
     if(document.getElementById('__PROXY_TOOL_CUSTOM_RULES__')) {
       document.getElementById('__PROXY_TOOL_CUSTOM_RULES__').value = (adBlockRules.specific[currentSite] || []).join('\\n');
     }
@@ -1028,7 +1050,7 @@ function loadAdBlockSettings() {
 }
 
 function applyAdBlockRules() {
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   const allRules = adBlockRules.global.concat(adBlockRules.specific[currentSite] || []);
   allRules.forEach(rule => {
     if(rule.startsWith('##')) {
@@ -1042,7 +1064,6 @@ function applyAdBlockRules() {
 }
 
 function removeAdBlockRules() {
-  // 恢复元素显示（简化，实际可记录隐藏元素）
   document.querySelectorAll('[style*="display: none"]').forEach(el => el.style.display = '');
   console.log('移除广告拦截规则');
 }
@@ -1079,7 +1100,7 @@ function showSnifferModal() {
   
   const modalHTML = \`
   <div id="__PROXY_TOOL_SNIFFER_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
-    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:95%;width:1200px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:95%;width:1200px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(160,174,192,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
       <div style="text-align:center;color:#2d3748;">
         <h3 style="color:#2c5282;margin-bottom:20px;">🔍 资源嗅探</h3>
         
@@ -1350,13 +1371,13 @@ function showDetailModal(content) {
 function editRequest(id) {
   const request = capturedRequests.find(req => req.id === id);
   if(request) {
-    // 简单编辑界面
     const editHTML = \`
       <div style="text-align:left;">
         <h4>编辑请求</h4>
-        <label>URL: <input type="text" value="\${request.url}" id="__PROXY_TOOL_EDIT_URL__"></label>
-        <label>方法: <select id="__PROXY_TOOL_EDIT_METHOD__"><option>GET</option><option>POST</option></select></label>
-        <!-- 添加头、体编辑 -->
+        <label>方法: <select id="__PROXY_TOOL_EDIT_METHOD__" value="\${request.method}"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select></label>
+        <label>URL: <input type="text" id="__PROXY_TOOL_EDIT_URL__" value="\${request.url}"></label>
+        <label>请求头: <textarea id="__PROXY_TOOL_EDIT_HEADERS__">\${JSON.stringify(request.requestHeaders, null, 2)}</textarea></label>
+        <label>请求体: <textarea id="__PROXY_TOOL_EDIT_BODY__">\${request.requestBody}</textarea></label>
         <button onclick="saveEditedRequest('\${id}')">保存并重发</button>
       </div>
     \`;
@@ -1365,8 +1386,15 @@ function editRequest(id) {
 }
 
 function saveEditedRequest(id) {
-  // 实现编辑逻辑，重发
-  showToast('请求已编辑并重发');
+  const request = capturedRequests.find(req => req.id === id);
+  if(request) {
+    request.method = document.getElementById('__PROXY_TOOL_EDIT_METHOD__').value;
+    request.url = document.getElementById('__PROXY_TOOL_EDIT_URL__').value;
+    request.requestHeaders = JSON.parse(document.getElementById('__PROXY_TOOL_EDIT_HEADERS__').value);
+    request.requestBody = document.getElementById('__PROXY_TOOL_EDIT_BODY__').value;
+    replayRequest(id);
+    showToast('请求已编辑并重发');
+  }
 }
 
 function replayRequest(id) {
@@ -1380,7 +1408,7 @@ function replayRequest(id) {
 function blockRequest(id) {
   const request = capturedRequests.find(req => req.id === id);
   if(request) {
-    // 添加到拦截规则（可与广告拦截整合）
+    // 添加到拦截规则
     showToast('请求已拦截');
   }
 }
@@ -1474,7 +1502,7 @@ let originalXHRMod = XMLHttpRequest.prototype.open;
 function showRequestModModal() {
   if(document.getElementById('__PROXY_TOOL_REQUEST_MOD_MODAL__')) return;
   
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   
   const modalHTML = \`
   <div id="__PROXY_TOOL_REQUEST_MOD_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
@@ -1568,7 +1596,7 @@ function checkRequestModApplied() {
 }
 
 function startRequestModInterception() {
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   const allHeaders = customHeaders.global.concat(customHeaders.specific[currentSite] || []);
   const ua = document.getElementById('__PROXY_TOOL_USER_AGENT__').value || document.getElementById('__PROXY_TOOL_CUSTOM_USER_AGENT__').value;
   const lang = document.getElementById('__PROXY_TOOL_ACCEPT_LANGUAGE__').value || document.getElementById('__PROXY_TOOL_CUSTOM_LANGUAGE__').value;
@@ -1631,7 +1659,7 @@ function addCustomHeader() {
     return;
   }
   
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   customHeaders.specific[currentSite] = customHeaders.specific[currentSite] || [];
   customHeaders.specific[currentSite].push({ name, value });
   updateHeaderList();
@@ -1645,7 +1673,7 @@ function updateHeaderList() {
   const list = document.getElementById('__PROXY_TOOL_HEADER_LIST__');
   list.innerHTML = '';
   
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   const headers = customHeaders.specific[currentSite] || [];
   
   if(headers.length === 0) {
@@ -1676,7 +1704,7 @@ function updateHeaderList() {
 }
 
 function removeCustomHeader(index) {
-  const currentSite = window.location.origin;
+  const currentSite = original_website_url.origin;
   customHeaders.specific[currentSite].splice(index, 1);
   updateHeaderList();
 }
@@ -1730,78 +1758,96 @@ setTimeout(loadRequestModSettings, 2000);
 
 // =======================================================================================
 // 第九部分：无图模式功能脚本
-// 功能：拦截图片和视频，刷新应用
+// 功能：拦截图片和视频，刷新应用，支持全局/特定
 // =======================================================================================
 
 const imageBlockScript = `
 // 无图模式功能
-let imageBlockEnabled = false;
-let videoBlockEnabled = false;
+let imageBlockSettings = { global: {image: false, video: false}, specific: {} };
 
-function toggleImageBlock() {
-  imageBlockEnabled = !imageBlockEnabled;
-  saveImageBlockSettings();
-  if(imageBlockEnabled) {
-    applyImageBlock();
-  } else {
-    removeImageBlock();
-  }
-  location.reload(); // 刷新应用
-  showToast('无图模式' + (imageBlockEnabled ? '启用' : '禁用'));
-}
-
-function toggleVideoBlock() {
-  videoBlockEnabled = !videoBlockEnabled;
-  saveImageBlockSettings();
-  if(videoBlockEnabled) {
-    applyVideoBlock();
-  } else {
-    removeVideoBlock();
-  }
-  location.reload();
-  showToast('无视频模式' + (videoBlockEnabled ? '启用' : '禁用'));
-}
-
-function applyImageBlock() {
-  const images = document.querySelectorAll('img, [style*="background-image"]');
-  images.forEach(img => {
-    img.dataset.originalSrc = img.src || img.style.backgroundImage;
-    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 透明占位
-    img.style.filter = 'blur(5px)';
-  });
-}
-
-function removeImageBlock() {
-  const images = document.querySelectorAll('img, [style*="background-image"]');
-  images.forEach(img => {
-    if(img.dataset.originalSrc) img.src = img.dataset.originalSrc;
-    img.style.filter = '';
-  });
-}
-
-function applyVideoBlock() {
-  const videos = document.querySelectorAll('video, source[type*="video"]');
-  videos.forEach(vid => vid.remove());
-}
-
-function removeVideoBlock() {
-  // 无法简单恢复，需刷新
+function showImageBlockModal() {
+  if(document.getElementById('__PROXY_TOOL_IMAGE_BLOCK_MODAL__')) return;
+  
+  const currentSite = original_website_url.origin;
+  
+  const modalHTML = \`
+  <div id="__PROXY_TOOL_IMAGE_BLOCK_MODAL__" style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000000;user-select:none;opacity:0;transition:opacity 0.3s ease;">
+    <div style="background:rgba(255,255,255,0.3);backdrop-filter:blur(10px);border-radius:15px;padding:30px;max-width:500px;width:90%;box-shadow:0 8px 32px rgba(160,174,192,0.3);border:1px solid rgba(255,255,255,0.2);transform:scale(0.8);transition:transform 0.3s ease;">
+      <div style="text-align:center;color:#2d3748;">
+        <h3 style="color:#2c5282;margin-bottom:20px;">🖼️ 无图/无视频模式设置</h3>
+        
+        <div style="text-align:left;margin-bottom:20px;">
+          <label><input type="checkbox" id="__PROXY_TOOL_GLOBAL_IMAGE__" \${imageBlockSettings.global.image ? 'checked' : ''}> 全局无图</label><br>
+          <label><input type="checkbox" id="__PROXY_TOOL_GLOBAL_VIDEO__" \${imageBlockSettings.global.video ? 'checked' : ''}> 全局无视频</label><br>
+          <label><input type="checkbox" id="__PROXY_TOOL_SPEC_IMAGE__" \${imageBlockSettings.specific[currentSite]?.image ? 'checked' : ''}> 特定网站无图 (\${currentSite})</label><br>
+          <label><input type="checkbox" id="__PROXY_TOOL_SPEC_VIDEO__" \${imageBlockSettings.specific[currentSite]?.video ? 'checked' : ''}> 特定网站无视频 (\${currentSite})</label>
+        </div>
+        
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button onclick="saveImageBlockSettings()" style="padding:10px 20px;background:linear-gradient(45deg,#90cdf4,#b7e4f4);border:none;border-radius:20px;color:#2d3748;cursor:pointer;font-weight:bold;">保存并刷新</button>
+          <button onclick="closeImageBlockModal()" style="padding:10px 20px;background:rgba(160,174,192,0.3);border:none;border-radius:20px;color:#2d3748;cursor:pointer;">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  \`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  setTimeout(() => {
+    const modal = document.getElementById('__PROXY_TOOL_IMAGE_BLOCK_MODAL__');
+    const content = modal.querySelector('div > div');
+    modal.style.opacity = '1';
+    content.style.transform = 'scale(1)';
+  }, 100);
 }
 
 function saveImageBlockSettings() {
-  const settings = {
-    imageEnabled: imageBlockEnabled,
-    videoEnabled: videoBlockEnabled
-  };
-  localStorage.setItem('${imageBlockDataName}', JSON.stringify(settings));
+  const currentSite = original_website_url.origin;
+  imageBlockSettings.global.image = document.getElementById('__PROXY_TOOL_GLOBAL_IMAGE__').checked;
+  imageBlockSettings.global.video = document.getElementById('__PROXY_TOOL_GLOBAL_VIDEO__').checked;
+  imageBlockSettings.specific[currentSite] = imageBlockSettings.specific[currentSite] || {};
+  imageBlockSettings.specific[currentSite].image = document.getElementById('__PROXY_TOOL_SPEC_IMAGE__').checked;
+  imageBlockSettings.specific[currentSite].video = document.getElementById('__PROXY_TOOL_SPEC_VIDEO__').checked;
+  
+  localStorage.setItem('${imageBlockDataName}', JSON.stringify(imageBlockSettings));
+  applyImageBlock();
+  location.reload();
+  showToast('无图/视频模式保存成功');
+}
+
+function closeImageBlockModal() {
+  const modal = document.getElementById('__PROXY_TOOL_IMAGE_BLOCK_MODAL__');
+  if(modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function applyImageBlock() {
+  const currentSite = original_website_url.origin;
+  const blockImage = imageBlockSettings.global.image || imageBlockSettings.specific[currentSite]?.image;
+  const blockVideo = imageBlockSettings.global.video || imageBlockSettings.specific[currentSite]?.video;
+  
+  if(blockImage) {
+    const images = document.querySelectorAll('img, [style*="background-image"]');
+    images.forEach(img => {
+      img.dataset.originalSrc = img.src || img.style.backgroundImage;
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 透明占位
+      img.style.filter = 'blur(5px)';
+    });
+  }
+  
+  if(blockVideo) {
+    const videos = document.querySelectorAll('video, source[type*="video"]');
+    videos.forEach(vid => vid.remove());
+  }
 }
 
 function loadImageBlockState() {
   const settings = JSON.parse(localStorage.getItem('${imageBlockDataName}') || '{}');
-  imageBlockEnabled = settings.imageEnabled || false;
-  videoBlockEnabled = settings.videoEnabled || false;
-  if(imageBlockEnabled) applyImageBlock();
-  if(videoBlockEnabled) applyVideoBlock();
+  imageBlockSettings = settings || { global: {image: false, video: false}, specific: {} };
+  applyImageBlock();
 }
 
 // 初始化
@@ -2985,8 +3031,9 @@ async function handleRequest(request) {
           `
         <!DOCTYPE html>
         <script>
+        var proxy_host_with_schema = "${thisProxyServerUrlHttps}";
+        var proxy_host = "${thisProxyServerUrlHttps.substring(0, thisProxyServerUrlHttps.length - 1)}";
         
-
 
 
         // the proxy hint must be written as a single IIFE, or it will show error in example.com   idk what's wrong
@@ -3027,7 +3074,8 @@ async function handleRequest(request) {
           // it HAVE to be encoded because html will parse the </scri... tag inside script
           
           
-          const originalBodyBase64Encoded = "${new TextEncoder().encode(bd)}";
+          const originalBodyBase64Encoded = "${Array.from(new TextEncoder().encode(bd)).join(',')}";
+          // 用Array.from转逗号字符串
 
 
           const bytes = new Uint8Array(originalBodyBase64Encoded.split(',').map(Number));
